@@ -21,6 +21,11 @@ src/main/resources/application-*.properties
 .env.local
 .env.*.local
 
+# Docker volumes and data
+docker-data/
+postgres-data/
+redis-data/
+
 ### STS ###
 .apt_generated
 .classpath

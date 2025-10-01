@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # CineQ Spring Boot Application (Production)
+  cineq-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cineq-app-prod
+    restart: always
+    environment:
+      # Database Configuration (Use external PostgreSQL)
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DRIVER: org.postgresql.Driver
+      DB_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      DDL_AUTO: validate
+      FLYWAY_ENABLED: true
+      
+      # Application Configuration
+      SPRING_PROFILES_ACTIVE: prod
+      
+      # Security Configuration
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400}
+      
+      # Logging
+      LOGGING_LEVEL_ROOT: WARN
+      LOGGING_LEVEL_CINEQ: INFO
+    ports:
+      - "80:8080"
+    networks:
+      - cineq-prod-network
+    volumes:
+      - app_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  cineq-prod-network:
+    driver: bridge
+
+volumes:
+  app_logs:
+    driver: local

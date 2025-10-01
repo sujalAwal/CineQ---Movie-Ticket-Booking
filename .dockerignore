@@ -1,0 +1,54 @@
+# Docker ignore file to reduce build context
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Target directory (except during build)
+target/
+
+# Local configuration
+.env
+.env.local
+.env.*.local
+src/main/resources/application-local.properties
+
+# Docker files (not needed in container)
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Testing
+src/test/
+
+# Maven wrapper (optional, can include if needed)
+.mvn/
+mvnw
+mvnw.cmd
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+
+# Node modules (if any frontend)
+node_modules/

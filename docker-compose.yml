@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cineq-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-cineqdb}
+      POSTGRES_USER: ${DB_USERNAME:-cineq_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cineq_password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/main/resources/db/migration/postgres:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - cineq-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-cineq_user} -d ${DB_NAME:-cineqdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # CineQ Spring Boot Application
+  cineq-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cineq-application
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-cineqdb}
+      DB_USERNAME: ${DB_USERNAME:-cineq_user}
+      DB_PASSWORD: ${DB_PASSWORD:-cineq_password}
+      DB_DRIVER: org.postgresql.Driver
+      DB_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      DDL_AUTO: ${DDL_AUTO:-validate}
+      FLYWAY_ENABLED: ${FLYWAY_ENABLED:-true}
+      
+      # Application Configuration
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      
+      # Security Configuration
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400}
+      
+      # Logging
+      LOGGING_LEVEL_ROOT: ${LOGGING_LEVEL:-INFO}
+      LOGGING_LEVEL_CINEQ: ${LOGGING_LEVEL_CINEQ:-DEBUG}
+    ports:
+      - "8080:8080"
+    networks:
+      - cineq-network
+    volumes:
+      - app_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis (for caching and sessions - optional)
+  redis:
+    image: redis:7-alpine
+    container_name: cineq-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - cineq-network
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # pgAdmin (Database Administration - optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: cineq-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@cineq.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    networks:
+      - cineq-network
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+
+networks:
+  cineq-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  app_logs:
+    driver: local
