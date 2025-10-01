@@ -4,6 +4,23 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# Log files
+logs/
+*.log
+*.log.*
+log/
+.logs/
+spring.log
+
+# Application properties
+src/main/resources/application.properties
+src/main/resources/application-*.properties
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
 ### STS ###
 .apt_generated
 .classpath

@@ -2,12 +2,16 @@ package com.awal.cineq;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 @SpringBootApplication
-public class CineqApplication {
+@EnableJpaRepositories
+@EnableTransactionManagement
+ class CineQApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(CineqApplication.class, args);
+		SpringApplication.run(CineQApplication.class, args);
 	}
 
 }
