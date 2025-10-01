@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Create table if not exists
-CREATE TABLE IF NOT EXISTS genre (
+CREATE TABLE IF NOT EXISTS genres (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(50) NOT NULL UNIQUE,
     description VARCHAR(500),
@@ -13,11 +13,11 @@ CREATE TABLE IF NOT EXISTS genre (
 );
 
 -- Create indexes
-CREATE INDEX IF NOT EXISTS idx_genre_name ON genre(name);
-CREATE INDEX IF NOT EXISTS idx_genre_deleted_at ON genre(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_genre_name ON genres(name);
+CREATE INDEX IF NOT EXISTS idx_genre_deleted_at ON genres(deleted_at);
 
 -- Insert default genres (avoid duplicates)
-INSERT INTO genre (id, name, description) VALUES
+INSERT INTO genres (id, name, description) VALUES
 (gen_random_uuid(), 'Action', 'Movies with physical action, stunts, and fights'),
 (gen_random_uuid(), 'Comedy', 'Funny movies intended to make audiences laugh'),
 (gen_random_uuid(), 'Drama', 'Serious stories focusing on emotional development'),

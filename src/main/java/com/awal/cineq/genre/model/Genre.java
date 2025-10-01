@@ -45,10 +45,6 @@ public class Genre {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-        if (isActive == null) {
-            isActive = true;
-        }
     }
 
     @PreUpdate
