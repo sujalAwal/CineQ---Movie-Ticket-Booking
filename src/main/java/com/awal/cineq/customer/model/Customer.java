@@ -1,4 +1,4 @@
-package com.awal.cineq.user.model;
+package com.awal.cineq.customer.model;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -7,24 +7,29 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.Where;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
-import com.awal.cineq.booking.model.Booking;
-
 @Entity
-@Table(name = "users")
+@Table(name = "customers")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Where(clause = "deleted_at IS NULL")
-public class User {
+public class Customer {
     
     @Id
     @GeneratedValue(generator = "UUID")
     @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @Column(columnDefinition = "BINARY(16)")
     private UUID id;
+    
+    @Column(name = "first_name", nullable = false, length = 100)
+    private String firstName;
+    
+    @Column(name = "last_name", nullable = false, length = 100)
+    private String lastName;
     
     @Column(name = "email", nullable = false, unique = true, length = 200)
     private String email;
@@ -32,15 +37,27 @@ public class User {
     @Column(name = "password", nullable = false, length = 255)
     private String password;
     
-    @Column(name = "phone_number", length = 15)
-    private String phoneNumber;
+    @Column(name = "phone", length = 20)
+    private String phone;
     
-    @Column(name = "user_name", nullable = false, length = 100)
-    private String name;
-
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
+    
     @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false)
-    private UserRole role = UserRole.ADMIN;
+    @Column(name = "gender")
+    private Gender gender;
+    
+    @Column(name = "loyalty_points", nullable = false)
+    private Integer loyaltyPoints = 0;
+    
+    @Column(name = "is_email_verified", nullable = false)
+    private Boolean isEmailVerified = false;
+    
+    @Column(name = "email_verification_token")
+    private String emailVerificationToken;
+    
+    @Column(name = "email_verification_expires_at")
+    private LocalDateTime emailVerificationExpiresAt;
     
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
@@ -57,6 +74,7 @@ public class User {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
     
     @PreUpdate
@@ -69,7 +87,15 @@ public class User {
         this.isActive = false;
     }
     
-    public enum UserRole {
-        USER, ADMIN, MANAGER
+    public void addLoyaltyPoints(Integer points) {
+        this.loyaltyPoints = this.loyaltyPoints + points;
+    }
+    
+    public void deductLoyaltyPoints(Integer points) {
+        this.loyaltyPoints = Math.max(0, this.loyaltyPoints - points);
+    }
+    
+    public enum Gender {
+        MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY
     }
 }

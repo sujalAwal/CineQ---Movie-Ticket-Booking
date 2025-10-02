@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -46,6 +48,19 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ApiResponse<Object>> handleBadRequestException(
+            BadRequestException ex, HttpServletRequest request) {
+        
+        ApiResponse<Object> response = ApiResponse.error(
+            ex.getMessage(),
+            HttpStatus.BAD_REQUEST.value()
+        );
+        response.setPath(request.getRequestURI());
+        
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Object>> handleBusinessException(
             BusinessException ex, HttpServletRequest request) {
@@ -58,6 +73,33 @@ public class GlobalExceptionHandler {
         response.setPath(request.getRequestURI());
         
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    // Authentication-related exceptions
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Object>> handleBadCredentialsException(
+            BadCredentialsException ex, HttpServletRequest request) {
+        
+        ApiResponse<Object> response = ApiResponse.error(
+            "Invalid email or password",
+            HttpStatus.UNAUTHORIZED.value()
+        );
+        response.setPath(request.getRequestURI());
+        
+        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(UsernameNotFoundException.class)
+    public ResponseEntity<ApiResponse<Object>> handleUsernameNotFoundException(
+            UsernameNotFoundException ex, HttpServletRequest request) {
+        
+        ApiResponse<Object> response = ApiResponse.error(
+            "User not found",
+            HttpStatus.UNAUTHORIZED.value()
+        );
+        response.setPath(request.getRequestURI());
+        
+        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -97,6 +139,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ApiResponse<Object>> handleValidationException(
             ValidationException ex, HttpServletRequest request) {
+
+        ApiResponse<Object> response = ApiResponse.error(
+            ex.getMessage(),
+            HttpStatus.BAD_REQUEST.value()
+        );
+        response.setPath(request.getRequestURI());
+
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(FileStorageException.class)
+    public ResponseEntity<ApiResponse<Object>> handleFileStorageException(
+            FileStorageException ex, HttpServletRequest request) {
 
         ApiResponse<Object> response = ApiResponse.error(
             ex.getMessage(),

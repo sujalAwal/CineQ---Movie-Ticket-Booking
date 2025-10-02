@@ -9,9 +9,10 @@ import com.awal.cineq.user.model.User;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends JpaRepository<User, UUID> {
     
     Optional<User> findByEmail(String email);
     
@@ -21,7 +22,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     
     List<User> findByRole(User.UserRole role);
     
-    @Query("SELECT u FROM User u WHERE (u.firstName LIKE %:keyword% OR u.lastName LIKE %:keyword% OR u.email LIKE %:keyword%) AND u.isActive = true")
+    @Query("SELECT u FROM User u WHERE (u.name LIKE %:keyword% OR u.email LIKE %:keyword%) AND u.isActive = true")
     List<User> searchUsers(@Param("keyword") String keyword);
     
     boolean existsByEmail(String email);

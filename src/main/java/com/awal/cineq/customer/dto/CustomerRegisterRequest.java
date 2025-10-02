@@ -1,16 +1,19 @@
-package com.awal.cineq.user.dto;
+package com.awal.cineq.customer.dto;
 
+import com.awal.cineq.customer.model.Customer;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import jakarta.validation.constraints.*;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserRegistrationDTO {
+public class CustomerRegisterRequest {
     
     @NotBlank(message = "First name is required")
     @Size(max = 100, message = "First name must not exceed 100 characters")
@@ -21,19 +24,18 @@ public class UserRegistrationDTO {
     private String lastName;
     
     @NotBlank(message = "Email is required")
-    @Email(message = "Email should be valid")
+    @Email(message = "Please provide a valid email address")
     @Size(max = 200, message = "Email must not exceed 200 characters")
     private String email;
     
     @NotBlank(message = "Password is required")
-    @Size(min = 8, max = 255, message = "Password must be between 8 and 255 characters")
-    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).*$", 
-             message = "Password must contain at least one lowercase letter, one uppercase letter, and one digit")
+    @Size(min = 6, message = "Password must be at least 6 characters long")
     private String password;
     
-    @NotBlank(message = "Confirm password is required")
-    private String confirmPassword;
-    
     @Size(max = 20, message = "Phone number must not exceed 20 characters")
-    private String phoneNumber;
+    private String phone;
+    
+    private LocalDate dateOfBirth;
+    
+    private Customer.Gender gender;
 }

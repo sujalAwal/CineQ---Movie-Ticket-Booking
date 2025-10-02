@@ -149,5 +149,12 @@ INSERT INTO artists (name, bio, "order", industry) VALUES
 (gen_random_uuid(), 'Mingma Sherpa', 'Music composer and director in Nepali cinema.', 107, 'Nepal'),
 (gen_random_uuid(), 'Sugam Pokharel', 'Popular singer and music director.', 108, 'Nepal'),
 (gen_random_uuid(), 'Shiva Pariyar', 'Composer and singer.', 109, 'Nepal')
-
+(gen_random_uuid(), 'Kedar Ghimire (Magne Budha)', '', '', true, 110, 'Nepali Cinema', CURRENT_TIMESTAMP, '', ''),
+(gen_random_uuid(), 'Wilson Bikram Rai (Takme Buda)', '', '', true, 111, 'Nepali Cinema', CURRENT_TIMESTAMP, '', ''),
+(gen_random_uuid(), 'Jeetu Nepal', '', '', true, 113, 'Nepali Cinema', CURRENT_TIMESTAMP, '', ''),
+(gen_random_uuid(), 'Nawazuddin Siddiqui', '', '', true, 114, 'Bollywood', CURRENT_TIMESTAMP, '', ''),
+(gen_random_uuid(), 'Pankaj Tripathi', '', '', true, 115, 'Bollywood', CURRENT_TIMESTAMP, '', ''),
+(gen_random_uuid(), 'Rajpal Yadav', '', '', true, 116, 'Bollywood', CURRENT_TIMESTAMP, '', ''),
+(gen_random_uuid(), 'Johnny Lever', '', '', true, 117, 'Bollywood', CURRENT_TIMESTAMP, '', ''),
+(gen_random_uuid(), 'Saurabh Shukla', '', '', true, 118, 'Bollywood', CURRENT_TIMESTAMP, '', '')
 ON CONFLICT (name) DO NOTHING;
