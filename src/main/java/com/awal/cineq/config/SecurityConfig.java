@@ -3,8 +3,6 @@ package com.awal.cineq.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -29,11 +27,6 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
-        return authConfig.getAuthenticationManager();
-    }
-
-    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.cors().and().csrf().disable()
             .exceptionHandling().authenticationEntryPoint(jwtAuthEntryPoint).and()
@@ -41,20 +34,17 @@ public class SecurityConfig {
             .authorizeHttpRequests(authz -> authz
                 // Public endpoints
                 .requestMatchers("/auth/login").permitAll()
-                    .requestMatchers("/auth/register").permitAll()
+                .requestMatchers("/auth/register").permitAll()
                 .requestMatchers("/health").permitAll()
                 .requestMatchers("/frontend/**").permitAll()
                 .requestMatchers("/login").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
                 
                 // Admin endpoints
-                .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/**").hasRole("USER")
                 
-                // Customer endpoints  
-                .requestMatchers("frontend/customer/**").hasRole("CUSTOMER")
-                
-                // User/Manager endpoints
-                .requestMatchers("/user/**").hasAnyRole("USER", "ADMIN", "MANAGER")
+                // Customer endpoints
+                .requestMatchers("customer/**").hasRole("CUSTOMER")
                 
                 // All other requests need authentication
                 .anyRequest().authenticated()

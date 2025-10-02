@@ -6,13 +6,13 @@ import com.awal.cineq.exception.DuplicateResourceException;
 import com.awal.cineq.user.dto.AuthResponse;
 import com.awal.cineq.user.dto.LoginRequest;
 import com.awal.cineq.user.dto.RegisterRequest;
+import com.awal.cineq.user.dto.UserDTO;
 import com.awal.cineq.user.model.User;
 import com.awal.cineq.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
+import org.apache.catalina.mapper.Mapper;
+import org.modelmapper.ModelMapper;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,24 +26,23 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
-
+    private final ModelMapper  modelMapper;
     @Override
     public AuthResponse login(LoginRequest loginRequest) {
+        log.info("AuthServiceImpl: Starting login process for email: {}", loginRequest.getEmail());
+
         try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            loginRequest.getEmail(),
-                            loginRequest.getPassword()
-                    )
-            );
-
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
+            // Find user by email
             User user = userRepository.findByEmailAndIsActiveTrue(loginRequest.getEmail())
-                    .orElseThrow(() -> new BadRequestException("User not found"));
+                    .orElseThrow(() -> new BadRequestException("Invalid email or password"));
 
+            // Verify password
+            if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
+                throw new BadRequestException("Invalid email or password");
+            }
+
+            // Generate JWT token
             String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
 
             log.info("User {} logged in successfully", user.getEmail());
@@ -51,10 +50,7 @@ public class AuthServiceImpl implements AuthService {
             return AuthResponse.builder()
                     .token(token)
                     .type("Bearer")
-                    .id(user.getId())
-                    .email(user.getEmail())
-                    .name(user.getName())
-                    .role(user.getRole().name())
+                    .user(modelMapper.map(user, UserDTO.class))
                     .build();
 
         } catch (Exception e) {
@@ -65,14 +61,17 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse register(RegisterRequest registerRequest) {
-        if(null == registerRequest.getPassword() || registerRequest.getPassword().length() < 6) {
+        log.info("Registering new user with email: {}", registerRequest.getEmail());
+
+        if (registerRequest.getPassword() == null || registerRequest.getPassword().length() < 6) {
             throw new BadRequestException("Password must be at least 6 characters long");
         }
+
         if (userRepository.existsByEmail(registerRequest.getEmail())) {
             throw new DuplicateResourceException("Email already exists");
         }
 
-
+        // Create user
         User user = new User();
         user.setName(registerRequest.getName());
         user.setEmail(registerRequest.getEmail());
@@ -83,6 +82,7 @@ public class AuthServiceImpl implements AuthService {
 
         User savedUser = userRepository.save(user);
 
+        // Generate JWT token
         String token = jwtUtil.generateToken(savedUser.getEmail(), savedUser.getRole().name());
 
         log.info("User {} registered successfully", savedUser.getEmail());
@@ -90,18 +90,14 @@ public class AuthServiceImpl implements AuthService {
         return AuthResponse.builder()
                 .token(token)
                 .type("Bearer")
-                .id(savedUser.getId())
-                .email(savedUser.getEmail())
-                .name(savedUser.getName())
-                .role(savedUser.getRole().name())
+                .user(modelMapper.map(savedUser, UserDTO.class))
                 .build();
     }
 
     @Override
     public void logout(String token) {
-        // In a production environment, you might want to maintain a blacklist of tokens
-        // For now, we'll just clear the security context
         SecurityContextHolder.clearContext();
         log.info("User logged out successfully");
     }
 }
+

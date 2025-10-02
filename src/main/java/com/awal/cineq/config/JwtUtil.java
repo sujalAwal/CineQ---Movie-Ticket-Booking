@@ -69,12 +69,13 @@ public class JwtUtil {
     }
 
     private String createToken(Map<String, Object> claims, String subject) {
+        SecretKey key = getSigningKey();
         return Jwts.builder()
                 .claims(claims)
                 .subject(subject)
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
-                .signWith(getSigningKey())
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -85,8 +86,11 @@ public class JwtUtil {
 
     public Boolean validateToken(String token) {
         try {
-            extractAllClaims(token);
-            return !isTokenExpired(token);
+            log.debug("Validating JWT token: {}", token.substring(0, Math.min(20, token.length())));
+            Claims claims = extractAllClaims(token);
+            boolean isExpired = isTokenExpired(token);
+            log.debug("Token validation - expired: {}", isExpired);
+            return !isExpired;
         } catch (JwtException e) {
             log.error("JWT token validation failed: {}", e.getMessage());
             return false;

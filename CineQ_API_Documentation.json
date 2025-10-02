@@ -1,0 +1,674 @@
+{
+  "apiDocumentation": {
+    "baseUrl": "http://localhost:8080/api",
+    "title": "CineQ Movie Ticket Booking API",
+    "version": "1.0.0",
+    "description": "API documentation for Genre and Artist management endpoints",
+    
+    "authentication": {
+      "type": "Bearer Token",
+      "note": "Include 'Authorization: Bearer {token}' in headers for authenticated endpoints",
+      "alternativeNote": "Or use httpOnly cookies for web clients"
+    },
+
+    "controllers": {
+      
+      "GenreController": {
+        "basePath": "/genre",
+        "description": "CRUD operations for movie genres",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/genre",
+            "description": "Get all genres",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "body": "None"
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Genres fetched successfully",
+                  "data": [
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "name": "Action",
+                      "description": "High-energy movies with lots of action sequences",
+                      "is_active": true
+                    },
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440001",
+                      "name": "Comedy",
+                      "description": "Funny and entertaining movies",
+                      "is_active": true
+                    }
+                  ],
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/genre"
+                }
+              },
+              "error": {
+                "status": 401,
+                "example": {
+                  "success": false,
+                  "message": "Unauthorized: Please provide a valid authentication token",
+                  "error": "Authentication required",
+                  "responseCode": 401,
+                  "timestamp": "2025-10-02T15:30:00"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "POST",
+            "path": "/genre",
+            "description": "Create a new genre",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "body": {
+                "name": "Horror",
+                "description": "Scary and suspenseful movies",
+                "is_active": true
+              },
+              "validation": {
+                "name": "Required, max 100 characters",
+                "description": "Optional, max 500 characters",
+                "is_active": "Boolean, defaults to false"
+              }
+            },
+            "response": {
+              "success": {
+                "status": 201,
+                "example": {
+                  "success": true,
+                  "message": "Genre created successfully",
+                  "data": {
+                    "id": "550e8400-e29b-41d4-a716-446655440002",
+                    "name": "Horror",
+                    "description": "Scary and suspenseful movies",
+                    "is_active": true
+                  },
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/genre"
+                }
+              },
+              "error": {
+                "status": 400,
+                "example": {
+                  "success": false,
+                  "message": "Validation failed",
+                  "data": {
+                    "name": "Genre name is required"
+                  },
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/genre"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "GET",
+            "path": "/genre/{id}",
+            "description": "Get a specific genre by ID",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "pathParameters": {
+                "id": "UUID (e.g., 550e8400-e29b-41d4-a716-446655440000)"
+              },
+              "body": "None"
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Genre fetched successfully",
+                  "data": {
+                    "id": "550e8400-e29b-41d4-a716-446655440000",
+                    "name": "Action",
+                    "description": "High-energy movies with lots of action sequences",
+                    "is_active": true
+                  },
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/genre/550e8400-e29b-41d4-a716-446655440000"
+                }
+              },
+              "error": {
+                "status": 404,
+                "example": {
+                  "success": false,
+                  "message": "Genre not found with id: 550e8400-e29b-41d4-a716-446655440000",
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/genre/550e8400-e29b-41d4-a716-446655440000"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "PUT",
+            "path": "/genre/{id}",
+            "description": "Update an existing genre",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "pathParameters": {
+                "id": "UUID (e.g., 550e8400-e29b-41d4-a716-446655440000)"
+              },
+              "body": {
+                "name": "Action & Adventure",
+                "description": "High-energy movies with action and adventure elements",
+                "is_active": true
+              }
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Genre updated successfully",
+                  "data": {
+                    "id": "550e8400-e29b-41d4-a716-446655440000",
+                    "name": "Action & Adventure",
+                    "description": "High-energy movies with action and adventure elements",
+                    "is_active": true
+                  },
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/genre/550e8400-e29b-41d4-a716-446655440000"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "DELETE",
+            "path": "/genre/{id}",
+            "description": "Delete a genre (soft delete)",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "pathParameters": {
+                "id": "UUID (e.g., 550e8400-e29b-41d4-a716-446655440000)"
+              },
+              "body": "None"
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Genre deleted successfully",
+                  "data": null,
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/genre/550e8400-e29b-41d4-a716-446655440000"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "POST",
+            "path": "/genre/bulk-enable",
+            "description": "Enable multiple genres at once",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "body": {
+                "ids": [
+                  "550e8400-e29b-41d4-a716-446655440000",
+                  "550e8400-e29b-41d4-a716-446655440001",
+                  "550e8400-e29b-41d4-a716-446655440002"
+                ]
+              }
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Genres enabled successfully",
+                  "data": null,
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/genre/bulk-enable"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "POST",
+            "path": "/genre/bulk-disable",
+            "description": "Disable multiple genres at once",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "body": {
+                "ids": [
+                  "550e8400-e29b-41d4-a716-446655440000",
+                  "550e8400-e29b-41d4-a716-446655440001"
+                ]
+              }
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Genres disabled successfully",
+                  "data": null,
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/genre/bulk-disable"
+                }
+              }
+            }
+          }
+        ]
+      },
+
+      "ArtistController": {
+        "basePath": "/artist",
+        "description": "CRUD operations for movie artists/actors",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/artist",
+            "description": "Get all artists",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "body": "None"
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Artists fetched successfully",
+                  "data": [
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440003",
+                      "name": "Leonardo DiCaprio",
+                      "bio": "Academy Award-winning American actor known for his intense method acting",
+                      "profilePicture": "https://example.com/images/leonardo-dicaprio.jpg",
+                      "isActive": true,
+                      "order": 1,
+                      "industry": "Hollywood",
+                      "createdAt": "2025-10-02T10:00:00"
+                    },
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440004",
+                      "name": "Meryl Streep",
+                      "bio": "Legendary American actress with multiple Academy Awards",
+                      "profilePicture": "https://example.com/images/meryl-streep.jpg",
+                      "isActive": true,
+                      "order": 2,
+                      "industry": "Hollywood",
+                      "createdAt": "2025-10-02T10:15:00"
+                    }
+                  ],
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/artist"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "POST",
+            "path": "/artist",
+            "description": "Create a new artist",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "body": {
+                "name": "Robert Downey Jr.",
+                "bio": "American actor best known for playing Iron Man in the Marvel Cinematic Universe",
+                "profilePicture": "https://example.com/images/robert-downey-jr.jpg",
+                "isActive": true,
+                "order": 3,
+                "industry": "Hollywood"
+              },
+              "validation": {
+                "name": "Required",
+                "bio": "Optional",
+                "profilePicture": "Optional URL",
+                "isActive": "Boolean, defaults to true",
+                "order": "Integer, for sorting",
+                "industry": "Optional"
+              }
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Artist created successfully",
+                  "data": {
+                    "id": "550e8400-e29b-41d4-a716-446655440005",
+                    "name": "Robert Downey Jr.",
+                    "bio": "American actor best known for playing Iron Man in the Marvel Cinematic Universe",
+                    "profilePicture": "https://example.com/images/robert-downey-jr.jpg",
+                    "isActive": true,
+                    "order": 3,
+                    "industry": "Hollywood",
+                    "createdAt": "2025-10-02T15:30:00"
+                  },
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/artist"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "GET",
+            "path": "/artist/{id}",
+            "description": "Get a specific artist by ID",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "pathParameters": {
+                "id": "UUID (e.g., 550e8400-e29b-41d4-a716-446655440003)"
+              },
+              "body": "None"
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Artist fetched successfully",
+                  "data": {
+                    "id": "550e8400-e29b-41d4-a716-446655440003",
+                    "name": "Leonardo DiCaprio",
+                    "bio": "Academy Award-winning American actor known for his intense method acting",
+                    "profilePicture": "https://example.com/images/leonardo-dicaprio.jpg",
+                    "isActive": true,
+                    "order": 1,
+                    "industry": "Hollywood",
+                    "createdAt": "2025-10-02T10:00:00"
+                  },
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/artist/550e8400-e29b-41d4-a716-446655440003"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "PUT",
+            "path": "/artist/{id}",
+            "description": "Update an existing artist",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "pathParameters": {
+                "id": "UUID (e.g., 550e8400-e29b-41d4-a716-446655440003)"
+              },
+              "body": {
+                "name": "Leonardo DiCaprio",
+                "bio": "Academy Award-winning American actor and environmental activist",
+                "profilePicture": "https://example.com/images/leonardo-dicaprio-updated.jpg",
+                "isActive": true,
+                "order": 1,
+                "industry": "Hollywood"
+              }
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Artist updated successfully",
+                  "data": {
+                    "id": "550e8400-e29b-41d4-a716-446655440003",
+                    "name": "Leonardo DiCaprio",
+                    "bio": "Academy Award-winning American actor and environmental activist",
+                    "profilePicture": "https://example.com/images/leonardo-dicaprio-updated.jpg",
+                    "isActive": true,
+                    "order": 1,
+                    "industry": "Hollywood",
+                    "createdAt": "2025-10-02T10:00:00"
+                  },
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/artist/550e8400-e29b-41d4-a716-446655440003"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "DELETE",
+            "path": "/artist/{id}",
+            "description": "Delete an artist (soft delete)",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "pathParameters": {
+                "id": "UUID (e.g., 550e8400-e29b-41d4-a716-446655440003)"
+              },
+              "body": "None"
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Artist deleted successfully",
+                  "data": null,
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/artist/550e8400-e29b-41d4-a716-446655440003"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "GET",
+            "path": "/artist/active/{isActive}",
+            "description": "Get artists by active status",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "pathParameters": {
+                "isActive": "Boolean (true or false)"
+              },
+              "body": "None"
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Artists fetched successfully",
+                  "data": [
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440003",
+                      "name": "Leonardo DiCaprio",
+                      "bio": "Academy Award-winning American actor",
+                      "profilePicture": "https://example.com/images/leonardo-dicaprio.jpg",
+                      "isActive": true,
+                      "order": 1,
+                      "industry": "Hollywood",
+                      "createdAt": "2025-10-02T10:00:00"
+                    }
+                  ],
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/artist/active/true"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "POST",
+            "path": "/artist/bulk-enable",
+            "description": "Enable multiple artists at once",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "body": {
+                "ids": [
+                  "550e8400-e29b-41d4-a716-446655440003",
+                  "550e8400-e29b-41d4-a716-446655440004"
+                ],
+                "isActive": true
+              }
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Artists enabled successfully",
+                  "data": null,
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/artist/bulk-enable"
+                }
+              }
+            }
+          },
+
+          {
+            "method": "POST",
+            "path": "/artist/bulk-disable",
+            "description": "Disable multiple artists at once",
+            "authentication": "Required (USER role)",
+            "request": {
+              "headers": {
+                "Authorization": "Bearer {jwt_token}",
+                "Content-Type": "application/json"
+              },
+              "body": {
+                "ids": [
+                  "550e8400-e29b-41d4-a716-446655440003",
+                  "550e8400-e29b-41d4-a716-446655440004"
+                ],
+                "isActive": false
+              }
+            },
+            "response": {
+              "success": {
+                "status": 200,
+                "example": {
+                  "success": true,
+                  "message": "Artists disabled successfully",
+                  "data": null,
+                  "timestamp": "2025-10-02T15:30:00",
+                  "path": "/artist/bulk-disable"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+
+    "commonErrorResponses": {
+      "401_Unauthorized": {
+        "status": 401,
+        "example": {
+          "success": false,
+          "message": "Unauthorized: Please provide a valid authentication token",
+          "error": "Authentication required",
+          "responseCode": 401,
+          "timestamp": "2025-10-02T15:30:00"
+        }
+      },
+      "403_Forbidden": {
+        "status": 403,
+        "example": {
+          "success": false,
+          "message": "Access denied: Insufficient privileges",
+          "error": "Forbidden",
+          "responseCode": 403,
+          "timestamp": "2025-10-02T15:30:00"
+        }
+      },
+      "404_NotFound": {
+        "status": 404,
+        "example": {
+          "success": false,
+          "message": "Resource not found",
+          "timestamp": "2025-10-02T15:30:00",
+          "path": "/resource/id"
+        }
+      },
+      "500_InternalServerError": {
+        "status": 500,
+        "example": {
+          "success": false,
+          "message": "An unexpected error occurred",
+          "timestamp": "2025-10-02T15:30:00",
+          "path": "/resource"
+        }
+      }
+    },
+
+    "frontendUsageExamples": {
+      "javascript": {
+        "description": "Examples for JavaScript/React frontend",
+        "examples": {
+          "getAllGenres": {
+            "code": "const getAllGenres = async () => {\n  try {\n    const response = await fetch('/api/genre', {\n      method: 'GET',\n      headers: {\n        'Authorization': `Bearer ${localStorage.getItem('token')}`,\n        'Content-Type': 'application/json'\n      },\n      credentials: 'include' // For cookie support\n    });\n    \n    const data = await response.json();\n    \n    if (data.success) {\n      console.log('Genres:', data.data);\n      return data.data;\n    } else {\n      console.error('Error:', data.message);\n    }\n  } catch (error) {\n    console.error('Network error:', error);\n  }\n};"
+          },
+          "createGenre": {
+            "code": "const createGenre = async (genreData) => {\n  try {\n    const response = await fetch('/api/genre', {\n      method: 'POST',\n      headers: {\n        'Authorization': `Bearer ${localStorage.getItem('token')}`,\n        'Content-Type': 'application/json'\n      },\n      credentials: 'include',\n      body: JSON.stringify({\n        name: genreData.name,\n        description: genreData.description,\n        is_active: genreData.is_active || true\n      })\n    });\n    \n    const data = await response.json();\n    \n    if (response.status === 201 && data.success) {\n      console.log('Genre created:', data.data);\n      return data.data;\n    } else {\n      console.error('Error:', data.message);\n      if (data.data) {\n        console.error('Validation errors:', data.data);\n      }\n    }\n  } catch (error) {\n    console.error('Network error:', error);\n  }\n};"
+          },
+          "createArtist": {
+            "code": "const createArtist = async (artistData) => {\n  try {\n    const response = await fetch('/api/artist', {\n      method: 'POST',\n      headers: {\n        'Authorization': `Bearer ${localStorage.getItem('token')}`,\n        'Content-Type': 'application/json'\n      },\n      credentials: 'include',\n      body: JSON.stringify({\n        name: artistData.name,\n        bio: artistData.bio,\n        profilePicture: artistData.profilePicture,\n        isActive: artistData.isActive !== undefined ? artistData.isActive : true,\n        order: artistData.order,\n        industry: artistData.industry\n      })\n    });\n    \n    const data = await response.json();\n    \n    if (data.success) {\n      console.log('Artist created:', data.data);\n      return data.data;\n    } else {\n      console.error('Error:', data.message);\n    }\n  } catch (error) {\n    console.error('Network error:', error);\n  }\n};"
+          }
+        }
+      }
+    }
+  }
+}

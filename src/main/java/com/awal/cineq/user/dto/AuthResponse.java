@@ -14,8 +14,5 @@ import java.util.UUID;
 public class AuthResponse {
     private String token;
     private String type;
-    private UUID id;
-    private String email;
-    private String name;
-    private String role;
+    private UserDTO user;
 }

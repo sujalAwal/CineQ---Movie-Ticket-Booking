@@ -9,9 +9,6 @@ import com.awal.cineq.exception.DuplicateResourceException;
 import com.awal.cineq.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,7 +25,6 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
 
     private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
 
     @Override
@@ -38,15 +34,10 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
             Customer customer = customerRepository.findByEmailAndIsActiveTrue(loginRequest.getEmail())
                     .orElseThrow(() -> new BadRequestException("Invalid email or password"));
 
-            // Authenticate with Spring Security
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            loginRequest.getEmail(),
-                            loginRequest.getPassword()
-                    )
-            );
-
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            // Verify password
+            if (!passwordEncoder.matches(loginRequest.getPassword(), customer.getPassword())) {
+                throw new BadRequestException("Invalid email or password");
+            }
 
             String token = jwtUtil.generateToken(customer.getEmail(), "CUSTOMER");
 
