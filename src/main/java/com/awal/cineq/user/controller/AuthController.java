@@ -38,10 +38,10 @@ public class AuthController {
         // Create httpOnly cookie for secure web clients
         Cookie jwtCookie = new Cookie("jwt-auth-token", authResponse.getToken());
         jwtCookie.setHttpOnly(true);              // Prevents JavaScript access (XSS protection)
-        jwtCookie.setSecure(false);               // Set to true in production with HTTPS
+        jwtCookie.setSecure(true);               // Set to true in production with HTTPS
         jwtCookie.setPath("/");                   // Available for entire app
-        jwtCookie.setMaxAge((int) (jwtExpiration)); // Convert to seconds
-        jwtCookie.setAttribute("SameSite", "Strict"); // CSRF protection
+       jwtCookie.setMaxAge((int) (jwtExpiration / 1000)); // CORRECT - convert ms to seconds
+        jwtCookie.setAttribute("SameSite", "Lax"); // CSRF protection
         
         response.addCookie(jwtCookie);
         
