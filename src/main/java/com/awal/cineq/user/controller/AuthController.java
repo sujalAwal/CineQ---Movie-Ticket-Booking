@@ -41,7 +41,7 @@ public class AuthController {
         jwtCookie.setSecure(true);               // Set to true in production with HTTPS
         jwtCookie.setPath("/");                   // Available for entire app
        jwtCookie.setMaxAge((int) (jwtExpiration / 1000)); // CORRECT - convert ms to seconds
-        jwtCookie.setAttribute("SameSite", "Lax"); // CSRF protection
+        jwtCookie.setAttribute("SameSite", "None"); // CSRF protection
         
         response.addCookie(jwtCookie);
         
