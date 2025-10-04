@@ -9,7 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.util.UUID;
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,5 +23,6 @@ public class GenreDTO {
     private String description;
 
 
+    @JsonProperty("is_active")
     private boolean is_active;
 }

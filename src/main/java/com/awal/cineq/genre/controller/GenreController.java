@@ -2,9 +2,10 @@ package com.awal.cineq.genre.controller;
 
 import com.awal.cineq.dto.ApiResponse;
 import com.awal.cineq.genre.dto.GenreDTO;
-import com.awal.cineq.genre.dto.GenreRequestDto;
+import com.awal.cineq.genre.dto.request.GenrePageRequest;
+import com.awal.cineq.genre.dto.request.GenreRequestDto;
 import com.awal.cineq.genre.service.GenreService;
-import com.awal.cineq.genre.dto.BulkGenreStatusUpdateRequest;
+import com.awal.cineq.genre.dto.request.BulkGenreStatusUpdateRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,10 +25,10 @@ public class GenreController {
     private static final Logger log = LoggerFactory.getLogger(GenreController.class);
 
     @GetMapping(path = {"", "/"})
-    public ResponseEntity<ApiResponse<List<GenreDTO>>> getAllGenres(HttpServletRequest request) {
+    public ResponseEntity<ApiResponse<List<GenreDTO>>> getAllGenres(@RequestBody GenrePageRequest genrePageRequest ,HttpServletRequest request) {
         log.info("getAllGenres STARTED");
         try {
-            ApiResponse<List<GenreDTO>> response = ApiResponse.success("Genres fetched successfully", genreService.getGenre());
+            ApiResponse<List<GenreDTO>> response = ApiResponse.success("Genres fetched successfully", genreService.getGenre(genrePageRequest));
             response.setPath(request.getRequestURI());
             log.debug("getAllGenres response: {}", response);
             log.info("getAllGenres END");

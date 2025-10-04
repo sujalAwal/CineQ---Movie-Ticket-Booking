@@ -1,4 +1,4 @@
-package com.awal.cineq.genre.dto;
+package com.awal.cineq.genre.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

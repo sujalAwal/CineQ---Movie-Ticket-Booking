@@ -1,14 +1,14 @@
 package com.awal.cineq.genre.service;
 
 import com.awal.cineq.genre.dto.GenreDTO;
-import com.awal.cineq.genre.dto.GenreRequestDto;
-import com.awal.cineq.genre.model.Genre;
+import com.awal.cineq.genre.dto.request.GenreRequestDto;
+import com.awal.cineq.genre.dto.request.GenrePageRequest;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface GenreService {
-    List<GenreDTO> getGenre();
+    List<GenreDTO> getGenre(GenrePageRequest genrePageRequest);
     GenreDTO createGenre(GenreRequestDto genreRequestDto);
     GenreDTO getGenreById(UUID id);
     GenreDTO updateGenre(UUID id, GenreRequestDto genreRequestDto);

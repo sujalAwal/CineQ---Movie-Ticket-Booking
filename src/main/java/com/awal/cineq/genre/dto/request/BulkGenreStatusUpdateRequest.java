@@ -1,4 +1,4 @@
-package com.awal.cineq.genre.dto;
+package com.awal.cineq.genre.dto.request;
 
 import java.util.List;
 import java.util.UUID;

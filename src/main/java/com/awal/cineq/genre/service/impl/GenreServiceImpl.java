@@ -3,7 +3,8 @@ package com.awal.cineq.genre.service.impl;
 import com.awal.cineq.exception.BusinessException;
 import com.awal.cineq.exception.ResourceNotFoundException;
 import com.awal.cineq.genre.dto.GenreDTO;
-import com.awal.cineq.genre.dto.GenreRequestDto;
+import com.awal.cineq.genre.dto.request.GenrePageRequest;
+import com.awal.cineq.genre.dto.request.GenreRequestDto;
 import com.awal.cineq.genre.model.Genre;
 import com.awal.cineq.genre.repository.GenreRepository;
 import com.awal.cineq.genre.service.GenreService;
@@ -17,8 +18,6 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.UUID;
 
-import static java.util.stream.Collectors.toList;
-
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -29,7 +28,7 @@ public class GenreServiceImpl implements GenreService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<GenreDTO> getGenre() {
+    public List<GenreDTO> getGenre(GenrePageRequest genrePageRequest) {
         log.info("getGenre STARTED");
         try {
             List<Genre> genres = genreRepository.findAll();
