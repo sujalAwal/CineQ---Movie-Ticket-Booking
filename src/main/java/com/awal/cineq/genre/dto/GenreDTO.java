@@ -24,5 +24,5 @@ public class GenreDTO {
 
 
     @JsonProperty("is_active")
-    private boolean is_active;
+    private boolean isActive;
 }
