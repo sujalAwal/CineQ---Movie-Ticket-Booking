@@ -1,13 +1,19 @@
 package com.awal.cineq.genre.controller;
 
 import com.awal.cineq.dto.ApiResponse;
+import com.awal.cineq.dto.PaginationResponse;
 import com.awal.cineq.genre.dto.GenreDTO;
 import com.awal.cineq.genre.dto.request.GenrePageRequest;
 import com.awal.cineq.genre.dto.request.GenreRequestDto;
 import com.awal.cineq.genre.service.GenreService;
 import com.awal.cineq.genre.dto.request.BulkGenreStatusUpdateRequest;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,15 +30,21 @@ public class GenreController {
     private final GenreService genreService;
     private static final Logger log = LoggerFactory.getLogger(GenreController.class);
 
+    // Default pagination and sorting parameters
+    private static final String DEFAULT_PAGE = "0";
+    private static final String DEFAULT_SIZE = "15";
+    private static final String DEFAULT_SORT_BY = "name";
+    private static final String DEFAULT_SORT_DIRECTION = "asc";
+    private static final String MAX_SIZE = "1000";
+
     @GetMapping(path = {"", "/"})
-    public ResponseEntity<ApiResponse<List<GenreDTO>>> getAllGenres(@RequestBody GenrePageRequest genrePageRequest ,HttpServletRequest request) {
+    public PaginationResponse<GenreDTO> getAllGenres(@Valid GenrePageRequest genreRequest) {
         log.info("getAllGenres STARTED");
         try {
-            ApiResponse<List<GenreDTO>> response = ApiResponse.success("Genres fetched successfully", genreService.getGenre(genrePageRequest));
-            response.setPath(request.getRequestURI());
+            PaginationResponse<GenreDTO> response = genreService.getGenre(genreRequest);
             log.debug("getAllGenres response: {}", response);
             log.info("getAllGenres END");
-            return ResponseEntity.ok(response);
+            return response;
         } catch (Exception e) {
             log.error("getAllGenres ERROR", e);
             throw e;

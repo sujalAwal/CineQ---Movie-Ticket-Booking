@@ -5,17 +5,25 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.data.domain.PageRequest;
+
+import static org.springframework.data.domain.Sort.Direction.ASC;
+import static org.springframework.data.domain.Sort.Direction.DESC;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+@Getter
+@Setter
 public class GenrePageRequest {
 
     public static final String DEFAULT_SORT_BY = "name";
     public static final String DEFAULT_SORT_DIRECTION = "asc";
-    public static final int DEFAULT_PAGE = 0;
+    public static final int DEFAULT_PAGE = 1;
     public static final int DEFAULT_SIZE = 20;
     public static final int MAX_SIZE = 100;
 
-    @Min(value = 0, message = "Page must be greater than or equal to 0")
+    @Min(value = 1, message = "Page must be greater than or equal to 1")
     @JsonProperty("page")
     private Integer page = DEFAULT_PAGE;
 
@@ -42,62 +50,9 @@ public class GenrePageRequest {
     public GenrePageRequest() {
     }
 
-    // Getters and Setters
-    public Integer getPage() {
-        return page;
-    }
-
-    public void setPage(Integer page) {
-        this.page = page;
-    }
-
-    public Integer getSize() {
-        return size;
-    }
-
-    public void setSize(Integer size) {
-        this.size = size;
-    }
-
-    public String getSortBy() {
-        return sortBy;
-    }
-
-    public void setSortBy(String sortBy) {
-        this.sortBy = sortBy;
-    }
-
-    public String getSortDirection() {
-        return sortDirection;
-    }
-
-    public void setSortDirection(String sortDirection) {
-        this.sortDirection = sortDirection;
-    }
-
-    public String getSearch() {
-        return search;
-    }
-
-    public void setSearch(String search) {
-        this.search = search;
-    }
-
-    public Boolean getActive() {
-        return active;
-    }
-
-    public void setActive(Boolean active) {
-        this.active = active;
-    }
-
     // Utility methods
     public boolean hasSearch() {
         return search != null && !search.trim().isEmpty();
-    }
-
-    public boolean hasActiveFilter() {
-        return active != null;
     }
 
     public boolean isAscending() {
@@ -121,5 +76,10 @@ public class GenrePageRequest {
                 ", search='" + search + '\'' +
                 ", active=" + active +
                 '}';
+    }
+
+    public PageRequest toPageRequest() {
+        int pageIndex = (page != null && page > 0) ? page - 1 : 0;
+        return PageRequest.of(pageIndex, size, isAscending() ? ASC : DESC, sortBy);
     }
 }

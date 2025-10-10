@@ -1,5 +1,7 @@
 package com.awal.cineq.genre.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,11 +17,8 @@ import java.util.UUID;
 public interface GenreRepository extends JpaRepository<Genre, UUID> {
 
     Optional<Genre> findByName(String name);
-    
-    List<Genre> findByNameContainingIgnoreCase(String name);
-    
-    @Query("SELECT g FROM Genre g WHERE g.name IN :names")
-    List<Genre> findByNameIn(@Param("names") List<String> names);
+
+    Page<Genre> findByNameContainingIgnoreCase(String name, PageRequest pageRequest);
     
     boolean existsByName(String name);
 }
