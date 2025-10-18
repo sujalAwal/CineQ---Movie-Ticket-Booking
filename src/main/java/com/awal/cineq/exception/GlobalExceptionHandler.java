@@ -64,8 +64,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Object>> handleBusinessException(
             BusinessException ex, HttpServletRequest request) {
-        boolean debug = Boolean.parseBoolean(environment.getProperty("debug", "false"));
-        String errorMessage = debug ? ex.getMessage() : "A business error occurred.";
+        // If the exception message is provided and non-blank, return it to the client. Otherwise use a clearer default.
+        String errorMessage = (ex != null && ex.getMessage() != null && !ex.getMessage().trim().isEmpty())
+                ? ex.getMessage().trim()
+                : "An error occurred while processing your request.";
+
         ApiResponse<Object> response = ApiResponse.error(
             errorMessage,
             HttpStatus.BAD_REQUEST.value()
@@ -125,8 +128,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGlobalException(
             Exception ex, HttpServletRequest request) {
-        boolean debug = Boolean.parseBoolean(environment.getProperty("debug", "false"));
-        String errorMessage = debug ? ("An unexpected error occurred: " + ex.getMessage()) : "An unexpected error occurred.";
+        // If the exception message is provided and non-blank, return it; otherwise use a default.
+        String provided = (ex != null && ex.getMessage() != null && !ex.getMessage().trim().isEmpty())
+                ? ex.getMessage().trim()
+                : null;
+
+        String errorMessage = provided != null ? provided : "An unexpected error occurred.";
+
         ApiResponse<Object> response = ApiResponse.error(
             errorMessage,
             HttpStatus.INTERNAL_SERVER_ERROR.value()

@@ -14,7 +14,6 @@ import java.util.UUID;
 @Table(name = "genres")
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 @FilterDef(name = "excludeDeleted")
 @Filter(name = "excludeDeleted", condition = "deleted_at IS NULL")
 

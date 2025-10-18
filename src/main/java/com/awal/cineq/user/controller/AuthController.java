@@ -5,6 +5,8 @@ import com.awal.cineq.user.dto.AuthResponse;
 import com.awal.cineq.user.dto.LoginRequest;
 import com.awal.cineq.user.dto.RegisterRequest;
 import com.awal.cineq.user.service.AuthService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @Slf4j
 @CrossOrigin(origins = "*", maxAge = 3600)
+@Tag(name = "Authentication")
 public class AuthController {
 
     private final AuthService authService;
@@ -26,6 +29,7 @@ public class AuthController {
     @Value("${app.jwt.expiration}")
     private long jwtExpiration;
 
+    @SecurityRequirements() // ← ONLY annotation needed for public endpoints
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest loginRequest,
@@ -49,12 +53,13 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Login successful", authResponse));
     }
 
+    @SecurityRequirements() // ← ONLY annotation needed for public endpoints
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest registerRequest) {
         log.info("Registration attempt for email: {}", registerRequest.getEmail());
-        
+
         AuthResponse authResponse = authService.register(registerRequest);
-        
+
         return ResponseEntity.ok(ApiResponse.success("Registration successful", authResponse));
     }
 
