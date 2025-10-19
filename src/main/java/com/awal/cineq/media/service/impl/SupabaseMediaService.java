@@ -34,6 +34,8 @@ import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.function.Function;
 
 @Service("supabaseMediaService")
 @AllArgsConstructor
@@ -297,7 +299,7 @@ public class SupabaseMediaService implements MediaService {
         } else {
             mediaList = mediaRepository.findActiveMediaByParentId(parentId);
         }
-        List<MediaDetailDto> items = new ArrayList<>();
+        List<MediaDetailDto> items =buildHierarchicalMedia(mediaList, parentId);
         for (Media media : mediaList) {
             MediaDetailDto dto = MediaDetailDto.builder()
                     .id(media.getId())
@@ -320,6 +322,55 @@ public class SupabaseMediaService implements MediaService {
 
     public StorageType getStorageType() {
         return StorageType.SUPABASE;
+    }
+    // ✅ ADD THIS NEW METHOD
+    private List<MediaDetailDto> buildHierarchicalMedia(List<Media> allMedia, UUID parentId) {
+        // Convert all media to DTOs and store in map for quick access
+        Map<UUID, MediaDetailDto> dtoMap = allMedia.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toMap(MediaDetailDto::getId, Function.identity()));
+
+        // Build parent-child relationships
+        for (MediaDetailDto dto : dtoMap.values()) {
+            if (dto.getParentId() != null && dtoMap.containsKey(dto.getParentId())) {
+                MediaDetailDto parent = dtoMap.get(dto.getParentId());
+
+                // Initialize children list if null
+                if (parent.getChildren() == null) {
+                    parent.setChildren(new ArrayList<>());
+                }
+
+                // Add current dto to parent's children
+                parent.getChildren().add(dto);
+            }
+        }
+
+        // Return requested level
+        if (parentId == null) {
+            // Return all root level items (parentId is null)
+            return dtoMap.values().stream()
+                    .filter(dto -> dto.getParentId() == null)
+                    .collect(Collectors.toList());
+        } else {
+            // Return children of specific parent
+            MediaDetailDto parentDto = dtoMap.get(parentId);
+            return parentDto != null && parentDto.getChildren() != null ?
+                    parentDto.getChildren() : new ArrayList<>();
+        }
+    }
+    private MediaDetailDto convertToDto(Media media) {
+        return MediaDetailDto.builder()
+                .id(media.getId())
+                .fileName(media.getFileName())
+                .type(media.getType())
+                .parentId(media.getParentId())
+                .filePath(media.getFilePath())
+                .url(media.getUrl())
+                .fileUuid(media.getFileUuid())
+                .createdAt(media.getCreatedAt())
+                .updatedAt(media.getUpdatedAt())
+                .children(new ArrayList<>()) // Initialize empty children list
+                .build();
     }
 
     // Private helper methods - Supabase specific

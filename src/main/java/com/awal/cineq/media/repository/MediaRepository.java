@@ -21,7 +21,7 @@ public interface MediaRepository extends JpaRepository<Media, UUID> {
     List<Media> findActiveMediaByParentId(@Param("parentId") UUID parentId);
 
     // Find all root level active media (parent ID is null)
-    @Query("SELECT m FROM Media m WHERE m.parentId IS NULL AND m.isActive = true AND m.deletedAt IS NULL")
+    @Query("SELECT m FROM Media m WHERE m.isActive = true AND m.deletedAt IS NULL")
     List<Media> findAllRootLevelActiveMedia();
 }
 
