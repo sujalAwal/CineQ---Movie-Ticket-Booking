@@ -122,10 +122,15 @@
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
+            <version>${caffeine.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>javax.cache</groupId>
+            <artifactId>cache-api</artifactId>
         </dependency>
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
-            <artifactId>caffeine-jcache</artifactId>
+            <artifactId>jcache</artifactId>
             <version>${caffeine.version}</version>
         </dependency>
 
