@@ -126,6 +126,7 @@
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine-jcache</artifactId>
+            <version>${caffeine.version}</version>
         </dependency>
 
 	</dependencies>
