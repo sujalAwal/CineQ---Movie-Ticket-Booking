@@ -1,0 +1,13 @@
+package com.awal.cineq.artist.repository;
+
+import com.awal.cineq.artist.model.Artist;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.UUID;
+
+@Repository
+public interface ArtistRepository extends JpaRepository<Artist, UUID> {
+    List<Artist> findByIsActive(Boolean isActive);
+}
