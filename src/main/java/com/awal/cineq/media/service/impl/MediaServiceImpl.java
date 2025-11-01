@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
 import com.awal.cineq.media.model.Media;
 import com.awal.cineq.media.repository.MediaRepository;
 import java.io.IOException;
@@ -25,8 +26,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
 @Service("localMediaService")
 public class MediaServiceImpl implements MediaService {
@@ -38,6 +43,7 @@ public class MediaServiceImpl implements MediaService {
     @Value("${file.upload-dir:./uploads}")
     private String uploadDir;
 
+    @CacheEvict(value = "sidebarFolders", allEntries = true)
     public MediaResponse uploadMultipleFiles(List<MultipartFile> files, UUID parentId) {
         logger.info("Start: uploadMultipleFiles, parentId={}, filesCount={}", parentId, files.size());
         List<Map<String, Object>> uploadedFiles = new ArrayList<>();
@@ -77,6 +83,7 @@ public class MediaServiceImpl implements MediaService {
     }
 
     @Override
+    @CacheEvict(value = "sidebarFolders", allEntries = true)
     public MediaResponse uploadMultipleFiles(MediaUploadRequestDto requestDto) {
         List<MultipartFile> files = requestDto.getFiles();
         UUID parentId = requestDto.getParentId();
@@ -219,6 +226,7 @@ public class MediaServiceImpl implements MediaService {
     }
 
     // Delete a single media entry described by MediaDeleteRequestDto (expects first id in list).
+    @CacheEvict(value = "sidebarFolders", allEntries = true)
     public Map<String, Object> deleteSingleFile(MediaDeleteRequestDto mediaDeleteRequestDto) {
         Map<String, Object> outcome = new HashMap<>();
 
@@ -297,6 +305,7 @@ public class MediaServiceImpl implements MediaService {
     // Create a folder in the media system without calling any external storage API.
     // Only stores folder metadata in the database.
     @Override
+    @CacheEvict(value = "sidebarFolders", allEntries = true)
     public MediaResponse createFolder(FolderCreateRequest request) {
         logger.info("Start: createFolder (Local), folderName={}, parentId={}", request.getName(), request.getParentId());
 
@@ -363,32 +372,118 @@ public class MediaServiceImpl implements MediaService {
     }
 
     @Override
+    @Cacheable(value = "mediaListCache", key = "#parentId != null ? #parentId.toString() : 'root'")
     public MediaListResponse getMediaByParentId(UUID parentId) {
         logger.info("Fetching media by parentId={}", parentId);
-        List<Media> mediaList;
-        if (parentId == null) {
-            mediaList = mediaRepository.findAllRootLevelActiveMedia();
-        } else {
-            mediaList = mediaRepository.findActiveMediaByParentId(parentId);
-        }
-        List<MediaDetailDto> items = new ArrayList<>();
-        for (Media media : mediaList) {
-            MediaDetailDto dto = MediaDetailDto.builder()
-                    .id(media.getId())
-                    .fileName(media.getFileName())
-                    .type(media.getType())
-                    .parentId(media.getParentId())
-                    .filePath(media.getFilePath())
-                    .url(media.getUrl())
-                    .fileUuid(media.getFileUuid())
-                    .createdAt(media.getCreatedAt())
-                    .updatedAt(media.getUpdatedAt())
+        try {
+            List<Media> mediaList = mediaRepository.findActiveMediaByParentIdExcludingFolders(parentId);
+            List<MediaDetailDto> items = mediaList.stream()
+                    .map(this::convertToDto)
+                    .collect(java.util.stream.Collectors.toList());
+
+            logger.info("Found {} media items for parentId={}", items.size(), parentId);
+            return MediaListResponse.builder()
+                    .media(items)
+                    .totalCount(items.size())
                     .build();
-            items.add(dto);
+        } catch (Exception e) {
+            logger.error("Error fetching media for parentId={}: {}", parentId, e.getMessage(), e);
+            throw new BusinessException("Failed to fetch media: " + e.getMessage());
         }
-        return MediaListResponse.builder()
-                .media(items)
-                .totalCount(items.size())
+    }
+
+    private MediaDetailDto convertToDto(Media media) {
+        return MediaDetailDto.builder()
+                .id(media.getId())
+                .fileName(media.getFileName())
+                .type(media.getType())
+                .parentId(media.getParentId())
+                .filePath(media.getFilePath())
+                .url(media.getUrl())
+                .fileUuid(media.getFileUuid())
+                .createdAt(media.getCreatedAt())
+                .updatedAt(media.getUpdatedAt())
                 .build();
+    }
+
+    // New method: return all active folders as a hierarchical tree
+    @Override
+    @Cacheable(value = "sidebarFolders", unless = "#result == null || #result.totalCount == 0")
+    public MediaListResponse getAllFolders() {
+        logger.info("Fetching all active folders (Local)");
+        try {
+            List<Media> folders = mediaRepository.findAllActiveFolders();
+
+            if (folders.isEmpty()) {
+                logger.info("No folders found");
+                return MediaListResponse.builder()
+                        .media(new ArrayList<>())
+                        .totalCount(0)
+                        .build();
+            }
+
+            // Pre-allocate collections with known size for better performance
+            Map<UUID, MediaDetailDto> dtoMap = new HashMap<>(folders.size());
+            Map<UUID, List<MediaDetailDto>> childrenMap = new HashMap<>();
+
+            // First pass: Create DTOs and initialize maps
+            for (Media media : folders) {
+                MediaDetailDto dto = convertToDto(media);
+                dtoMap.put(dto.getId(), dto);
+
+                if (media.getParentId() != null) {
+                    childrenMap.computeIfAbsent(media.getParentId(), k -> new ArrayList<>()).add(dto);
+                }
+            }
+
+            // Second pass: Build hierarchy
+            List<MediaDetailDto> rootItems = new ArrayList<>();
+            for (MediaDetailDto dto : dtoMap.values()) {
+                if (dto.getParentId() == null) {
+                    populateChildren(dto, childrenMap);
+                    rootItems.add(dto);
+                }
+            }
+
+            // Sort folders alphabetically at each level
+            sortHierarchically(rootItems);
+
+            int totalCount = dtoMap.size();
+            logger.info("Found {} folders, {} at root level", totalCount, rootItems.size());
+
+            return MediaListResponse.builder()
+                    .media(rootItems)
+                    .totalCount(totalCount)
+                    .build();
+
+        } catch (Exception e) {
+            logger.error("Error fetching folders: {}", e.getMessage(), e);
+            throw new BusinessException("Failed to fetch folders", e);
+        }
+    }
+
+    private void populateChildren(MediaDetailDto parent, Map<UUID, List<MediaDetailDto>> childrenMap) {
+        List<MediaDetailDto> children = childrenMap.get(parent.getId());
+        if (children != null) {
+            parent.setChildren(children);
+            // Recursively populate children
+            for (MediaDetailDto child : children) {
+                populateChildren(child, childrenMap);
+            }
+        }
+    }
+
+    private void sortHierarchically(List<MediaDetailDto> items) {
+        if (items == null || items.isEmpty()) return;
+
+        // Sort current level
+        items.sort((a, b) -> a.getFileName().compareToIgnoreCase(b.getFileName()));
+
+        // Sort children recursively
+        for (MediaDetailDto item : items) {
+            if (item.getChildren() != null) {
+                sortHierarchically(item.getChildren());
+            }
+        }
     }
 }

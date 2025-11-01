@@ -26,4 +26,7 @@ public interface MediaService {
 
     // Get all files and folders by parent ID. If parentId is null, returns root level items.
     public MediaListResponse getMediaByParentId(UUID parentId);
+
+    // Get all active folders (flat list)
+    public MediaListResponse getAllFolders();
 }

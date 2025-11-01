@@ -44,6 +44,21 @@ public class MediaController {
         }
     }
 
+    // New endpoint: return all active folders as a flat list
+    @GetMapping("/folder")
+    public ApiResponse<MediaListResponse> getAllFolders() {
+        logger.info("Start: getAllFolders");
+        try {
+            MediaService mediaService = mediaServiceFactory.getMediaService();
+            MediaListResponse result = mediaService.getAllFolders();
+            logger.info("End: getAllFolders, folderCount={}", result.getTotalCount());
+            return ApiResponse.success("Folders retrieved successfully", result);
+        } catch (Exception e) {
+            logger.error("Error in getAllFolders: {}", e.getMessage());
+            throw new BusinessException("Failed to retrieve folders: " + e.getMessage());
+        }
+    }
+
     @PostMapping("/upload-multiple")
     public ApiResponse<MediaResponse> uploadMultipleFiles(@ModelAttribute MediaUploadRequestDto requestDto) {
         logger.info("Start: uploadMultipleFiles, parentId={}, filesCount={}", requestDto.getParentId(), requestDto.getFiles() != null ? requestDto.getFiles().size() : 0);

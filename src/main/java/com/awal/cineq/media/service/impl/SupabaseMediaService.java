@@ -15,6 +15,7 @@ import com.awal.cineq.media.dto.response.MediaListResponse;
 import com.awal.cineq.media.dto.response.MediaDetailDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
+import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,8 @@ import com.awal.cineq.media.repository.MediaRepository;
 import com.awal.cineq.media.service.MediaService;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -46,7 +49,43 @@ public class SupabaseMediaService implements MediaService {
     private final WebClient webClient;
     private static final Logger logger = LoggerFactory.getLogger(SupabaseMediaService.class);
     private final Storage uploadDir;
+    private final ModelMapper modelMapper;
 
+    @Override
+    public MediaListResponse getMediaByParentId(UUID parentId) {
+        logger.info("Fetching media by parentId={}", parentId);
+        List<Media> mediaList = mediaRepository.findActiveMediaByParentId(parentId);
+
+        // Correct - You need to collect the stream to a List
+        List<MediaDetailDto> items = mediaList.stream()
+                .map(media -> modelMapper.map(media, MediaDetailDto.class))
+                .collect(Collectors.toList());
+        return MediaListResponse.builder()
+                .media(items)
+                .totalCount(items.size())
+                .build();
+    }
+
+
+    // ✅ NEW: return all active folders (flat list) for Supabase-backed service
+    @Override
+    @Cacheable(value = "sidebarFolders")
+    public MediaListResponse getAllFolders() {
+        logger.info("Fetching all active folders (Supabase)");
+        List<Media> folders = mediaRepository.findAllActiveFolders();
+
+        // Build hierarchical (recursive) structure from flat list
+        List<MediaDetailDto> items = buildHierarchicalMedia(folders, null);
+
+        logger.info("Found {} active folders (Supabase)", items.size());
+        return MediaListResponse.builder()
+                .media(items)
+                .totalCount(items.size())
+                .build();
+    }
+
+    @Override
+    @CacheEvict(value = "sidebarFolders", allEntries = true)
     public List<Map<String, Object>> deleteMultipleFiles(MediaDeleteRequestDto mediaRequestDto) {
         logger.info("Start: deleteMultipleFiles, count={}", mediaRequestDto == null || mediaRequestDto.mediaIds == null ? 0 : mediaRequestDto.mediaIds.size());
         List<Map<String, Object>> results = new ArrayList<>();
@@ -66,6 +105,7 @@ public class SupabaseMediaService implements MediaService {
     }
 
     // Delete a single media by MediaDeleteRequestDto. Returns a map describing the outcome for this id.
+    @CacheEvict(value = "sidebarFolders", allEntries = true)
     public Map<String, Object> deleteSingleFile(MediaDeleteRequestDto mediaDeleteRequestDto) {
         logger.info("Start: deleteSingleFile (Supabase)");
 
@@ -124,46 +164,47 @@ public class SupabaseMediaService implements MediaService {
     }
 
     @Override
-    public MediaResponse uploadMultipleFiles(MediaUploadRequestDto requestDto) {
-        List<MultipartFile> files = requestDto.getFiles();
-        UUID parentId = requestDto.getParentId();
-        logger.info("Start: uploadMultipleFiles, parentId={}, filesCount={}", parentId, files != null ? files.size() : 0);
-        List<Map<String, Object>> uploadedFiles = new ArrayList<>();
-        if (files == null || files.isEmpty()) {
-            throw new BusinessException("No files provided for upload");
-        }
-        for (MultipartFile file : files) {
-            try {
-                String fileTitle = file.getOriginalFilename();
-                String filePath = (parentId == null)
-                        ? storageConfig.getBucket() + "/" + fileTitle
-                        : storageConfig.getBucket() + "/" + getParentPath(parentId) + "/" + fileTitle;
-                if (!mediaRepository.findByFilePath(filePath).isEmpty()) {
-                    throw new BusinessException("File with the same name already exists: " + fileTitle);
-                }
-                Media media = uploadSingleFile(file, fileTitle, parentId);
-                MediaItemDto fileInfo = MediaItemDto.builder()
-                        .id(media.getId())
-                        .title(media.getFileName())
-                        .url(media.getUrl())
-                        .type(media.getType())
-                        .originalFileName(file.getOriginalFilename())
-                        .build();
-                uploadedFiles.add(fileInfo.toMap());
-                logger.info("File uploaded successfully: id={}, title={}, type={}", fileInfo.getId(), fileInfo.getTitle(), fileInfo.getType());
-            } catch (BusinessException be) {
-                logger.error("Business error uploading file: {} - {}", file.getOriginalFilename(), be.getMessage());
-                throw be;
-            } catch (Exception e) {
-                logger.error("Error uploading file: {} - {}", file.getOriginalFilename(), e.getMessage());
-                String fname = file != null ? file.getOriginalFilename() : "<unknown>";
-                throw new BusinessException("Failed to upload file: " + fname, e);
-            }
-        }
+    @CacheEvict(value = "sidebarFolders", allEntries = true)
+     public MediaResponse uploadMultipleFiles(MediaUploadRequestDto requestDto) {
+         List<MultipartFile> files = requestDto.getFiles();
+         UUID parentId = requestDto.getParentId();
+         logger.info("Start: uploadMultipleFiles, parentId={}, filesCount={}", parentId, files != null ? files.size() : 0);
+         List<Map<String, Object>> uploadedFiles = new ArrayList<>();
+         if (files == null || files.isEmpty()) {
+             throw new BusinessException("No files provided for upload");
+         }
+         for (MultipartFile file : files) {
+             try {
+                 String fileTitle = file.getOriginalFilename();
+                 String filePath = (parentId == null)
+                         ? storageConfig.getBucket() + "/" + fileTitle
+                         : storageConfig.getBucket() + "/" + getParentPath(parentId) + "/" + fileTitle;
+                 if (!mediaRepository.findByFilePath(filePath).isEmpty()) {
+                     throw new BusinessException("File with the same name already exists: " + fileTitle);
+                 }
+                 Media media = uploadSingleFile(file, fileTitle, parentId);
+                 MediaItemDto fileInfo = MediaItemDto.builder()
+                         .id(media.getId())
+                         .title(media.getFileName())
+                         .url(media.getUrl())
+                         .type(media.getType())
+                         .originalFileName(file.getOriginalFilename())
+                         .build();
+                 uploadedFiles.add(fileInfo.toMap());
+                 logger.info("File uploaded successfully: id={}, title={}, type={}", fileInfo.getId(), fileInfo.getTitle(), fileInfo.getType());
+             } catch (BusinessException be) {
+                 logger.error("Business error uploading file: {} - {}", file.getOriginalFilename(), be.getMessage());
+                 throw be;
+             } catch (Exception e) {
+                 logger.error("Error uploading file: {} - {}", file.getOriginalFilename(), e.getMessage());
+                 String fname = file != null ? file.getOriginalFilename() : "<unknown>";
+                 throw new BusinessException("Failed to upload file: " + fname, e);
+             }
+         }
 
-        logger.info("End: uploadMultipleFiles, uploadedFilesCount={}", uploadedFiles.size());
-        return new MediaResponse(uploadedFiles);
-    }
+         logger.info("End: uploadMultipleFiles, uploadedFilesCount={}", uploadedFiles.size());
+         return new MediaResponse(uploadedFiles);
+     }
 
     private String getParentPath(UUID parentId) {
         Optional<Media> parentMediaOpt = mediaRepository.findById(parentId);
@@ -208,6 +249,7 @@ public class SupabaseMediaService implements MediaService {
     // Create a folder in the media system without calling Supabase API.
     // Only stores folder metadata in the database.
     @Override
+    @CacheEvict(value = "sidebarFolders", allEntries = true)
     public MediaResponse createFolder(FolderCreateRequest request) {
         logger.info("Start: createFolder (Supabase), folderName={}, parentId={}", request.getName(), request.getParentId());
 
@@ -290,35 +332,6 @@ public class SupabaseMediaService implements MediaService {
         }
     }
 
-    @Override
-    public MediaListResponse getMediaByParentId(UUID parentId) {
-        logger.info("Fetching media by parentId={}", parentId);
-        List<Media> mediaList;
-        if (parentId == null) {
-            mediaList = mediaRepository.findAllRootLevelActiveMedia();
-        } else {
-            mediaList = mediaRepository.findActiveMediaByParentId(parentId);
-        }
-        List<MediaDetailDto> items =buildHierarchicalMedia(mediaList, parentId);
-        for (Media media : mediaList) {
-            MediaDetailDto dto = MediaDetailDto.builder()
-                    .id(media.getId())
-                    .fileName(media.getFileName())
-                    .type(media.getType())
-                    .parentId(media.getParentId())
-                    .filePath(media.getFilePath())
-                    .url(media.getUrl())
-                    .fileUuid(media.getFileUuid())
-                    .createdAt(media.getCreatedAt())
-                    .updatedAt(media.getUpdatedAt())
-                    .build();
-            items.add(dto);
-        }
-        return MediaListResponse.builder()
-                .media(items)
-                .totalCount(items.size())
-                .build();
-    }
 
     public StorageType getStorageType() {
         return StorageType.SUPABASE;
@@ -541,4 +554,5 @@ public class SupabaseMediaService implements MediaService {
         media.setUpdatedAt(LocalDateTime.now());
         return media;
     }
+
 }
