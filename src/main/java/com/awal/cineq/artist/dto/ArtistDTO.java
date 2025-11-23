@@ -1,5 +1,6 @@
 package com.awal.cineq.artist.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -16,6 +17,7 @@ public class ArtistDTO {
     private Boolean isActive;
     private Integer order;
     private String industry;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt;
 }
 

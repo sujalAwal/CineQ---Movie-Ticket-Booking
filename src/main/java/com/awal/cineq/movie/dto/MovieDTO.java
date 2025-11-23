@@ -1,5 +1,6 @@
 package com.awal.cineq.movie.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -28,6 +29,7 @@ public class MovieDTO {
     @Positive(message = "Duration must be positive")
     private Integer durationMinutes;
     
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate releaseDate;
     
     @Size(max = 10, message = "Rating must not exceed 10 characters")

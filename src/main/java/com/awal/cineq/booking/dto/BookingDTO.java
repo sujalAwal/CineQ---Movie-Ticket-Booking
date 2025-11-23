@@ -1,5 +1,6 @@
 package com.awal.cineq.booking.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -25,6 +26,7 @@ public class BookingDTO {
     @NotNull(message = "Showtime ID is required")
     private Long showtimeId;
     
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime bookingDate;
     
     @NotNull(message = "Number of seats is required")
