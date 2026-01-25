@@ -1,68 +1,65 @@
 package com.awal.cineq.theater.model;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
-@Entity
-@Table(name = "theaters")
+/**
+ * MongoDB Document for Theater
+ * Represents a movie theater with seat configuration
+ * Showtimes and Seats are stored in separate collections with theater_id reference
+ */
+@Document(collection = "theaters")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class Theater {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    @Column(name = "name", nullable = false, length = 200)
+    private String id;  // MongoDB ObjectId stored as String
+
+    @Field("name")
+    @Indexed
     private String name;
     
-    @Column(name = "address", nullable = false, length = 500)
+    @Field("address")
     private String address;
     
-    @Column(name = "city", nullable = false, length = 100)
+    @Field("city")
+    @Indexed
     private String city;
     
-    @Column(name = "state", length = 100)
+    @Field("state")
     private String state;
     
-    @Column(name = "postal_code", length = 20)
+    @Field("postal_code")
     private String postalCode;
     
-    @Column(name = "phone_number", length = 20)
+    @Field("phone_number")
     private String phoneNumber;
     
-    @Column(name = "total_seats", nullable = false)
+    @Field("total_seats")
     private Integer totalSeats;
     
-    @Column(name = "is_active", nullable = false)
+    @Field("is_active")
     private Boolean isActive = true;
     
-    @Column(name = "created_at", nullable = false)
+    @Field("created_at")
+    @CreatedDate
     private LocalDateTime createdAt;
     
-    @Column(name = "updated_at")
+    @Field("updated_at")
+    @LastModifiedDate
     private LocalDateTime updatedAt;
     
-    @OneToMany(mappedBy = "theater", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Showtime> showtimes;
-    
-    @OneToMany(mappedBy = "theater", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Seat> seats;
-    
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-    
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
+    @Field("deleted_at")
+    private LocalDateTime deletedAt;  // Soft-delete marker: null = active
 }

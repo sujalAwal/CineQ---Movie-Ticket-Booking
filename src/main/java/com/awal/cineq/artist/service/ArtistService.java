@@ -5,13 +5,16 @@ import com.awal.cineq.artist.dto.ArtistRequestDto;
 import com.awal.cineq.artist.dto.BulkArtistStatusUpdateRequest;
 
 import java.util.List;
-import java.util.UUID;
 
+/**
+ * Artist Service Interface for MongoDB
+ * Uses String ID (MongoDB ObjectId) instead of UUID
+ */
 public interface ArtistService {
     ArtistDTO createArtist(ArtistRequestDto requestDto);
-    ArtistDTO updateArtist(UUID id, ArtistRequestDto requestDto);
-    void deleteArtist(UUID id);
-    ArtistDTO getArtist(UUID id);
+    ArtistDTO updateArtist(String id, ArtistRequestDto requestDto);
+    void deleteArtist(String id);
+    ArtistDTO getArtist(String id);
     List<ArtistDTO> getAllArtists();
     List<ArtistDTO> getArtistsByActiveStatus(Boolean isActive);
     void bulkEnable(BulkArtistStatusUpdateRequest request);

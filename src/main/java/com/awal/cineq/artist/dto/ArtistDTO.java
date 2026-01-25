@@ -3,14 +3,17 @@ package com.awal.cineq.artist.dto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
+/**
+ * Artist DTO for MongoDB
+ * Uses String ID (MongoDB ObjectId) instead of UUID
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class ArtistDTO {
-    private UUID id;
+    private String id;  // MongoDB ObjectId as String
     private String name;
     private String bio;
     private String profilePicture;

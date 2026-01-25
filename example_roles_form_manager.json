@@ -1,0 +1,342 @@
+{
+  "formManager": {
+    "_id": "fm_roles_001",
+    "title": "Role Management",
+    "slug": "roles",
+    "description": "Manage user roles and their module permissions",
+    "isActive": true,
+    "metadata": {
+      "category": "access-control",
+      "version": "1.0",
+      "icon": "shield-check",
+      "order": 1
+    },
+    "createdAt": "2026-01-25T00:00:00.000Z",
+    "updatedAt": "2026-01-25T00:00:00.000Z",
+    "deletedAt": null
+  },
+
+  "formStep": {
+    "_id": "fs_roles_v1",
+    "formManagerId": "fm_roles_001",
+    "stepTitle": "Role Configuration",
+    "stepSlug": "v1",
+    "stepOrder": 1,
+    "isActive": true,
+
+    "validationRules": {
+      "name": {
+        "type": "STRING",
+        "collectionField": "name",
+        "fieldTransformer": null,
+        "baseValidation": [
+          "@NotBlank(message='Role name is required')",
+          "@Size(min=2, max=50, message='Role name must be 2-50 characters')",
+          "@Pattern(regexp='^[A-Z][A-Z0-9_]*$', message='Must start with letter, contain only uppercase letters, numbers, and underscores')"
+        ],
+        "actionRules": {
+          "create": [
+            "@NotBlank(message='Role name required for new role')",
+            "@Size(min=2, max=50)",
+            "@Pattern(regexp='^[A-Z][A-Z0-9_]*$')",
+            "@Unique(collection='roles', field='name', message='Role name already exists')"
+          ],
+          "update": [
+            "@Size(min=2, max=50)",
+            "@Pattern(regexp='^[A-Z][A-Z0-9_]*$')"
+          ],
+          "delete": []
+        }
+      },
+      "slug": {
+        "type": "STRING",
+        "collectionField": "slug",
+        "fieldTransformer": "lowercase",
+        "baseValidation": [
+          "@NotBlank(message='Slug is required')",
+          "@Size(max=100, message='Slug too long')",
+          "@Pattern(regexp='^[a-z0-9-]+$', message='Only lowercase letters, numbers, and hyphens allowed')"
+        ],
+        "actionRules": {
+          "create": [
+            "@NotBlank(message='Slug required')",
+            "@Pattern(regexp='^[a-z0-9-]+$')",
+            "@Unique(collection='roles', field='slug', message='Slug already exists')"
+          ],
+          "update": [
+            "@Pattern(regexp='^[a-z0-9-]+$')"
+          ],
+          "delete": []
+        }
+      },
+      "permissions": {
+        "type": "OBJECT",
+        "collectionField": "permissions",
+        "fieldTransformer": null,
+        "baseValidation": [
+          "@NotNull(message='Permissions object is required')"
+        ],
+        "actionRules": {
+          "create": [
+            "@NotNull(message='Permissions required for new role')"
+          ],
+          "update": [],
+          "delete": []
+        }
+      },
+      "isActive": {
+        "type": "BOOLEAN",
+        "collectionField": "isActive",
+        "fieldTransformer": null,
+        "baseValidation": [],
+        "actionRules": {
+          "create": [],
+          "update": [],
+          "delete": []
+        }
+      }
+    },
+
+    "formSchema": {
+      "type": "object",
+      "title": "Role Form",
+      "properties": {
+        "name": {
+          "type": "STRING",
+          "title": "Role Name",
+          "placeholder": "e.g., ADMIN, MANAGER, USER",
+          "description": "Uppercase letters, numbers, and underscores only",
+          "required": true,
+          "order": 1
+        },
+        "slug": {
+          "type": "STRING",
+          "title": "Role Slug",
+          "placeholder": "e.g., admin, manager, user",
+          "description": "URL-friendly identifier (auto-generated from name)",
+          "required": true,
+          "order": 2
+        },
+        "permissions": {
+          "type": "OBJECT",
+          "title": "Module Permissions",
+          "description": "Select permissions for each module. Keys are module codes, values are permission IDs.",
+          "required": true,
+          "order": 3,
+          "ui": {
+            "widget": "module-permission-selector",
+            "dataSource": {
+              "modules": "/api/modules",
+              "permissions": "/api/permissions"
+            }
+          }
+        },
+        "isActive": {
+          "type": "BOOLEAN",
+          "title": "Active",
+          "description": "Whether this role is active",
+          "default": true,
+          "order": 4
+        }
+      },
+      "required": ["name", "slug", "permissions"]
+    },
+
+    "workflowRules": {
+      "persistToCollection": true,
+      "targetCollection": "roles",
+
+      "fieldMapping": {
+        "name": "name",
+        "slug": "slug",
+        "permissions": "permissions",
+        "isActive": "isActive"
+      },
+
+      "fieldTransformers": {
+        "slug": "lowercase"
+      },
+
+      "actions": {
+        "create": {
+          "enabled": true,
+          "autoApprove": true,
+          "autoFields": {
+            "createdAt": "{{now}}",
+            "updatedAt": "{{now}}",
+            "deletedAt": null,
+            "createdBy": "{{currentUser}}",
+            "updatedBy": "{{currentUser}}"
+          },
+          "interceptors": {
+            "before": [
+              {
+                "handler": "logAction",
+                "args": {
+                  "message": "Creating new role",
+                  "level": "INFO",
+                  "includeFormData": true
+                },
+                "when": null
+              }
+            ],
+            "afterReturning": [
+              {
+                "handler": "assignModulesToRole",
+                "args": {
+                  "entity": "role_has_modules"
+                },
+                "when": null
+              },
+              {
+                "handler": "invalidateCache",
+                "args": {
+                  "cacheNames": ["roles", "permissions", "userRoles"]
+                },
+                "when": null
+              },
+              {
+                "handler": "auditLog",
+                "args": {
+                  "action": "CREATE",
+                  "entity": "Role",
+                  "includeData": true
+                },
+                "when": null
+              }
+            ],
+            "afterThrowing": [
+              {
+                "handler": "logAction",
+                "args": {
+                  "message": "Role creation failed",
+                  "level": "ERROR"
+                },
+                "when": null
+              }
+            ]
+          },
+          "messages": {
+            "success": "Role created successfully",
+            "error": "Failed to create role",
+            "validation": "Please check the form for errors"
+          }
+        },
+
+        "update": {
+          "enabled": true,
+          "autoApprove": true,
+          "autoFields": {
+            "updatedAt": "{{now}}",
+            "updatedBy": "{{currentUser}}"
+          },
+          "interceptors": {
+            "before": [
+              {
+                "handler": "logAction",
+                "args": {
+                  "message": "Updating role",
+                  "level": "INFO"
+                },
+                "when": null
+              }
+            ],
+            "afterReturning": [
+              {
+                "handler": "assignModulesToRole",
+                "args": {
+                  "entity": "role_has_modules"
+                },
+                "when": null
+              },
+              {
+                "handler": "invalidateCache",
+                "args": {
+                  "cacheNames": ["roles", "permissions", "userRoles"]
+                },
+                "when": null
+              },
+              {
+                "handler": "auditLog",
+                "args": {
+                  "action": "UPDATE",
+                  "entity": "Role",
+                  "includeData": true
+                },
+                "when": null
+              }
+            ],
+            "afterThrowing": [
+              {
+                "handler": "logAction",
+                "args": {
+                  "message": "Role update failed",
+                  "level": "ERROR"
+                },
+                "when": null
+              }
+            ]
+          },
+          "messages": {
+            "success": "Role updated successfully",
+            "error": "Failed to update role",
+            "notFound": "Role not found or has been deleted"
+          }
+        },
+
+        "delete": {
+          "enabled": true,
+          "autoApprove": true,
+          "softDelete": true,
+          "autoFields": {
+            "deletedAt": "{{now}}",
+            "deletedBy": "{{currentUser}}"
+          },
+          "interceptors": {
+            "afterReturning": [
+              {
+                "handler": "invalidateCache",
+                "args": {
+                  "cacheNames": ["roles", "permissions", "userRoles"]
+                },
+                "when": null
+              },
+              {
+                "handler": "auditLog",
+                "args": {
+                  "action": "DELETE",
+                  "entity": "Role"
+                },
+                "when": null
+              }
+            ]
+          },
+          "messages": {
+            "success": "Role deleted successfully",
+            "error": "Failed to delete role",
+            "notFound": "Role not found"
+          }
+        }
+      },
+
+      "permissions": {
+        "view": ["ADMIN", "SUPERADMIN", "ROLE_MANAGER"],
+        "create": ["ADMIN", "SUPERADMIN"],
+        "update": ["ADMIN", "SUPERADMIN"],
+        "delete": ["SUPERADMIN"]
+      }
+    },
+
+    "metadata": {
+      "category": "access-control",
+      "version": "1.0",
+      "lastUpdated": "2026-01-25T00:00:00.000Z",
+      "fieldCount": 4,
+      "author": "system"
+    },
+
+    "createdAt": "2026-01-25T00:00:00.000Z",
+    "updatedAt": "2026-01-25T00:00:00.000Z",
+    "deletedAt": null
+  }
+}

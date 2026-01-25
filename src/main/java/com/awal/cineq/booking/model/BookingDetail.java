@@ -1,42 +1,35 @@
 package com.awal.cineq.booking.model;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-import com.awal.cineq.theater.model.Seat;
-
-@Entity
-@Table(name = "booking_details")
+/**
+ * BookingDetail - Embedded document within Booking
+ * Represents individual seat bookings (NOT a separate collection)
+ * MongoDB best practice: embed small related data instead of references
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class BookingDetail {
     
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "booking_id", nullable = false)
-    private Booking booking;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "seat_id", nullable = false)
-    private Seat seat;
-    
-    @Column(name = "seat_price", precision = 10, scale = 2, nullable = false)
+    @Field("seat_id")
+    private String seatId;  // Reference to Seat document
+
+    @Field("seat_number")
+    private String seatNumber;  // Denormalized for quick access
+
+    @Field("seat_type")
+    private String seatType;  // Denormalized: REGULAR, VIP, PREMIUM
+
+    @Field("seat_price")
     private BigDecimal seatPrice;
     
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
-    
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
+    @Field("created_at")
+    private LocalDateTime createdAt = LocalDateTime.now();
 }

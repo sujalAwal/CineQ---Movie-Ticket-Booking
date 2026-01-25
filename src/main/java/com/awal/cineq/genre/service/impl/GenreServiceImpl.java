@@ -10,58 +10,52 @@ import com.awal.cineq.genre.model.Genre;
 import com.awal.cineq.genre.repository.GenreRepository;
 import com.awal.cineq.genre.service.GenreService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import org.hibernate.Session;
-
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
+/**
+ * Genre Service Implementation using MongoDB
+ * Handles all business logic for genre management
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class GenreServiceImpl implements GenreService {
 
-    private static final Logger log = LoggerFactory.getLogger(GenreServiceImpl.class);
     private final GenreRepository genreRepository;
     private final ModelMapper modelMapper;
-
-    @PersistenceContext
-    private EntityManager entityManager;
-
-    private void enableExcludeDeletedFilter() {
-        Session session = entityManager.unwrap(Session.class);
-        session.enableFilter("excludeDeleted");
-    }
 
     @Override
     @Transactional(readOnly = true)
     public PaginationResponse<GenreDTO> getGenre(GenrePageRequest genreRequest) {
-        log.info("getGenre STARTED");
+        log.info("getGenre STARTED: request={}", genreRequest);
         try {
-            enableExcludeDeletedFilter();
-            log.debug("getGenre input: {}", genreRequest);
-            Page<Genre> genres = this.findGenres(genreRequest);
+            PageRequest pageRequest = genreRequest.toPageRequest();
+
+            Page<Genre> genres = findGenres(genreRequest, pageRequest);
             Long total = genres.getTotalElements();
             log.debug("Total genres found: {}", total);
-            List<GenreDTO> result = genres.stream().map(genre1 -> modelMapper.map(genre1, GenreDTO.class)
-            ).toList();
-            log.debug("getGenre result: {}", result);
+
+            List<GenreDTO> result = genres.stream()
+                    .map(genre -> modelMapper.map(genre, GenreDTO.class))
+                    .toList();
+
+            log.debug("getGenre result count: {}", result.size());
             log.info("getGenre END");
+
             return PaginationResponse.success(
                     "Genres fetched successfully",
                     result,
-                    genres.getNumber() +1, // converting to 1-based page index
+                    genres.getNumber() + 1, // converting to 1-based page index
                     genres.getSize(),
                     genres.getTotalPages(),
                     genres.getTotalElements(),
@@ -77,18 +71,28 @@ public class GenreServiceImpl implements GenreService {
 
     @Override
     public GenreDTO createGenre(GenreRequestDto genreRequestDto) {
-        log.info("createGenre STARTED");
-        log.debug("createGenre input: {}", genreRequestDto);
+        log.info("createGenre STARTED: name={}", genreRequestDto.getName());
         try {
+            // Check if genre already exists
+            if (genreRepository.existsByName(genreRequestDto.getName())) {
+                throw new BusinessException("Genre with name '" + genreRequestDto.getName() + "' already exists");
+            }
+
             Genre genre = new Genre();
             genre.setName(genreRequestDto.getName());
             genre.setDescription(genreRequestDto.getDescription());
             genre.setIsActive(genreRequestDto.is_active());
+            
             Genre saved = genreRepository.save(genre);
-            GenreDTO result = new GenreDTO(saved.getId(), saved.getName(), saved.getDescription(), saved.getIsActive());
+            GenreDTO result = modelMapper.map(saved, GenreDTO.class);
+            
             log.debug("createGenre result: {}", result);
-            log.info("createGenre END");
+            log.info("createGenre END: id={}", saved.getId());
+            
             return result;
+        } catch (BusinessException e) {
+            log.error("createGenre BUSINESS ERROR", e);
+            throw e;
         } catch (Exception e) {
             log.error("createGenre ERROR", e);
             throw new BusinessException("Failed to create genre", e);
@@ -97,19 +101,24 @@ public class GenreServiceImpl implements GenreService {
 
     @Override
     @Transactional(readOnly = true)
-    public GenreDTO getGenreById(UUID id) {
-        log.info("getGenreById STARTED");
-        log.debug("getGenreById input: {}", id);
+    public GenreDTO getGenreById(String id) {
+        log.info("getGenreById STARTED: id={}", id);
         try {
-            enableExcludeDeletedFilter();
             Genre genre = genreRepository.findById(id)
                     .orElseThrow(() -> new ResourceNotFoundException("Genre not found with id: " + id));
-            GenreDTO result = new GenreDTO(genre.getId(), genre.getName(), genre.getDescription(), genre.getIsActive());
+
+            // Ensure genre is not soft-deleted
+            if (genre.getDeletedAt() != null) {
+                throw new ResourceNotFoundException("Genre not found with id: " + id);
+            }
+
+            GenreDTO result = modelMapper.map(genre, GenreDTO.class);
             log.debug("getGenreById result: {}", result);
             log.info("getGenreById END");
+            
             return result;
         } catch (ResourceNotFoundException e) {
-            log.error("getGenreById NOT FOUND", e);
+            log.error("getGenreById NOT FOUND: {}", e.getMessage());
             throw e;
         } catch (Exception e) {
             log.error("getGenreById ERROR", e);
@@ -118,22 +127,30 @@ public class GenreServiceImpl implements GenreService {
     }
 
     @Override
-    public GenreDTO updateGenre(UUID id, GenreRequestDto genreRequestDto) {
-        log.info("updateGenre STARTED");
-        log.debug("updateGenre input: id={}, genreRequestDto={}", id, genreRequestDto);
+    public GenreDTO updateGenre(String id, GenreRequestDto genreRequestDto) {
+        log.info("updateGenre STARTED: id={}", id);
         try {
             Genre genre = genreRepository.findById(id)
                     .orElseThrow(() -> new ResourceNotFoundException("Genre not found with id: " + id));
+
+            // Ensure genre is not soft-deleted
+            if (genre.getDeletedAt() != null) {
+                throw new ResourceNotFoundException("Genre not found with id: " + id);
+            }
+
             genre.setName(genreRequestDto.getName());
             genre.setDescription(genreRequestDto.getDescription());
             genre.setIsActive(genreRequestDto.is_active());
+            
             Genre updated = genreRepository.save(genre);
-            GenreDTO result = new GenreDTO(updated.getId(), updated.getName(), updated.getDescription(), updated.getIsActive());
+            GenreDTO result = modelMapper.map(updated, GenreDTO.class);
+            
             log.debug("updateGenre result: {}", result);
             log.info("updateGenre END");
+            
             return result;
         } catch (ResourceNotFoundException e) {
-            log.error("updateGenre NOT FOUND", e);
+            log.error("updateGenre NOT FOUND: {}", e.getMessage());
             throw e;
         } catch (Exception e) {
             log.error("updateGenre ERROR", e);
@@ -142,17 +159,23 @@ public class GenreServiceImpl implements GenreService {
     }
 
     @Override
-    public void deleteGenre(UUID id) {
-        log.info("deleteGenre STARTED");
-        log.debug("deleteGenre input: {}", id);
+    public void deleteGenre(String id) {
+        log.info("deleteGenre STARTED: id={}", id);
         try {
             Genre genre = genreRepository.findById(id)
                     .orElseThrow(() -> new ResourceNotFoundException("Genre not found with id: " + id));
+
+            // Ensure genre is not already soft-deleted
+            if (genre.getDeletedAt() != null) {
+                throw new ResourceNotFoundException("Genre not found with id: " + id);
+            }
+
             genre.setDeletedAt(LocalDateTime.now()); // Soft delete
             genreRepository.save(genre);
-            log.info("deleteGenre END");
+            
+            log.info("deleteGenre END: id={}", id);
         } catch (ResourceNotFoundException e) {
-            log.error("deleteGenre NOT FOUND", e);
+            log.error("deleteGenre NOT FOUND: {}", e.getMessage());
             throw e;
         } catch (Exception e) {
             log.error("deleteGenre ERROR", e);
@@ -162,30 +185,39 @@ public class GenreServiceImpl implements GenreService {
 
     @Override
     @Transactional
-    public void bulkEnableGenres(List<UUID> ids, boolean enabled) {
-        log.info("bulkEnableGenres STARTED: ids={}, enabled={}", ids, enabled);
+    public void bulkEnableGenres(List<String> ids, boolean enabled) {
+        log.info("bulkEnableGenres STARTED: count={}, enabled={}", ids.size(), enabled);
         try {
             List<Genre> genres = genreRepository.findAllById(ids);
+            
             if (genres.size() != ids.size()) {
                 throw new ResourceNotFoundException("Some genres not found for the provided IDs");
             }
-            for (Genre genre : genres) {
-                genre.setIsActive(enabled);
-                genre.setUpdatedAt(java.time.LocalDateTime.now());
+
+            // Filter out soft-deleted genres
+            List<Genre> activeGenres = genres.stream()
+                    .filter(g -> g.getDeletedAt() == null)
+                    .toList();
+
+            if (activeGenres.isEmpty()) {
+                throw new ResourceNotFoundException("No active genres found for the provided IDs");
             }
-            genreRepository.saveAll(genres);
-            log.info("bulkEnableGenres END");
+
+            for (Genre genre : activeGenres) {
+                genre.setIsActive(enabled);
+            }
+            
+            genreRepository.saveAll(activeGenres);
+            log.info("bulkEnableGenres END: updated={}", activeGenres.size());
         } catch (Exception e) {
             log.error("bulkEnableGenres ERROR", e);
             throw new BusinessException("Failed to bulk update genres", e);
         }
     }
 
-    private Page<Genre> findGenres(GenrePageRequest request) {
-        log.info(">>>>>>>>>>>findGenres STARTED<<<<<<<<<<<<<<<<");
-        log.debug("findGenres input: {}", request);
-        PageRequest pageRequest = request.toPageRequest();
-
+    private Page<Genre> findGenres(GenrePageRequest request, PageRequest pageRequest) {
+        log.info("findGenres STARTED: hasSearch={}", request.hasSearch());
+        
         if (request.hasSearch()) {
             return genreRepository.findByNameContainingIgnoreCase(request.getSearch(), pageRequest);
         } else {

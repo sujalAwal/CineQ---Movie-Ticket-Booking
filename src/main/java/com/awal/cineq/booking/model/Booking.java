@@ -1,82 +1,82 @@
 package com.awal.cineq.booking.model;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.awal.cineq.user.model.User;
-import com.awal.cineq.theater.model.Showtime;
-
-@Entity
-@Table(name = "bookings")
+/**
+ * MongoDB Document for Booking
+ * Stores movie ticket bookings with embedded booking details
+ * Uses soft-delete pattern: deletedAt = null means active, not null means deleted
+ */
+@Document(collection = "bookings")
+@CompoundIndexes({
+    @CompoundIndex(name = "booking_reference_active_idx", def = "{'booking_reference': 1, 'deletedAt': 1}", unique = true)
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class Booking {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    @Column(name = "booking_reference", nullable = false, unique = true, length = 20)
-    private String bookingReference;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "showtime_id", nullable = false)
-    private Showtime showtime;
-    
-    @Column(name = "booking_date", nullable = false)
+    private String id;  // MongoDB ObjectId stored as String
+
+    @Field("booking_reference")
+    private String bookingReference;  // Uniqueness enforced by compound index (booking_reference, deletedAt)
+
+    @Field("showtime_id")
+    private String showtimeId;  // Reference to Showtime document (denormalized)
+
+    @Field("user_id")
+    private String userId;  // Reference to User document
+
+    @Field("customer_id")
+    private String customerId;  // Reference to Customer document (if applicable)
+
+    @Field("booking_date")
     private LocalDateTime bookingDate;
     
-    @Column(name = "number_of_seats", nullable = false)
+    @Field("number_of_seats")
     private Integer numberOfSeats;
     
-    @Column(name = "total_amount", precision = 10, scale = 2, nullable = false)
+    @Field("total_amount")
     private BigDecimal totalAmount;
     
-    @Enumerated(EnumType.STRING)
-    @Column(name = "booking_status", nullable = false)
+    @Field("booking_status")
     private BookingStatus bookingStatus = BookingStatus.PENDING;
     
-    @Enumerated(EnumType.STRING)
-    @Column(name = "payment_status", nullable = false)
+    @Field("payment_status")
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
     
-    @Column(name = "payment_method", length = 50)
+    @Field("payment_method")
     private String paymentMethod;
     
-    @Column(name = "payment_reference", length = 100)
+    @Field("payment_reference")
     private String paymentReference;
     
-    @Column(name = "created_at", nullable = false)
+    @Field("created_at")
+    @CreatedDate
     private LocalDateTime createdAt;
     
-    @Column(name = "updated_at")
+    @Field("updated_at")
+    @LastModifiedDate
     private LocalDateTime updatedAt;
     
-    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    // Embed booking details directly (MongoDB best practice for 1-to-many small collections)
+    @Field("booking_details")
     private List<BookingDetail> bookingDetails;
-    
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-        bookingDate = LocalDateTime.now();
-    }
-    
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
     
     public enum BookingStatus {
         PENDING, CONFIRMED, CANCELLED, EXPIRED

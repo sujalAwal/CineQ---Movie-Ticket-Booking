@@ -1,53 +1,46 @@
 package com.awal.cineq.genre.model;
 
-import jakarta.persistence.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Filter;
-import org.hibernate.annotations.FilterDef;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
-@Entity
-@Table(name = "genres")
+/**
+ * MongoDB Document for Genre
+ * Uses soft-delete pattern: deletedAt = null means active, not null means deleted
+ * Unique constraint only applies to active records via compound index
+ */
+@Document(collection = "genres")
+@CompoundIndexes({
+    @CompoundIndex(name = "name_active_idx", def = "{'name': 1, 'deletedAt': 1}", unique = true)
+})
 @Data
 @NoArgsConstructor
-@FilterDef(name = "excludeDeleted")
-@Filter(name = "excludeDeleted", condition = "deleted_at IS NULL")
-
+@AllArgsConstructor
 public class Genre {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    private String id;  // MongoDB ObjectId stored as String
 
-    @Column(name = "name", nullable = false, unique = true, length = 100)
-    private String name;
+    private String name;  // Uniqueness enforced by compound index (name, deletedAt)
 
-    @Column(name = "description", length = 500)
     private String description;
 
-    @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
-    @Column(name = "created_at", nullable = false)
+    @CreatedDate
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @LastModifiedDate
     private LocalDateTime updatedAt;
 
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
+    private LocalDateTime deletedAt;  // Soft-delete marker: null = active
 }

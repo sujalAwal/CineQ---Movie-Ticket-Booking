@@ -10,10 +10,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 
+/**
+ * Artist Controller for MongoDB
+ * Uses String ID (MongoDB ObjectId) instead of UUID
+ */
 @RestController
-@RequestMapping("/artist")
+@RequestMapping("/api/v1/artists")
 @RequiredArgsConstructor
 public class ArtistController {
     private final ArtistService artistService;
@@ -25,19 +28,19 @@ public class ArtistController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<ArtistDTO>> updateArtist(@PathVariable UUID id, @RequestBody ArtistRequestDto requestDto) {
+    public ResponseEntity<ApiResponse<ArtistDTO>> updateArtist(@PathVariable String id, @RequestBody ArtistRequestDto requestDto) {
         ArtistDTO artist = artistService.updateArtist(id, requestDto);
         return ResponseEntity.ok(ApiResponse.success("Artist updated successfully", artist));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteArtist(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<Void>> deleteArtist(@PathVariable String id) {
         artistService.deleteArtist(id);
         return ResponseEntity.ok(ApiResponse.success("Artist deleted successfully", null));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ArtistDTO>> getArtist(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<ArtistDTO>> getArtist(@PathVariable String id) {
         ArtistDTO artist = artistService.getArtist(id);
         return ResponseEntity.ok(ApiResponse.success("Artist fetched successfully", artist));
     }

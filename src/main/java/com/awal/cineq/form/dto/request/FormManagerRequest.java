@@ -29,6 +29,14 @@ public class FormManagerRequest {
 
     private Boolean isActive;
 
+    /**
+     * Module code for permission/role configuration
+     * Optional: null if form is not associated with any module
+     * References Module.code (auto-increment integer: 1, 2, 3...)
+     * Unique: Only one FormManager per module code
+     */
+    private Integer moduleCode;
+
     @NotEmpty(message = "At least one form step is required")
     private List<FormStepRequest> formSteps;
 }

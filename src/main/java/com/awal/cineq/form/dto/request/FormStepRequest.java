@@ -26,7 +26,7 @@ public class FormStepRequest {
     @JsonProperty("stepOrder")
     private Integer stepOrder;
 
-    @JsonProperty("validationRule")
+    @JsonProperty("validationRules")
     private Map<String, Object> validationRules;
 
     @JsonProperty("formSchema")
@@ -38,7 +38,7 @@ public class FormStepRequest {
     @JsonProperty("metadata")
     private Map<String, Object> metadata;
 
-    @JsonProperty("workflowRule")
+    @JsonProperty("workflowRules")
     private Map<String, Object> workflowRules;
 
     @JsonProperty("isActive")

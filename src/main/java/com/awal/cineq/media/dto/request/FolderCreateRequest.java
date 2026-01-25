@@ -5,10 +5,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
 /**
  * Request DTO for creating a folder in the media module.
+ * MongoDB compatible: uses String parentId instead of UUID
  */
 @Data
 @NoArgsConstructor
@@ -18,6 +17,6 @@ public class FolderCreateRequest {
     @NotBlank(message = "Folder name is required")
     private String name;
 
-    private UUID parentId; // Nullable - if null, folder will be created at root level
+    private String parentId; // Nullable - if null, folder will be created at root level (MongoDB ObjectId as String)
 }
 

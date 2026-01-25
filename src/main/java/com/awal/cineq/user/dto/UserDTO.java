@@ -7,15 +7,12 @@ import lombok.NoArgsConstructor;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.*;
 import java.time.LocalDateTime;
-import java.util.UUID;
-
-import com.awal.cineq.user.model.User;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserDTO {
-    private UUID id;
+    private String id;
 
     @NotBlank(message = "Name is required")
     @Size(max = 100, message = "Name must not exceed 100 characters")
@@ -29,7 +26,16 @@ public class UserDTO {
     @Size(max = 20, message = "Phone number must not exceed 20 characters")
     private String phoneNumber;
     
-    private User.UserRole role;
+    /**
+     * Reference to the roles collection document ID.
+     */
+    private String roleId;
+
+    /**
+     * Role name fetched from the roles collection (for display purposes).
+     */
+    private String roleName;
+
     private Boolean isActive;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")

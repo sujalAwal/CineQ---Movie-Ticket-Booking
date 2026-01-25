@@ -5,18 +5,18 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Form Manager Response DTO
  * Used for returning form manager data
+ * IDs are MongoDB ObjectId stored as String
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class FormManagerResponse {
 
-    private UUID id;
+    private String id;  // MongoDB ObjectId as String
 
     private String title;
 
@@ -27,6 +27,14 @@ public class FormManagerResponse {
     private String modelName;
 
     private Boolean isActive;
+
+    /**
+     * Module code for permission/role configuration
+     * References Module.code (auto-increment integer: 1, 2, 3...)
+     * null = not associated with any module
+     * Unique: Only one FormManager per module code
+     */
+    private Integer moduleCode;
 
     private List<FormStepResponse> formSteps;
 }

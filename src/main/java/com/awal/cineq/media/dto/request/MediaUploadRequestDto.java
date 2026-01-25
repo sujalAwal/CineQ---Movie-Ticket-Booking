@@ -2,11 +2,14 @@ package com.awal.cineq.media.dto.request;
 
 import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
-import java.util.UUID;
 
+/**
+ * Media upload request DTO
+ * MongoDB compatible: uses String parentId instead of UUID
+ */
 public class MediaUploadRequestDto {
     private List<MultipartFile> files;
-    private UUID parentId;
+    private String parentId;  // MongoDB ObjectId as String
 
     public List<MultipartFile> getFiles() {
         return files;
@@ -14,10 +17,10 @@ public class MediaUploadRequestDto {
     public void setFiles(List<MultipartFile> files) {
         this.files = files;
     }
-    public UUID getParentId() {
+    public String getParentId() {
         return parentId;
     }
-    public void setParentId(UUID parentId) {
+    public void setParentId(String parentId) {
         this.parentId = parentId;
     }
 }

@@ -7,11 +7,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 /**
  * DTO representing a media item (file or folder) in responses.
  * Used for upload operations and folder creation responses.
+ * MongoDB compatible: uses String ID instead of UUID
  */
 @Data
 @Builder
@@ -19,13 +19,13 @@ import java.util.UUID;
 @AllArgsConstructor
 public class MediaItemDto {
 
-    private UUID id;
+    private String id;  // MongoDB ObjectId as String
     private String title;
     private String name;
     private String url;
     private MediaType type;
     private String originalFileName;
-    private UUID parentId;
+    private String parentId;  // MongoDB ObjectId as String
     private String filePath;
     private Boolean isActive;
     private LocalDateTime createdAt;

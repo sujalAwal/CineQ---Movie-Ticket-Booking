@@ -45,7 +45,7 @@ public class SecurityConfig {
                 .requestMatchers("/login").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
                 // Admin endpoints
-                .requestMatchers("/**").hasRole("USER")
+                .requestMatchers("/**").hasAnyRole("ADMIN","SUPERADMIN")
                 // Customer endpoints
                 .requestMatchers("customer/**").hasRole("CUSTOMER")
                 // All other requests need authentication

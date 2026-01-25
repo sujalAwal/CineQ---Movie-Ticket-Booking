@@ -9,13 +9,16 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
+/**
+ * Media Service Interface
+ * MongoDB compatible: uses String IDs instead of UUID
+ */
 public interface MediaService {
 
     public MediaResponse uploadMultipleFiles(MediaUploadRequestDto requestDto);
 
-    // Delete multiple media records by their primary UUIDs. Returns per-id results (status/message).
+    // Delete multiple media records by their primary IDs (MongoDB ObjectId as String). Returns per-id results (status/message).
     public List<Map<String, Object>> deleteMultipleFiles(MediaDeleteRequestDto mediaIds);
 
     // Delete a single media record by its primary MediaDeleteRequestDto and return a per-id result map.
@@ -25,7 +28,7 @@ public interface MediaService {
     public MediaResponse createFolder(FolderCreateRequest request);
 
     // Get all files and folders by parent ID. If parentId is null, returns root level items.
-    public MediaListResponse getMediaByParentId(UUID parentId);
+    public MediaListResponse getMediaByParentId(String parentId);  // Changed from UUID to String
 
     // Get all active folders (flat list)
     public MediaListResponse getAllFolders();

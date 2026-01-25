@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.FieldError;
@@ -71,11 +72,11 @@ public class GlobalExceptionHandler {
 
         ApiResponse<Object> response = ApiResponse.error(
             errorMessage,
-            HttpStatus.BAD_REQUEST.value()
+            ex.getStatus().value()
         );
         response.setPath(request.getRequestURI());
         
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(response, ex.getStatus());
     }
 
     // Authentication-related exceptions
@@ -121,7 +122,49 @@ public class GlobalExceptionHandler {
             errors
         );
         response.setPath(request.getRequestURI());
-        
+
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Handle JSON parsing errors (e.g., invalid enum values, malformed JSON)
+     * This catches errors from Jackson deserialization
+     *
+     * Jackson wraps custom exceptions (like ValidationException) inside HttpMessageNotReadableException
+     * We extract the inner exception message to show the actual validation error to the user
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Object>> handleHttpMessageNotReadableException(
+            HttpMessageNotReadableException ex, HttpServletRequest request) {
+
+        String errorMessage = "Invalid request format. Please check your request body.";
+
+        // Try to extract the actual error message from the cause
+        Throwable cause = ex.getCause();
+
+        if (cause != null) {
+            // Check if the cause is a ValidationException (thrown by our enum @JsonCreator)
+            if (cause instanceof ValidationException) {
+                // Use the actual validation error message from our code
+                String validationMessage = cause.getMessage();
+                if (validationMessage != null && !validationMessage.isEmpty()) {
+                    errorMessage = validationMessage;
+                }
+            } else {
+                // For other causes, try to infer the error type
+                String causeString = cause.toString();
+
+                if (causeString.contains("FormAction") || causeString.contains("enum")) {
+                    errorMessage = "Invalid action value. ";
+                } else if (causeString.contains("JSON") || causeString.contains("JsonMappingException")) {
+                    errorMessage = "Invalid JSON format in request body.";
+                }
+            }
+        }
+
+        ApiResponse<Object> response = ApiResponse.error(errorMessage);
+        response.setPath(request.getRequestURI());
+
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 

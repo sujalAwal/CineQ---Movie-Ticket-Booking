@@ -5,11 +5,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
 /**
  * DTO representing the result of a media operation (e.g., delete).
  * Provides structured information about operation success or failure.
+ * MongoDB compatible: uses String ID instead of UUID
  */
 @Data
 @Builder
@@ -17,7 +16,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class MediaOperationResultDto {
 
-    private UUID id;
+    private String id;  // MongoDB ObjectId as String
     private OperationStatus status;
     private String message;
     private String deleteFromStorage;
@@ -52,21 +51,21 @@ public class MediaOperationResultDto {
     }
 
     // Convenience factory methods
-    public static MediaOperationResultDto success(UUID id) {
+    public static MediaOperationResultDto success(String id) {  // Changed from UUID to String
         return MediaOperationResultDto.builder()
                 .id(id)
                 .status(OperationStatus.SUCCESS)
                 .build();
     }
 
-    public static MediaOperationResultDto deleted(UUID id) {
+    public static MediaOperationResultDto deleted(String id) {  // Changed from UUID to String
         return MediaOperationResultDto.builder()
                 .id(id)
                 .status(OperationStatus.DELETED)
                 .build();
     }
 
-    public static MediaOperationResultDto failed(UUID id, String message) {
+    public static MediaOperationResultDto failed(String id, String message) {  // Changed from UUID to String
         return MediaOperationResultDto.builder()
                 .id(id)
                 .status(OperationStatus.FAILED)
@@ -74,7 +73,7 @@ public class MediaOperationResultDto {
                 .build();
     }
 
-    public static MediaOperationResultDto notFound(UUID id, String message) {
+    public static MediaOperationResultDto notFound(String id, String message) {  // Changed from UUID to String
         return MediaOperationResultDto.builder()
                 .id(id)
                 .status(OperationStatus.NOT_FOUND)

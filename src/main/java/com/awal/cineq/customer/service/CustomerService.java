@@ -4,13 +4,16 @@ import com.awal.cineq.customer.dto.CustomerResponse;
 import com.awal.cineq.customer.dto.CustomerUpdateRequest;
 
 import java.util.List;
-import java.util.UUID;
 
+/**
+ * Customer Service Interface
+ * MongoDB compatible: uses String ID instead of UUID
+ */
 public interface CustomerService {
-    CustomerResponse getProfile(UUID customerId);
-    CustomerResponse updateProfile(UUID customerId, CustomerUpdateRequest updateRequest);
-    void deleteAccount(UUID customerId);
+    CustomerResponse getProfile(String customerId);
+    CustomerResponse updateProfile(String customerId, CustomerUpdateRequest updateRequest);
+    void deleteAccount(String customerId);
     List<CustomerResponse> getAllCustomers();
-    CustomerResponse getCustomerById(UUID customerId);
+    CustomerResponse getCustomerById(String customerId);
     List<CustomerResponse> searchCustomers(String keyword);
 }

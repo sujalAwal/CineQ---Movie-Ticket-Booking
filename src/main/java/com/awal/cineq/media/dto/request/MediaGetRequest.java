@@ -6,16 +6,15 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 
-import java.util.UUID;
-
 /**
  * Request DTO for getting media items by parent ID.
+ * MongoDB compatible: uses String parentId instead of UUID
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class MediaGetRequest {
 
-    private UUID parentId; // Nullable - if null, returns root level items
+    private String parentId; // Nullable - if null, returns root level items (MongoDB ObjectId as String)
 }
 

@@ -13,6 +13,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -148,5 +149,38 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
 
         // In a real application, send email here
         log.info("New email verification token generated for {}: {}", customer.getEmail(), verificationToken);
+    }
+
+    // Replaced placeholder with real UserDetails loader.
+    // Tries email first, then attempts to parse username as UUID and find by id.
+    public org.springframework.security.core.userdetails.UserDetails loadUserByUsername(String username) {
+        // Try load by email (common case)
+        var byEmail = customerRepository.findByEmailAndIsActiveTrue(username);
+        if (byEmail.isPresent()) {
+            Customer c = byEmail.get();
+            return org.springframework.security.core.userdetails.User.builder()
+                    .username(c.getEmail())
+                    .password(c.getPassword())
+                    .roles("CUSTOMER")
+                    .build();
+        }
+
+        // If not found by email, try parsing as UUID and find by id (some modules use UUID ids)
+        try {
+            // MongoDB uses String ID directly
+            var byId = customerRepository.findById(username); // MongoDB ObjectId as String
+            if (byId.isPresent()) {
+                Customer c = byId.get();
+                return org.springframework.security.core.userdetails.User.builder()
+                        .username(c.getEmail())
+                        .password(c.getPassword())
+                        .roles("CUSTOMER")
+                        .build();
+            }
+            throw new UsernameNotFoundException("Customer not found: " + username);
+        } catch (IllegalArgumentException ex) {
+            // invalid UUID format -> not a UUID and also not found by email
+            throw new UsernameNotFoundException("Invalid identifier or user not found: " + username, ex);
+        }
     }
 }

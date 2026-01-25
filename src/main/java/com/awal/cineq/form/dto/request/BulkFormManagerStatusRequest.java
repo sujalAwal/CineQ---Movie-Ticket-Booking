@@ -6,11 +6,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Bulk Form Manager Status Request DTO
  * Used for bulk activating or deactivating form managers
+ * IDs are MongoDB ObjectIds stored as String
  */
 @Data
 @NoArgsConstructor
@@ -18,6 +18,6 @@ import java.util.UUID;
 public class BulkFormManagerStatusRequest {
 
     @NotEmpty(message = "IDs list cannot be empty")
-    private List<UUID> ids;
+    private List<String> ids;  // MongoDB ObjectIds
 }
 

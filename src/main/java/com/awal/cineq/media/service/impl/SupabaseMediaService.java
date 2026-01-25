@@ -40,7 +40,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.function.Function;
 
-@Service("supabaseMediaService")
+@Service("SupabaseMediaService")
 @AllArgsConstructor
 public class SupabaseMediaService implements MediaService {
 
@@ -52,7 +52,7 @@ public class SupabaseMediaService implements MediaService {
     private final ModelMapper modelMapper;
 
     @Override
-    public MediaListResponse getMediaByParentId(UUID parentId) {
+    public MediaListResponse getMediaByParentId(String parentId) {  // Changed from UUID to String
         logger.info("Fetching media by parentId={}", parentId);
         List<Media> mediaList = mediaRepository.findActiveMediaByParentId(parentId);
 
@@ -94,7 +94,7 @@ public class SupabaseMediaService implements MediaService {
             throw new BusinessException("No media delete requests provided for deletion");
         }
 
-        for (UUID id : mediaRequestDto.mediaIds) {
+        for (String id : mediaRequestDto.mediaIds) {  // Changed from UUID to String
             MediaDeleteRequestDto singleDto = new MediaDeleteRequestDto();
             singleDto.mediaIds = java.util.Collections.singletonList(id);
             results.add(deleteSingleFile(singleDto));
@@ -114,7 +114,7 @@ public class SupabaseMediaService implements MediaService {
             return MediaOperationResultDto.failed(null, "No mediaId provided in request").toMap();
         }
 
-        UUID mediaId = mediaDeleteRequestDto.mediaIds.get(0);
+        String mediaId = mediaDeleteRequestDto.mediaIds.get(0);  // Changed from UUID to String
         logger.info("Processing delete for mediaId={}", mediaId);
 
         if (mediaId == null) {
@@ -167,7 +167,7 @@ public class SupabaseMediaService implements MediaService {
     @CacheEvict(value = "sidebarFolders", allEntries = true)
      public MediaResponse uploadMultipleFiles(MediaUploadRequestDto requestDto) {
          List<MultipartFile> files = requestDto.getFiles();
-         UUID parentId = requestDto.getParentId();
+         String parentId = requestDto.getParentId();  // Changed from UUID to String
          logger.info("Start: uploadMultipleFiles, parentId={}, filesCount={}", parentId, files != null ? files.size() : 0);
          List<Map<String, Object>> uploadedFiles = new ArrayList<>();
          if (files == null || files.isEmpty()) {
@@ -206,7 +206,7 @@ public class SupabaseMediaService implements MediaService {
          return new MediaResponse(uploadedFiles);
      }
 
-    private String getParentPath(UUID parentId) {
+    private String getParentPath(String parentId) {  // Changed from UUID to String
         Optional<Media> parentMediaOpt = mediaRepository.findById(parentId);
         if (parentMediaOpt.isPresent()) {
             Media parentMedia = parentMediaOpt.get();
@@ -217,7 +217,7 @@ public class SupabaseMediaService implements MediaService {
     }
 
 
-    public Media uploadSingleFile(MultipartFile file, String title, UUID parentId) {
+    public Media uploadSingleFile(MultipartFile file, String title, String parentId) {  // Changed from UUID to String
         try {
         validateFile(file);
 
@@ -235,7 +235,7 @@ public class SupabaseMediaService implements MediaService {
         }
     }
 
-    public void deleteFile(UUID mediaId) {
+    public void deleteFile(String mediaId) {  // Changed from UUID to String
         Media media = mediaRepository.findById(mediaId)
                 .orElseThrow(() -> new RuntimeException("Media not found with id: " + mediaId));
 
@@ -337,9 +337,9 @@ public class SupabaseMediaService implements MediaService {
         return StorageType.SUPABASE;
     }
     // ✅ ADD THIS NEW METHOD
-    private List<MediaDetailDto> buildHierarchicalMedia(List<Media> allMedia, UUID parentId) {
+    private List<MediaDetailDto> buildHierarchicalMedia(List<Media> allMedia, String parentId) {  // Changed from UUID to String
         // Convert all media to DTOs and store in map for quick access
-        Map<UUID, MediaDetailDto> dtoMap = allMedia.stream()
+        Map<String, MediaDetailDto> dtoMap = allMedia.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toMap(MediaDetailDto::getId, Function.identity()));
 
@@ -512,7 +512,7 @@ public class SupabaseMediaService implements MediaService {
         }
     }
 
-    private String generateFileName(MultipartFile file, UUID mediaId) {
+    private String generateFileName(MultipartFile file, String mediaId) {  // Changed from UUID to String
         String originalFileName = file.getOriginalFilename();
         String fileExtension = getFileExtension(originalFileName);
         return mediaId + "." + fileExtension;
@@ -537,7 +537,7 @@ public class SupabaseMediaService implements MediaService {
         return MediaType.DOCUMENT;
     }
 
-    private Media createMediaEntity(String title, MediaType type, UUID parentId, SupabaseResponse response, String signedUrl) {
+    private Media createMediaEntity(String title, MediaType type, String parentId, SupabaseResponse response, String signedUrl) {  // Changed from UUID to String
         Media media = new Media();
         media.setFileName(title);
 

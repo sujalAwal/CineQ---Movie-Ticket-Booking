@@ -18,19 +18,20 @@ public class MediaServiceFactory {
     private final SupabaseConfig storageConfig;
     private final Map<StorageType, MediaService> services;
 
-    @Value("${app.file.storage.type:LOCAL}")
+    @Value("${app.file.storage.type}")
     private StorageType storageType;
     public MediaServiceFactory(
             SupabaseConfig storageConfig,
             @Qualifier("localMediaService") MediaService localMediaService,
-            @Qualifier("supabaseMediaService") MediaService supabaseMediaService) {
+            @Qualifier("SupabaseMediaService") MediaService SupabaseMediaService) {
+        logger.info("Initializing MediaServiceFactory with storageType: {}", storageType);
         this.storageConfig = storageConfig;
         this.services = Map.of(
                 StorageType.LOCAL, localMediaService,
-                StorageType.SUPABASE, supabaseMediaService
+                StorageType.SUPABASE, SupabaseMediaService
         );
         logger.info("MediaServiceFactory initialized. Injected services: LOCAL={}, SUPABASE={}",
-                localMediaService.getClass().getName(), supabaseMediaService.getClass().getName());
+                localMediaService.getClass().getName(), SupabaseMediaService.getClass().getName());
     }
 
     public MediaService getMediaService() {

@@ -3,6 +3,7 @@ package com.awal.cineq.user.controller;
 import com.awal.cineq.dto.ApiResponse;
 import com.awal.cineq.user.dto.AuthResponse;
 import com.awal.cineq.user.dto.LoginRequest;
+import com.awal.cineq.user.dto.ProfileResponse;
 import com.awal.cineq.user.dto.RegisterRequest;
 import com.awal.cineq.user.service.AuthService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -14,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -85,5 +88,20 @@ public class AuthController {
         }
         
         return ResponseEntity.ok(ApiResponse.success("Logout successful", "User logged out successfully"));
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<ApiResponse<ProfileResponse>> profile() {
+        log.info("Profile request");
+
+        // Get current user email from security context
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        log.debug("Fetching profile for user: {}", email);
+
+        ProfileResponse profileResponse = authService.getProfile(email);
+
+        return ResponseEntity.ok(ApiResponse.success("Profile fetched successfully", profileResponse));
     }
 }

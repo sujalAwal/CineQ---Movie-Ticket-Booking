@@ -5,8 +5,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
+/**
+ * Customer authentication response DTO
+ * MongoDB compatible: uses String ID instead of UUID
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -14,7 +16,7 @@ import java.util.UUID;
 public class CustomerAuthResponse {
     private String token;
     private String type;
-    private UUID id;
+    private String id;  // MongoDB ObjectId as String
     private String email;
     private String firstName;
     private String lastName;

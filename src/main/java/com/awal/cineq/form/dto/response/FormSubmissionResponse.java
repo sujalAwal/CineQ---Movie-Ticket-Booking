@@ -5,28 +5,30 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Form Submission Response DTO
  * Used for returning form submission data from the universal form system
+ * IDs are MongoDB ObjectIds stored as String
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class FormSubmissionResponse {
 
-    private UUID id;
+    private String id;  // MongoDB ObjectId
 
-    private String formSlug;
+    private String formManagerId;  // Reference to FormManager
 
-    private String stepSlug;
+    private String formStepId;  // Reference to FormStep
 
-    private Map<String, Object> submittedData;
+    private Map<String, Object> formData;
 
     private String status;
 
     private String submittedBy;
+
+    private Boolean isActive;
 
     private Map<String, Object> metadata;
 }

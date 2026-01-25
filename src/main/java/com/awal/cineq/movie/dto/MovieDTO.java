@@ -12,11 +12,15 @@ import java.util.List;
 
 import com.awal.cineq.genre.dto.GenreDTO;
 
+/**
+ * Movie DTO for API responses
+ * ID is MongoDB ObjectId stored as String
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class MovieDTO {
-    private Long id;
+    private String id;
     
     @NotBlank(message = "Movie title is required")
     @Size(max = 200, message = "Title must not exceed 200 characters")

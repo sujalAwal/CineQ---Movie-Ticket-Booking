@@ -6,18 +6,18 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Form Step Response DTO
  * Used for returning form step data
+ * IDs are MongoDB ObjectId stored as String
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class FormStepResponse {
 
-    private UUID id;
+    private String id;  // MongoDB ObjectId as String
 
     @JsonProperty("stepTitle")
     private String stepTitle;

@@ -18,7 +18,6 @@ import com.awal.cineq.media.service.MediaService;
 import java.util.List;
 import java.util.Map;
 import java.util.Collections;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +30,7 @@ public class MediaController {
 
     // Get all files and folders by parent ID - accepts request DTO with optional parent ID
     @GetMapping({"", "/"})
-    public ApiResponse<MediaListResponse> getMedia(@RequestParam(value = "parentId", required = false) UUID parentId) {
+    public ApiResponse<MediaListResponse> getMedia(@RequestParam(value = "parentId", required = false) String parentId) {  // Changed from UUID to String
         logger.info("Start: getMedia, parentId={}", parentId);
         try {
             MediaService mediaService = mediaServiceFactory.getMediaService();
@@ -88,7 +87,7 @@ public class MediaController {
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<MediaResponse> deleteSingleFile(@PathVariable("id") UUID mediaId) {
+    public ApiResponse<MediaResponse> deleteSingleFile(@PathVariable("id") String mediaId) {  // Changed from UUID to String
         logger.info("Start: deleteSingleFile (path), id={}", mediaId);
         try {
             MediaService mediaService = mediaServiceFactory.getMediaService();

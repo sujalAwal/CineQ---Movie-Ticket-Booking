@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,13 +23,13 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerRepository customerRepository;
 
     @Override
-    public CustomerResponse getProfile(UUID customerId) {
+    public CustomerResponse getProfile(String customerId) {  // Changed from UUID to String
         Customer customer = findCustomerById(customerId);
         return mapToCustomerResponse(customer);
     }
 
     @Override
-    public CustomerResponse updateProfile(UUID customerId, CustomerUpdateRequest updateRequest) {
+    public CustomerResponse updateProfile(String customerId, CustomerUpdateRequest updateRequest) {  // Changed from UUID to String
         Customer customer = findCustomerById(customerId);
 
         // Check if email is being changed and if it already exists
@@ -71,7 +70,7 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public void deleteAccount(UUID customerId) {
+    public void deleteAccount(String customerId) {  // Changed from UUID to String
         Customer customer = findCustomerById(customerId);
         customer.softDelete();
         customerRepository.save(customer);
@@ -87,7 +86,7 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public CustomerResponse getCustomerById(UUID customerId) {
+    public CustomerResponse getCustomerById(String customerId) {  // Changed from UUID to String
         Customer customer = findCustomerById(customerId);
         return mapToCustomerResponse(customer);
     }
@@ -100,7 +99,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .collect(Collectors.toList());
     }
 
-    private Customer findCustomerById(UUID customerId) {
+    private Customer findCustomerById(String customerId) {  // Changed from UUID to String
         return customerRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + customerId));
     }

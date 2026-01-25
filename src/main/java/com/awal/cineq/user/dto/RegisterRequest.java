@@ -1,6 +1,5 @@
 package com.awal.cineq.user.dto;
 
-import com.awal.cineq.user.model.User;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -28,5 +27,9 @@ public class RegisterRequest {
     @Size(max = 20, message = "Phone number must not exceed 20 characters")
     private String phoneNumber;
     
-    private User.UserRole role;
+    /**
+     * Reference to the roles collection document ID.
+     * If not provided, a default role will be assigned during registration.
+     */
+    private String roleId;
 }

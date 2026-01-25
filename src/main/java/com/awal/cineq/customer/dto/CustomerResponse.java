@@ -9,14 +9,17 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
+/**
+ * Customer response DTO
+ * MongoDB compatible: uses String ID instead of UUID
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class CustomerResponse {
-    private UUID id;
+    private String id;  // MongoDB ObjectId as String
     private String firstName;
     private String lastName;
     private String email;
