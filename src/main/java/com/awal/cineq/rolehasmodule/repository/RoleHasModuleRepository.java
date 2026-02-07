@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -23,6 +24,15 @@ public interface RoleHasModuleRepository extends MongoRepository<RoleHasModule, 
     // Find all by role ID (excluding soft-deleted)
     @Query("{ 'roleId': ?0, 'deletedAt': null }")
     Page<RoleHasModule> findByRoleId(String roleId, Pageable pageable);
+
+    // Find all by role ID as list (excluding soft-deleted)
+    @Query("{ 'roleId': ?0, 'deletedAt': null }")
+    List<RoleHasModule> findByRoleIdAndDeletedAtIsNull(String roleId);
+
+    // Find all by role name, active status (excluding soft-deleted)
+    // Used when role is stored as string in user document
+    @Query("{ 'role': ?0, 'isActive': true, 'deletedAt': null }")
+    List<RoleHasModule> findByRoleAndIsActiveTrueAndDeletedAtIsNull(String role);
 
     // Find all by module ID (excluding soft-deleted)
     @Query("{ 'moduleId': ?0, 'deletedAt': null }")
