@@ -12,6 +12,9 @@ log/
 .logs/
 spring.log
 
+##GitHub MD File
+.github/**/*.md
+
 # Application properties
 src/main/resources/application.properties
 src/main/resources/application-*.properties
