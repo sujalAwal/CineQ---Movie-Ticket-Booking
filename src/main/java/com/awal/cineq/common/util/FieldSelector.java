@@ -46,8 +46,31 @@ public class FieldSelector {
         projection.put("deletedAt", 1);     // Soft-delete marker
 
         // Add fields defined in validation rules
-        for (String fieldName : validationRules.keySet()) {
-            projection.put(fieldName, 1);   // 1 = include field
+        // Use collectionField if specified, otherwise use the key name
+        for (Map.Entry<String, Object> entry : validationRules.entrySet()) {
+            String fieldKey = entry.getKey();
+            Object ruleValue = entry.getValue();
+            
+            // Skip array element rules (e.g., buttons[*].title)
+            if (fieldKey.contains("[*]")) {
+                continue;
+            }
+            
+            // Determine the actual MongoDB field name
+            String collectionField = fieldKey;  // Default to key name
+            
+            if (ruleValue instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> fieldRule = (Map<String, Object>) ruleValue;
+                String specifiedCollectionField = (String) fieldRule.get("collectionField");
+                if (specifiedCollectionField != null && !specifiedCollectionField.isEmpty()) {
+                    collectionField = specifiedCollectionField;
+                }
+            }
+            
+            projection.put(collectionField, 1);   // 1 = include field
+            log.debug("buildProjectionFields: Adding '{}' to projection (from key '{}')", 
+                collectionField, fieldKey);
         }
 
         log.debug("buildProjectionFields: Created projection with {} fields", projection.size());
