@@ -182,7 +182,8 @@ public class SupabaseMediaService implements MediaService {
                  if (!mediaRepository.findByFilePath(filePath).isEmpty()) {
                      throw new BusinessException("File with the same name already exists: " + fileTitle);
                  }
-                 Media media = uploadSingleFile(file, fileTitle, parentId);
+                 String fileDirectory = (parentId == null) ?  storageConfig.getBucket() : getParentPath(parentId);
+                 Media media = uploadSingleFile(file, fileTitle, parentId,fileDirectory);
                  MediaItemDto fileInfo = MediaItemDto.builder()
                          .id(media.getId())
                          .title(media.getFileName())
@@ -217,11 +218,11 @@ public class SupabaseMediaService implements MediaService {
     }
 
 
-    public Media uploadSingleFile(MultipartFile file, String title, String parentId) {  // Changed from UUID to String
+    public Media uploadSingleFile(MultipartFile file, String title, String parentId,String fileDirectory) {  // Changed from UUID to String        try {
         try {
         validateFile(file);
 
-        SupabaseResponse supabaseResponse = uploadToSupabase(file, file.getOriginalFilename());
+        SupabaseResponse supabaseResponse = uploadToSupabase(file, file.getOriginalFilename(), fileDirectory);
         String signedUrl = null;
         signedUrl = getSignedUrl(supabaseResponse != null ? supabaseResponse.getKey() : null, supabaseResponse != null ? supabaseResponse.getId() : null);
         MediaType mediaType = determineMediaType(file.getContentType());
@@ -396,11 +397,11 @@ public class SupabaseMediaService implements MediaService {
         }
     }
 
-    private SupabaseResponse uploadToSupabase(MultipartFile file, String fileName) {
+    private SupabaseResponse uploadToSupabase(MultipartFile file, String fileName,String fileDirectory) {
         try {
 
 
-            String url = storageConfig.getApiUrl()+storageConfig.getBucket()+"/"+fileName;
+            String url = storageConfig.getApiUrl()+"/"+ fileDirectory + "/" + fileName;
        var result = this.webClient.post().uri(url)
                     .header("Authorization", "Bearer " + storageConfig.getApiKey())
                     .header("Content-Type", file.getContentType())

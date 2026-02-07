@@ -36,7 +36,6 @@ public class DynamicFormRequest {
     @NotNull(message = "Form data is required")
     private Map<String, Object> formData;
 
-    private String submittedBy;
 
     private Map<String, Object> metadata;
 }

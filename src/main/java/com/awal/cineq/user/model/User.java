@@ -39,6 +39,13 @@ public class User {
     private String name;
 
     /**
+     * Role name - Denormalized for quick access (e.g., "SUPERADMIN", "ADMIN", "USER")
+     * Also stored in role_id as reference to roles collection
+     */
+    @Field("role")
+    private String role;
+
+    /**
      * Reference to the roles collection document ID.
      * Stores the ObjectId of the role document (e.g., "69765bae092751d1429dcbf0").
      * This is a MongoDB-style reference instead of embedding the role data.

@@ -1,3 +1,15 @@
+/**
+ * REST Controller for User management endpoints.
+ * Provides CRUD operations for users (except create, which is handled by AuthController).
+ *
+ * Endpoints:
+ * - GET    /user          - List users with pagination, search, and filters
+ * - GET    /user/{id}     - Get user by ID
+ * - PUT    /user/{id}     - Update user
+ * - DELETE /user/{id}     - Soft delete user
+ * - POST   /user/bulk-enable  - Bulk enable users
+ * - POST   /user/bulk-disable - Bulk disable users
+ */
 package com.awal.cineq.user.controller;
 
 import com.awal.cineq.dto.ApiResponse;

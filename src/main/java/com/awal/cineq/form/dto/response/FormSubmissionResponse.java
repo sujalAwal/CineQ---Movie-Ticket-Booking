@@ -24,9 +24,6 @@ public class FormSubmissionResponse {
 
     private Map<String, Object> formData;
 
-    private String status;
-
-    private String submittedBy;
 
     private Boolean isActive;
 

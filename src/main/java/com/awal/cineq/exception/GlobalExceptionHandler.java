@@ -191,10 +191,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Object>> handleValidationException(
             ValidationException ex, HttpServletRequest request) {
 
-        ApiResponse<Object> response = ApiResponse.error(
-            ex.getMessage(),
-            HttpStatus.BAD_REQUEST.value()
-        );
+        Map<String, String> fieldErrors = ex.getFieldErrors();
+
+        // Extract first error message for the main message (for toast alerts)
+        String firstErrorMessage = "Validation failed";
+        if (fieldErrors != null && !fieldErrors.isEmpty()) {
+            firstErrorMessage = fieldErrors.values().iterator().next();
+        }
+
+        ApiResponse<Object> response = ApiResponse.error(firstErrorMessage);
+
+        // Add all field errors to the response for frontend field-level error handling
+        if (fieldErrors != null && !fieldErrors.isEmpty()) {
+            response.setErrors(fieldErrors);
+        }
+
         response.setPath(request.getRequestURI());
 
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);

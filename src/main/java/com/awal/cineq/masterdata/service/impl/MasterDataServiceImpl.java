@@ -124,7 +124,7 @@ public class MasterDataServiceImpl implements MasterDataService {
         roles.forEach(role -> {
 
             RoleDTO roleDTO = new RoleDTO();
-            roleDTO.setName(role.getSubmittedData().get("name").toString());
+            roleDTO.setName(role.getFormData().get("name").toString());
             roleDTO.setIsActive(role.getIsActive());
             roleDTOs.add(roleDTO);
         });
