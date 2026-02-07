@@ -74,6 +74,65 @@ public class JavaAnnotationValidator {
             String fieldName = entry.getKey();
             Object rulesConfig = entry.getValue();
 
+            // CHECK FOR ARRAY NESTED FIELD PATTERN: fieldName[*].nestedField
+            // Example: buttons[*].title → validate 'title' field in each element of 'buttons' array
+            if (fieldName.contains("[*].")) {
+                if (rulesConfig instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> fieldConfig = (Map<String, Object>) rulesConfig;
+                    
+                    // Parse: "buttons[*].title" → arrayFieldName="buttons", nestedFieldName="title"
+                    int bracketIndex = fieldName.indexOf("[*].");
+                    String arrayFieldName = fieldName.substring(0, bracketIndex);
+                    String nestedFieldName = fieldName.substring(bracketIndex + 4); // Skip "[*]."
+
+                    log.info("ARRAY VALIDATION: fieldName='{}' → array='{}', nested='{}'",
+                             fieldName, arrayFieldName, nestedFieldName);
+
+                    // Get the array from formData
+                    Object arrayValue = data.get(arrayFieldName);
+
+                    if (arrayValue instanceof List) {
+                        @SuppressWarnings("unchecked")
+                        List<Object> arrayList = (List<Object>) arrayValue;
+
+                        // Validate each element in the array
+                        for (int i = 0; i < arrayList.size(); i++) {
+                            Object element = arrayList.get(i);
+
+                            if (element instanceof Map) {
+                                @SuppressWarnings("unchecked")
+                                Map<String, Object> elementMap = (Map<String, Object>) element;
+                                Object nestedValue = elementMap.get(nestedFieldName);
+
+                                // Create display name for error messages: "buttons[0].title"
+                                String displayFieldName = arrayFieldName + "[" + i + "]." + nestedFieldName;
+
+                                log.info("ARRAY VALIDATION: Validating {}='{}' with config={}",
+                                         displayFieldName, nestedValue, fieldConfig.keySet());
+
+                                // Collect errors for this array element field
+                                List<String> elementErrors = new ArrayList<>();
+                                validateFieldWithOverride(displayFieldName, nestedValue, fieldConfig, elementMap,
+                                                        normalizedAction, elementErrors, formManagerId, formStepId);
+
+                                // If there are errors, add to fieldErrors map
+                                if (!elementErrors.isEmpty()) {
+                                    fieldErrors.put(displayFieldName, String.join(" | ", elementErrors));
+                                }
+                            }
+                        }
+                    } else if (arrayValue != null) {
+                        // Array field exists but is not a List
+                        log.warn("ARRAY VALIDATION: Field '{}' is not an array, got: {}",
+                                 arrayFieldName, arrayValue.getClass().getSimpleName());
+                    }
+                    // If arrayValue is null, skip (let @NotEmpty on the array field handle it)
+                }
+                continue; // Skip regular validation for array pattern fields
+            }
+
+            // REGULAR FIELD VALIDATION (non-array fields)
             // CRITICAL: Check if field exists in formData
             // For missing keys: fieldValue will be null
             // Some validators (like @Exists on 'id' field for UPDATE/DELETE) need this behavior
@@ -1246,7 +1305,53 @@ public class JavaAnnotationValidator {
             @SuppressWarnings("unchecked")
             Map<String, Object> fieldConfig = (Map<String, Object>) rulesConfigObj;
 
-            // STEP 1: Check if collectionField exists (WHITELIST - required)
+            // ARRAY NESTED FIELD VALIDATION: fieldName[*].nestedField
+            // Example: buttons[*].title → validate 'title' field in each element of 'buttons' array
+            // NOTE: Array nested fields are VALIDATION-ONLY, no mapping (parent array handles mapping)
+            if (formFieldName.contains("[*].")) {
+                // Parse: "buttons[*].title" → arrayFieldName="buttons", nestedFieldName="title"
+                int bracketIndex = formFieldName.indexOf("[*].");
+                String arrayFieldName = formFieldName.substring(0, bracketIndex);
+                String nestedFieldName = formFieldName.substring(bracketIndex + 4); // Skip "[*]."
+
+                log.info("validateAndMapFields ARRAY: field='{}' → array='{}', nested='{}'",
+                         formFieldName, arrayFieldName, nestedFieldName);
+
+                // Get the array from formData
+                Object arrayValue = formData.get(arrayFieldName);
+
+                if (arrayValue instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Object> arrayList = (List<Object>) arrayValue;
+
+                    // Validate each element in the array
+                    for (int i = 0; i < arrayList.size(); i++) {
+                        Object element = arrayList.get(i);
+
+                        if (element instanceof Map) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> elementMap = (Map<String, Object>) element;
+                            Object nestedValue = elementMap.get(nestedFieldName);
+
+                            // Create display name for error messages: "buttons[0].title"
+                            String displayFieldName = arrayFieldName + "[" + i + "]." + nestedFieldName;
+
+                            // Collect errors for this array element field
+                            List<String> elementErrors = new ArrayList<>();
+                            validateFieldWithOverride(displayFieldName, nestedValue, fieldConfig, elementMap,
+                                                    action, elementErrors, formManagerId, formStepId);
+
+                            // If there are errors, add to errors list
+                            if (!elementErrors.isEmpty()) {
+                                errors.addAll(elementErrors);
+                            }
+                        }
+                    }
+                }
+                continue; // Skip mapping for array pattern fields (parent array handles it)
+            }
+
+            // REGULAR FIELD: Check if collectionField exists (WHITELIST - required)
             if (!fieldConfig.containsKey("collectionField")) {
                 log.debug("validateAndMapFields: Field '{}' has no collectionField - EXCLUDING from result",
                         formFieldName);
