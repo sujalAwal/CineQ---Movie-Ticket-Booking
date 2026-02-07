@@ -5,8 +5,10 @@ import com.awal.cineq.dto.PaginationResponse;
 import com.awal.cineq.exception.BusinessException;
 import com.awal.cineq.exception.ResourceNotFoundException;
 import com.awal.cineq.exception.ValidationException;
+import com.awal.cineq.form.dto.request.BulkDeleteRequest;
 import com.awal.cineq.form.dto.request.BulkStatusUpdateRequest;
 import com.awal.cineq.form.dto.request.DynamicFormRequest;
+import com.awal.cineq.form.dto.response.BulkDeleteResponse;
 import com.awal.cineq.form.dto.response.BulkStatusUpdateResponse;
 import com.awal.cineq.form.dto.response.FormSubmissionResponse;
 import com.awal.cineq.form.enums.FormAction;
@@ -28,8 +30,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -1258,6 +1258,161 @@ public class UniversalFormServiceImpl implements UniversalFormService {
 
         return BulkStatusUpdateResponse.builder()
                 .updated(updated)
+                .failed(failed)
+                .results(results)
+                .build();
+    }
+
+    /**
+     * Bulk soft-delete documents by IDs
+     * Sets deletedAt timestamp for each document (soft-delete pattern)
+     *
+     * @param request Contains formSlug and list of document IDs to soft-delete
+     * @return BulkDeleteResponse with deletion summary and detailed results
+     */
+    @Override
+    @Transactional
+    public BulkDeleteResponse bulkSoftDelete(BulkDeleteRequest request) {
+        log.info("bulkSoftDelete STARTED: formSlug={}, ids={}",
+            request.getFormSlug(), request.getIds());
+
+        String formSlug = request.getFormSlug();
+        List<String> ids = request.getIds();
+
+        int deleted = 0;
+        int failed = 0;
+        List<BulkDeleteResponse.DeleteResult> results = new ArrayList<>();
+
+        try {
+            // STEP 1: Find form manager by slug using cache (same as submitForm)
+            FormManager formManager = formConfigCacheService.getFormManagerBySlug(formSlug);
+
+            if (!formManager.getIsActive()) {
+                throw new BusinessException("Form is not active");
+            }
+
+            // STEP 2: Get FormStep to retrieve targetCollection from workflowRules (cached)
+            List<FormStep> formSteps = formConfigCacheService.getFormStepsByManagerId(formManager.getId());
+            if (formSteps.isEmpty()) {
+                throw new ResourceNotFoundException("No form steps found for form: " + formSlug);
+            }
+
+            FormStep formStep = formSteps.getFirst();
+            Map<String, Object> workflowRules = formStep.getWorkflowRules();
+
+            // STEP 3: Determine target collection (where documents are stored)
+            String targetCollection = "form_submissions";  // Default
+            if (workflowRules != null) {
+                targetCollection = (String) workflowRules.getOrDefault("targetCollection", "form_submissions");
+            }
+
+            log.debug("bulkSoftDelete: Using targetCollection='{}' for formSlug='{}'", targetCollection, formSlug);
+
+            // STEP 4: Process each ID for soft-delete
+            LocalDateTime deletedAt = LocalDateTime.now();
+
+            for (String id : ids) {
+                try {
+                    log.debug("bulkSoftDelete: Processing id={} in collection='{}'", id, targetCollection);
+
+                    // Fetch document by ID from target collection
+                    Map<String, Object> document = mongoTemplate.findById(id, Map.class, targetCollection);
+
+                    if (document == null) {
+                        log.warn("bulkSoftDelete: Document not found with id={} in collection='{}'", id, targetCollection);
+                        results.add(BulkDeleteResponse.DeleteResult.builder()
+                            .id(id)
+                            .success(false)
+                            .message("Document not found")
+                            .build());
+                        failed++;
+                        continue;
+                    }
+
+                    // Check if already soft-deleted
+                    Object existingDeletedAt = document.get("deletedAt");
+                    if (existingDeletedAt != null) {
+                        log.warn("bulkSoftDelete: Document {} is already soft-deleted in '{}', skipping", id, targetCollection);
+                        results.add(BulkDeleteResponse.DeleteResult.builder()
+                            .id(id)
+                            .success(false)
+                            .message("Document already deleted")
+                            .build());
+                        failed++;
+                        continue;
+                    }
+
+                    // Perform soft-delete by setting deletedAt timestamp
+                    if ("form_submissions".equals(targetCollection)) {
+                        // For form_submissions, use the repository
+                        FormSubmission submission = formSubmissionRepository.findById(id)
+                            .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
+
+                        if (submission.getDeletedAt() != null) {
+                            log.warn("bulkSoftDelete: Document {} is already soft-deleted, skipping", id);
+                            results.add(BulkDeleteResponse.DeleteResult.builder()
+                                .id(id)
+                                .success(false)
+                                .message("Document already deleted")
+                                .build());
+                            failed++;
+                            continue;
+                        }
+
+                        submission.setDeletedAt(deletedAt);
+                        submission.setUpdatedAt(deletedAt);
+                        formSubmissionRepository.save(submission);
+
+                        results.add(BulkDeleteResponse.DeleteResult.builder()
+                            .id(id)
+                            .success(true)
+                            .message("Deleted successfully")
+                            .build());
+
+                        deleted++;
+                        log.debug("bulkSoftDelete: Successfully soft-deleted id={} in 'form_submissions'", id);
+                    } else {
+                        // For other collections, update via mongoTemplate
+                        document.put("deletedAt", deletedAt);
+                        document.put("updatedAt", deletedAt);
+
+                        // Save back to collection
+                        mongoTemplate.save(document, targetCollection);
+
+                        results.add(BulkDeleteResponse.DeleteResult.builder()
+                            .id(id)
+                            .success(true)
+                            .message("Deleted successfully")
+                            .build());
+
+                        deleted++;
+                        log.debug("bulkSoftDelete: Successfully soft-deleted id={} in '{}'", id, targetCollection);
+                    }
+
+                } catch (Exception e) {
+                    log.error("bulkSoftDelete: Error soft-deleting id={} in '{}': {}", id, targetCollection, e.getMessage(), e);
+                    results.add(BulkDeleteResponse.DeleteResult.builder()
+                        .id(id)
+                        .success(false)
+                        .message("Error: " + e.getMessage())
+                        .build());
+                    failed++;
+                }
+            }
+
+            log.info("bulkSoftDelete END: formSlug='{}', targetCollection='{}', deleted={}, failed={}",
+                formSlug, targetCollection, deleted, failed);
+
+        } catch (ResourceNotFoundException | BusinessException e) {
+            log.error("bulkSoftDelete ERROR", e);
+            throw e;
+        } catch (Exception e) {
+            log.error("bulkSoftDelete UNEXPECTED ERROR", e);
+            throw new BusinessException("Failed to bulk soft-delete", e);
+        }
+
+        return BulkDeleteResponse.builder()
+                .deleted(deleted)
                 .failed(failed)
                 .results(results)
                 .build();

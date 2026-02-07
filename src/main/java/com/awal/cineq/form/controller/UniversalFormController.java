@@ -2,8 +2,10 @@ package com.awal.cineq.form.controller;
 
 import com.awal.cineq.dto.ApiResponse;
 import com.awal.cineq.dto.PaginationResponse;
+import com.awal.cineq.form.dto.request.BulkDeleteRequest;
 import com.awal.cineq.form.dto.request.BulkStatusUpdateRequest;
 import com.awal.cineq.form.dto.request.DynamicFormRequest;
+import com.awal.cineq.form.dto.response.BulkDeleteResponse;
 import com.awal.cineq.form.dto.response.BulkStatusUpdateResponse;
 import com.awal.cineq.form.dto.response.FormSubmissionResponse;
 import com.awal.cineq.form.service.UniversalFormService;
@@ -178,6 +180,44 @@ public class UniversalFormController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("updateSubmissionStatus ERROR", e);
+            throw e;
+        }
+    }
+
+    /**
+     * Bulk soft-delete documents by IDs
+     *
+     * Sets deletedAt timestamp for each document instead of hard deleting.
+     * Documents are retrieved from targetCollection defined in FormManager's workflowRules.
+     *
+     * Example DELETE request:
+     * {
+     *   "formSlug": "roles",
+     *   "ids": ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
+     * }
+     *
+     * @param request Contains formSlug and list of document IDs to soft-delete
+     * @param servletRequest HTTP request for path tracking
+     * @return Response with deletion summary and detailed results
+     */
+    @DeleteMapping("/delete")
+    public ResponseEntity<ApiResponse<BulkDeleteResponse>> bulkSoftDelete(
+            @Valid @RequestBody BulkDeleteRequest request,
+            HttpServletRequest servletRequest) {
+
+        log.info("bulkSoftDelete STARTED: formSlug={}, ids={}", request.getFormSlug(), request.getIds());
+
+        try {
+            BulkDeleteResponse result = universalFormService.bulkSoftDelete(request);
+
+            ApiResponse<BulkDeleteResponse> response = ApiResponse.success(
+                    "Documents deleted successfully", result);
+            response.setPath(servletRequest.getRequestURI());
+
+            log.info("bulkSoftDelete END: deleted={}, failed={}", result.getDeleted(), result.getFailed());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("bulkSoftDelete ERROR", e);
             throw e;
         }
     }

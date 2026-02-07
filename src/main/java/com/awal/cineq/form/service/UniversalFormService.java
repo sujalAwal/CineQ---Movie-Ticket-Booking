@@ -1,8 +1,10 @@
 package com.awal.cineq.form.service;
 
 import com.awal.cineq.dto.PaginationResponse;
+import com.awal.cineq.form.dto.request.BulkDeleteRequest;
 import com.awal.cineq.form.dto.request.BulkStatusUpdateRequest;
 import com.awal.cineq.form.dto.request.DynamicFormRequest;
+import com.awal.cineq.form.dto.response.BulkDeleteResponse;
 import com.awal.cineq.form.dto.response.BulkStatusUpdateResponse;
 import com.awal.cineq.form.dto.response.FormSubmissionResponse;
 
@@ -61,6 +63,17 @@ public interface UniversalFormService {
     PaginationResponse<Map<String, Object>> getSubmissionsByUser(String username, int page, int size);
 
     BulkStatusUpdateResponse updateBulkStatus(BulkStatusUpdateRequest request);
+
+    /**
+     * Bulk soft-delete documents by IDs
+     *
+     * Sets deletedAt timestamp for each document (soft-delete pattern)
+     * Documents are retrieved from targetCollection defined in FormManager's workflowRules
+     *
+     * @param request Contains formSlug and list of document IDs to soft-delete
+     * @return BulkDeleteResponse with deletion summary and detailed results
+     */
+    BulkDeleteResponse bulkSoftDelete(BulkDeleteRequest request);
 
     List<String> getUserRoles();
 }

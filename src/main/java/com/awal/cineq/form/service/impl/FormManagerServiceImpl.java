@@ -64,15 +64,17 @@ public class FormManagerServiceImpl implements FormManagerService {
             Sort.Direction direction = "desc".equalsIgnoreCase(sortDirection) ? Sort.Direction.DESC : Sort.Direction.ASC;
             PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(direction, sortBy));
 
+            // Use optimized repository methods with DB-level projection (excludes formSteps from query)
             Page<FormManager> formManagers;
             if (search != null && !search.trim().isEmpty()) {
-                formManagers = formManagerRepository.findByTitleContainingIgnoreCase(search, pageRequest);
+                formManagers = formManagerRepository.findByTitleContainingIgnoreCaseForListing(search, pageRequest);
             } else {
-                formManagers = formManagerRepository.findAllActive(pageRequest);
+                formManagers = formManagerRepository.findAllActiveForListing(pageRequest);
             }
 
+            // Map to response (formSteps already excluded at DB level, no extra query needed)
             List<FormManagerResponse> responses = formManagers.stream()
-                    .map(this::toResponse)
+                    .map(this::toResponseWithoutSteps)
                     .collect(Collectors.toList());
 
             log.info("getAllFormManagers END: found {} form managers", responses.size());
@@ -366,6 +368,27 @@ public class FormManagerServiceImpl implements FormManagerService {
 
         response.setFormSteps(stepResponses);
 
+        return response;
+    }
+
+    /**
+     * Convert FormManager to response WITHOUT fetching formSteps
+     * Used for listing pages where only FormManager columns are needed
+     * This avoids N+1 queries when fetching multiple FormManagers
+     *
+     * @param formManager The FormManager entity
+     * @return FormManagerResponse without formSteps (formSteps will be null)
+     */
+    private FormManagerResponse toResponseWithoutSteps(FormManager formManager) {
+        FormManagerResponse response = new FormManagerResponse();
+        response.setId(formManager.getId());
+        response.setTitle(formManager.getTitle());
+        response.setSlug(formManager.getSlug());
+        response.setDescription(formManager.getDescription());
+        response.setModelName(formManager.getModelName());
+        response.setIsActive(formManager.getIsActive());
+        response.setModuleCode(formManager.getModuleCode());
+        // formSteps intentionally not set (remains null) for listing optimization
         return response;
     }
 
