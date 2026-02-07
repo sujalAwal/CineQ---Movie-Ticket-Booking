@@ -21,4 +21,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: sjawal/cineq:latest
+          tags: sjawal/cineq:develop
