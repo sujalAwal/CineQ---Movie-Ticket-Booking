@@ -64,6 +64,23 @@ public class Customer {
     @Field("email_verification_expires_at")
     private LocalDateTime emailVerificationExpiresAt;
     
+    // Login attempt tracking (for lockout)
+    @Field("failed_login_attempts")
+    private Integer failedLoginAttempts = 0;
+    
+    @Field("locked_until")
+    private LocalDateTime lockedUntil;
+    
+    @Field("last_failed_login_at")
+    private LocalDateTime lastFailedLoginAt;
+    
+    // Password reset
+    @Field("password_reset_token")
+    private String passwordResetToken;
+    
+    @Field("password_reset_token_expires_at")
+    private LocalDateTime passwordResetTokenExpiresAt;
+    
     @Field("is_active")
     private Boolean isActive = true;
     
@@ -89,6 +106,25 @@ public class Customer {
     
     public void deductLoyaltyPoints(Integer points) {
         this.loyaltyPoints = Math.max(0, this.loyaltyPoints - points);
+    }
+    
+    public void incrementFailedLoginAttempts() {
+        this.failedLoginAttempts = (this.failedLoginAttempts == null ? 0 : this.failedLoginAttempts) + 1;
+        this.lastFailedLoginAt = LocalDateTime.now();
+    }
+    
+    public void resetFailedLoginAttempts() {
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
+        this.lastFailedLoginAt = null;
+    }
+    
+    public boolean isLocked() {
+        return this.lockedUntil != null && LocalDateTime.now().isBefore(this.lockedUntil);
+    }
+    
+    public void lockAccount(int durationMinutes) {
+        this.lockedUntil = LocalDateTime.now().plusMinutes(durationMinutes);
     }
     
     public enum Gender {

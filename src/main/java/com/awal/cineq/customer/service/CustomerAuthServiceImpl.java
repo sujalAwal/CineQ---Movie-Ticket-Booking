@@ -1,6 +1,7 @@
 package com.awal.cineq.customer.service;
 
 import com.awal.cineq.config.JwtUtil;
+import com.awal.cineq.customer.config.CustomerAuthConfig;
 import com.awal.cineq.customer.dto.*;
 import com.awal.cineq.customer.model.Customer;
 import com.awal.cineq.customer.repository.CustomerRepository;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.UUID;
 
 @Service
@@ -27,39 +29,68 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final CustomerAuthConfig customerAuthConfig;
 
     @Override
     public CustomerAuthResponse login(CustomerLoginRequest loginRequest) {
-        try {
-            // Check if customer exists and is active
-            Customer customer = customerRepository.findByEmailAndIsActiveTrue(loginRequest.getEmail())
-                    .orElseThrow(() -> new BadRequestException("Invalid email or password"));
+        // Find customer by email
+        Customer customer = customerRepository.findByEmailAndIsActiveTrue(loginRequest.getEmail())
+                .orElseThrow(() -> new BadRequestException("Invalid email or password"));
 
-            // Verify password
-            if (!passwordEncoder.matches(loginRequest.getPassword(), customer.getPassword())) {
-                throw new BadRequestException("Invalid email or password");
-            }
-
-            String token = jwtUtil.generateToken(customer.getEmail(), "CUSTOMER");
-
-            log.info("Customer {} logged in successfully", customer.getEmail());
-
-            return CustomerAuthResponse.builder()
-                    .token(token)
-                    .type("Bearer")
-                    .id(customer.getId())
-                    .email(customer.getEmail())
-                    .firstName(customer.getFirstName())
-                    .lastName(customer.getLastName())
-                    .loyaltyPoints(customer.getLoyaltyPoints())
-                    .isEmailVerified(customer.getIsEmailVerified())
-                    .role("CUSTOMER")
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Login failed for customer email: {}", loginRequest.getEmail(), e);
-            throw new BadRequestException("Invalid email or password");
+        // Check if account is locked
+        if (customer.isLocked()) {
+            long minutesRemaining = Duration.between(LocalDateTime.now(), customer.getLockedUntil()).toMinutes() + 1;
+            throw new BadRequestException("Account locked due to too many failed attempts. Try again in " + minutesRemaining + " minutes.");
         }
+
+        // Verify password
+        if (!passwordEncoder.matches(loginRequest.getPassword(), customer.getPassword())) {
+            handleFailedLogin(customer);
+            int attemptsRemaining = customerAuthConfig.getMaxFailedLoginAttempts() - customer.getFailedLoginAttempts();
+            if (attemptsRemaining > 0) {
+                throw new BadRequestException("Invalid email or password. " + attemptsRemaining + " attempts remaining before lockout.");
+            } else {
+                throw new BadRequestException("Account locked due to too many failed attempts. Try again in " + customerAuthConfig.getLockoutDurationMinutes() + " minutes.");
+            }
+        }
+
+        // Check email verification requirement
+        if (customerAuthConfig.isEmailVerificationRequired() && !customer.getIsEmailVerified()) {
+            throw new BadRequestException("Please verify your email before logging in. Check your inbox or request a new verification email.");
+        }
+
+        // Successful login - reset failed attempts
+        customer.resetFailedLoginAttempts();
+        customerRepository.save(customer);
+
+        String token = jwtUtil.generateToken(customer.getEmail(), "CUSTOMER");
+        log.info("Customer {} logged in successfully", customer.getEmail());
+
+        return CustomerAuthResponse.builder()
+                .token(token)
+                .type("Bearer")
+                .id(customer.getId())
+                .email(customer.getEmail())
+                .firstName(customer.getFirstName())
+                .lastName(customer.getLastName())
+                .loyaltyPoints(customer.getLoyaltyPoints())
+                .isEmailVerified(customer.getIsEmailVerified())
+                .role("CUSTOMER")
+                .build();
+    }
+
+    private void handleFailedLogin(Customer customer) {
+        customer.incrementFailedLoginAttempts();
+        
+        if (customer.getFailedLoginAttempts() >= customerAuthConfig.getMaxFailedLoginAttempts()) {
+            customer.lockAccount(customerAuthConfig.getLockoutDurationMinutes());
+            log.warn("Customer {} account locked after {} failed attempts", 
+                    customer.getEmail(), customer.getFailedLoginAttempts());
+        }
+        
+        customerRepository.save(customer);
+        log.info("Failed login attempt for customer {}. Attempts: {}/{}", 
+                customer.getEmail(), customer.getFailedLoginAttempts(), customerAuthConfig.getMaxFailedLoginAttempts());
     }
 
     @Override
@@ -78,20 +109,36 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         customer.setGender(registerRequest.getGender());
         customer.setIsActive(true);
         customer.setIsEmailVerified(false);
+        customer.setFailedLoginAttempts(0);
 
         // Generate email verification token
         String verificationToken = UUID.randomUUID().toString();
         customer.setEmailVerificationToken(verificationToken);
-        customer.setEmailVerificationExpiresAt(LocalDateTime.now().plusHours(24)); // 24 hours expiry
+        customer.setEmailVerificationExpiresAt(LocalDateTime.now().plusHours(24));
 
         Customer savedCustomer = customerRepository.save(customer);
 
-        // For now, we'll automatically verify email for demo purposes
-        // In a real application, you would send an email with the verification token
+        // TODO: Send actual verification email
         log.info("Email verification token generated for {}: {}", savedCustomer.getEmail(), verificationToken);
 
-        String token = jwtUtil.generateToken(savedCustomer.getEmail(), "CUSTOMER");
+        // If verification required, don't return token
+        if (customerAuthConfig.isEmailVerificationRequired()) {
+            log.info("Customer {} registered - email verification required", savedCustomer.getEmail());
+            return CustomerAuthResponse.builder()
+                    .id(savedCustomer.getId())
+                    .email(savedCustomer.getEmail())
+                    .firstName(savedCustomer.getFirstName())
+                    .lastName(savedCustomer.getLastName())
+                    .loyaltyPoints(savedCustomer.getLoyaltyPoints())
+                    .isEmailVerified(false)
+                    .role("CUSTOMER")
+                    .token(null)
+                    .type(null)
+                    .build();
+        }
 
+        // If verification not required, return token immediately
+        String token = jwtUtil.generateToken(savedCustomer.getEmail(), "CUSTOMER");
         log.info("Customer {} registered successfully", savedCustomer.getEmail());
 
         return CustomerAuthResponse.builder()
@@ -119,7 +166,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("Invalid verification token"));
 
         if (customer.getEmailVerificationExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new BadRequestException("Verification token has expired");
+            throw new BadRequestException("Verification token has expired. Please request a new one.");
         }
 
         customer.setIsEmailVerified(true);
@@ -127,7 +174,6 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         customer.setEmailVerificationExpiresAt(null);
 
         customerRepository.save(customer);
-
         log.info("Email verified successfully for customer: {}", customer.getEmail());
     }
 
@@ -147,14 +193,66 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
 
         customerRepository.save(customer);
 
-        // In a real application, send email here
+        // TODO: Send actual verification email
         log.info("New email verification token generated for {}: {}", customer.getEmail(), verificationToken);
     }
 
-    // Replaced placeholder with real UserDetails loader.
-    // Tries email first, then attempts to parse username as UUID and find by id.
+    @Override
+    public void forgotPassword(String email) {
+        Customer customer = customerRepository.findByEmailAndIsActiveTrue(email)
+                .orElse(null);
+        
+        // Always return success to prevent email enumeration attacks
+        if (customer == null) {
+            log.info("Password reset requested for non-existent email: {}", email);
+            return;
+        }
+
+        // Generate password reset token
+        String resetToken = UUID.randomUUID().toString();
+        customer.setPasswordResetToken(resetToken);
+        customer.setPasswordResetTokenExpiresAt(
+                LocalDateTime.now().plusHours(customerAuthConfig.getPasswordResetTokenExpiryHours())
+        );
+
+        customerRepository.save(customer);
+
+        // TODO: Send actual password reset email with link
+        log.info("Password reset token generated for {}: {}", customer.getEmail(), resetToken);
+    }
+
+    @Override
+    public void resetPassword(String token, String newPassword) {
+        Customer customer = customerRepository.findByPasswordResetToken(token)
+                .orElseThrow(() -> new BadRequestException("Invalid or expired reset token"));
+
+        if (customer.getPasswordResetTokenExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Reset token has expired. Please request a new one.");
+        }
+
+        // Update password
+        customer.setPassword(passwordEncoder.encode(newPassword));
+        
+        // Clear reset token
+        customer.setPasswordResetToken(null);
+        customer.setPasswordResetTokenExpiresAt(null);
+        
+        // Clear any lockout (password reset should unlock account)
+        customer.resetFailedLoginAttempts();
+
+        customerRepository.save(customer);
+        log.info("Password reset successfully for customer: {}", customer.getEmail());
+    }
+
+    @Override
+    public boolean validateResetToken(String token) {
+        return customerRepository.findByPasswordResetToken(token)
+                .map(customer -> customer.getPasswordResetTokenExpiresAt().isAfter(LocalDateTime.now()))
+                .orElse(false);
+    }
+
+    // UserDetailsService method for Spring Security
     public org.springframework.security.core.userdetails.UserDetails loadUserByUsername(String username) {
-        // Try load by email (common case)
         var byEmail = customerRepository.findByEmailAndIsActiveTrue(username);
         if (byEmail.isPresent()) {
             Customer c = byEmail.get();
@@ -165,10 +263,8 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
                     .build();
         }
 
-        // If not found by email, try parsing as UUID and find by id (some modules use UUID ids)
         try {
-            // MongoDB uses String ID directly
-            var byId = customerRepository.findById(username); // MongoDB ObjectId as String
+            var byId = customerRepository.findById(username);
             if (byId.isPresent()) {
                 Customer c = byId.get();
                 return org.springframework.security.core.userdetails.User.builder()
@@ -179,7 +275,6 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
             }
             throw new UsernameNotFoundException("Customer not found: " + username);
         } catch (IllegalArgumentException ex) {
-            // invalid UUID format -> not a UUID and also not found by email
             throw new UsernameNotFoundException("Invalid identifier or user not found: " + username, ex);
         }
     }

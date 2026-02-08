@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/frontend/customer/auth")
 @RequiredArgsConstructor
@@ -33,14 +35,17 @@ public class CustomerAuthController {
         
         CustomerAuthResponse authResponse = customerAuthService.register(registerRequest);
         
-        return ResponseEntity.ok(ApiResponse.success("Registration successful. Please verify your email.", authResponse));
+        String message = authResponse.getToken() == null 
+                ? "Registration successful. Please verify your email before logging in."
+                : "Registration successful";
+        
+        return ResponseEntity.ok(ApiResponse.success(message, authResponse));
     }
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<String>> logout(@RequestHeader("Authorization") String token) {
         log.info("Customer logout attempt");
         
-        // Remove "Bearer " prefix if present
         if (token.startsWith("Bearer ")) {
             token = token.substring(7);
         }
@@ -56,15 +61,52 @@ public class CustomerAuthController {
         
         customerAuthService.verifyEmail(token);
         
-        return ResponseEntity.ok(ApiResponse.success("Email verified successfully", "Your email has been verified"));
+        return ResponseEntity.ok(ApiResponse.success("Email verified successfully", "Your email has been verified. You can now log in."));
     }
 
     @PostMapping("/resend-verification")
-    public ResponseEntity<ApiResponse<String>> resendVerificationEmail(@RequestParam String email) {
-        log.info("Resend verification email request for: {}", email);
+    public ResponseEntity<ApiResponse<String>> resendVerificationEmail(@Valid @RequestBody ForgotPasswordRequest request) {
+        log.info("Resend verification email request for: {}", request.getEmail());
         
-        customerAuthService.resendVerificationEmail(email);
+        customerAuthService.resendVerificationEmail(request.getEmail());
         
         return ResponseEntity.ok(ApiResponse.success("Verification email sent", "Please check your email for verification instructions"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        log.info("Password reset request for email: {}", request.getEmail());
+        
+        customerAuthService.forgotPassword(request.getEmail());
+        
+        // Always return success to prevent email enumeration
+        return ResponseEntity.ok(ApiResponse.success(
+                "Password reset instructions sent", 
+                "If an account exists with this email, you will receive password reset instructions."
+        ));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        log.info("Password reset attempt with token");
+        
+        customerAuthService.resetPassword(request.getToken(), request.getNewPassword());
+        
+        return ResponseEntity.ok(ApiResponse.success(
+                "Password reset successful", 
+                "Your password has been reset. You can now log in with your new password."
+        ));
+    }
+
+    @GetMapping("/validate-reset-token")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> validateResetToken(@RequestParam String token) {
+        log.info("Validating password reset token");
+        
+        boolean isValid = customerAuthService.validateResetToken(token);
+        
+        return ResponseEntity.ok(ApiResponse.success(
+                isValid ? "Token is valid" : "Token is invalid or expired",
+                Map.of("valid", isValid)
+        ));
     }
 }

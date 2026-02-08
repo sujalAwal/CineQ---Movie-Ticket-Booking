@@ -60,4 +60,8 @@ public interface CustomerRepository extends MongoRepository<Customer, String> {
     // Get total loyalty points (aggregation - implement in service layer)
     @Query("{ 'isActive': true, 'deletedAt': null }")
     List<Customer> findAllActiveCustomers();
+    
+    // Find by password reset token
+    @Query("{ 'passwordResetToken': ?0, 'deletedAt': null }")
+    Optional<Customer> findByPasswordResetToken(String token);
 }

@@ -34,20 +34,26 @@ public class SecurityConfig {
             .exceptionHandling(exception -> exception.authenticationEntryPoint(jwtAuthEntryPoint))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
-                // Public endpoints
-                .requestMatchers("/auth/login").permitAll()
-                .requestMatchers("/auth/register").permitAll()
+                // Public endpoints - Auth
+                .requestMatchers("/auth/login", "/auth/register").permitAll()
+                .requestMatchers("/frontend/customer/auth/**").permitAll()
+                
+                // Public endpoints - Docs & Health
                 .requestMatchers("/health").permitAll()
-                .requestMatchers("/frontend/**").permitAll()
-                .requestMatchers("/swagger-ui/**").permitAll()
-                .requestMatchers("/swagger-ui.html").permitAll()
-                .requestMatchers("/v3/api-docs/**").permitAll()
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/login").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
-                // Admin endpoints
-                .requestMatchers("/**").hasAnyRole("ADMIN","SUPERADMIN")
-                // Customer endpoints
-                .requestMatchers("customer/**").hasRole("CUSTOMER")
+                
+                // Public frontend endpoints (non-auth)
+                .requestMatchers("/frontend/**").permitAll()
+                
+                // Customer protected routes (MUST come before admin catch-all)
+                .requestMatchers("/customer/**").hasRole("CUSTOMER")
+                
+                // Form system routes (admin users)
+                .requestMatchers("/v1/**").hasAnyRole("ADMIN", "SUPERADMIN", "USER")
+                .requestMatchers("/form-manager/**").hasAnyRole("ADMIN", "SUPERADMIN")
+                
                 // All other requests need authentication
                 .anyRequest().authenticated()
             );

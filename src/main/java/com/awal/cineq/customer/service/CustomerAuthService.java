@@ -8,4 +8,9 @@ public interface CustomerAuthService {
     void logout(String token);
     void verifyEmail(String token);
     void resendVerificationEmail(String email);
+    
+    // Password reset
+    void forgotPassword(String email);
+    void resetPassword(String token, String newPassword);
+    boolean validateResetToken(String token);
 }
