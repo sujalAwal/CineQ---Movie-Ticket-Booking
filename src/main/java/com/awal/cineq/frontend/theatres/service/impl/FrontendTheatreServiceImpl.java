@@ -45,8 +45,10 @@ public class FrontendTheatreServiceImpl implements FrontendTheatreService {
         theatres,
         pageRequest.getPage(),
         pageRequest.getSize(),
+        result.getTotalPages(),
         result.getTotalElements(),
-        result.getTotalPages()
+        result.hasNext(),
+        result.hasPrevious()
       );
       log.info("getAllTheatres END");
       return response;
@@ -84,8 +86,10 @@ public class FrontendTheatreServiceImpl implements FrontendTheatreService {
         theatres,
         page,
         size,
+        result.getTotalPages(),
         result.getTotalElements(),
-        result.getTotalPages()
+        result.hasNext(),
+        result.hasPrevious()
       );
       log.info("getTheatresByCity END");
       return response;
@@ -109,8 +113,10 @@ public class FrontendTheatreServiceImpl implements FrontendTheatreService {
         theatres,
         page,
         size,
+        result.getTotalPages(),
         result.getTotalElements(),
-        result.getTotalPages()
+        result.hasNext(),
+        result.hasPrevious()
       );
       log.info("getTheatresByState END");
       return response;
