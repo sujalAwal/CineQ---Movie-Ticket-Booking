@@ -1,5 +1,6 @@
-package com.awal.cineq.customer.service;
+package com.awal.cineq.customer.service.impl;
 
+import com.awal.cineq.customer.service.CustomerService;
 import com.awal.cineq.customer.dto.CustomerResponse;
 import com.awal.cineq.customer.dto.CustomerUpdateRequest;
 import com.awal.cineq.customer.model.Customer;

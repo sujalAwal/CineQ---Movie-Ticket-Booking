@@ -1,24 +1,33 @@
-package com.awal.cineq.customer.service;
+package com.awal.cineq.customer.service.impl;
 
-import com.awal.cineq.config.JwtUtil;
-import com.awal.cineq.customer.config.CustomerAuthConfig;
-import com.awal.cineq.customer.dto.*;
-import com.awal.cineq.customer.model.Customer;
-import com.awal.cineq.customer.repository.CustomerRepository;
-import com.awal.cineq.exception.BadRequestException;
-import com.awal.cineq.exception.DuplicateResourceException;
-import com.awal.cineq.exception.ResourceNotFoundException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.Year;
+import java.util.UUID;
+
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
-import java.time.LocalDateTime;
-import java.time.Duration;
-import java.util.UUID;
+import com.awal.cineq.common.util.EmailHelper;
+import com.awal.cineq.config.JwtUtil;
+import com.awal.cineq.customer.config.CustomerAuthConfig;
+import com.awal.cineq.customer.dto.CustomerAuthResponse;
+import com.awal.cineq.customer.dto.CustomerLoginRequest;
+import com.awal.cineq.customer.dto.CustomerRegisterRequest;
+import com.awal.cineq.customer.model.Customer;
+import com.awal.cineq.customer.repository.CustomerRepository;
+import com.awal.cineq.customer.service.CustomerAuthService;
+import com.awal.cineq.email.model.EmailTemplate;
+import com.awal.cineq.email.repository.EmailTemplateRepository;
+import com.awal.cineq.exception.BadRequestException;
+import com.awal.cineq.exception.DuplicateResourceException;
+import com.awal.cineq.exception.ResourceNotFoundException;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +39,8 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final CustomerAuthConfig customerAuthConfig;
+    private final EmailTemplateRepository emailTemplateRepository;
+    private final EmailHelper emailHelper;
 
     @Override
     public CustomerAuthResponse login(CustomerLoginRequest loginRequest) {
@@ -95,8 +106,14 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
 
     @Override
     public CustomerAuthResponse register(CustomerRegisterRequest registerRequest) {
-        if (customerRepository.existsByEmail(registerRequest.getEmail())) {
-            throw new DuplicateResourceException("Email already exists");
+
+        // Validate password confirmation matches
+        if (!registerRequest.getPassword().equals(registerRequest.getConfirmPassword())) {
+            throw new BadRequestException("Passwords do not match");
+        }
+
+         if (customerRepository.existsByEmail(registerRequest.getEmail())) {
+           // throw new DuplicateResourceException("Email already exists");
         }
 
         Customer customer = new Customer();
@@ -118,7 +135,8 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
 
         Customer savedCustomer = customerRepository.save(customer);
 
-        // TODO: Send actual verification email
+        // Send verification email
+        sendVerificationEmail(savedCustomer, verificationToken);
         log.info("Email verification token generated for {}: {}", savedCustomer.getEmail(), verificationToken);
 
         // If verification required, don't return token
@@ -193,7 +211,8 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
 
         customerRepository.save(customer);
 
-        // TODO: Send actual verification email
+        // Send verification email
+        sendVerificationEmail(customer, verificationToken);
         log.info("New email verification token generated for {}: {}", customer.getEmail(), verificationToken);
     }
 
@@ -276,6 +295,47 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
             throw new UsernameNotFoundException("Customer not found: " + username);
         } catch (IllegalArgumentException ex) {
             throw new UsernameNotFoundException("Invalid identifier or user not found: " + username, ex);
+        }
+    }
+
+    private void sendVerificationEmail(Customer customer, String verificationToken) {
+        try {
+            EmailTemplate template = emailTemplateRepository
+                    .findBySlugAndIsActiveTrueAndDeletedAtNull("email-verification")
+                    .orElse(null);
+
+            if (template == null) {
+                log.warn("Email verification template not found. Email will not be sent.");
+                return;
+            }
+
+            // Build verification link using configured frontend URL
+            // Frontend page (/verify-email) should:
+            // 1. Extract token from URL params
+            // 2. Call POST /api/frontend/customer/auth/verify-email?token=XXX
+            // 3. Show success/error to user
+            String frontendUrl = customerAuthConfig.getFrontendUrl();
+            String verificationLink = frontendUrl + "/verify-email?token=" + verificationToken;
+
+            // Replace placeholders in subject and message
+            String subject = template.getSubject()
+                    .replace("{{firstName}}", customer.getFirstName())
+                    .replace("{{year}}", String.valueOf(Year.now().getValue()));
+
+            String message = template.getMessage()
+                    .replace("{{firstName}}", customer.getFirstName())
+                    .replace("{{verificationLink}}", verificationLink)
+                    .replace("{{year}}", String.valueOf(Year.now().getValue()));
+
+            // Send email
+            boolean sent = emailHelper.sendEmail(customer.getEmail(), subject, message);
+            if (sent) {
+                log.info("Verification email sent successfully to {}", customer.getEmail());
+            } else {
+                log.warn("Failed to send verification email to {}", customer.getEmail());
+            }
+        } catch (Exception e) {
+            log.error("Error sending verification email to {}: {}", customer.getEmail(), e.getMessage(), e);
         }
     }
 }

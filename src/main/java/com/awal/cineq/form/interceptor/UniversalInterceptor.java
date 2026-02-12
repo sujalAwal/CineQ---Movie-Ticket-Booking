@@ -335,6 +335,217 @@ public class UniversalInterceptor {
     }
 
     // ==================================================================================
+    // SHOWTIME MODULE HANDLERS
+    // ==================================================================================
+
+    /**
+     * Handler: preventShowtimeOverlap
+     * Validates that a new/updated showtime doesn't overlap with existing showtimes
+     * on the same screen on the same date.
+     *
+     * Overlap calculation:
+     * - newEndTime = newShowTime + movieDuration (in minutes) + screenBreakTime
+     * - For each existing showtime: existingEndTime = existingShowTime + movieDuration + breakTime
+     * - Overlap occurs if: newShowTime < existingEndTime AND existingShowTime < newEndTime
+     *
+     * Args:
+     * - movieCollection: collection name for movies (default: "movies")
+     * - screenCollection: collection name for screens (default: "screens")
+     * - showtimeCollection: collection name for showtimes (default: "showtimes")
+     * - movieDurationField: field name for movie duration (default: "duration")
+     * - screenBreakTimeField: field name for screen break time (default: "breakTime")
+     * - excludeCurrentRecord: exclude current document from conflict check for UPDATE (default: false)
+     */
+    public void preventShowtimeOverlap(InterceptorContext context) {
+        Map<String, Object> args = context.getArgs() != null ? context.getArgs() : Map.of();
+        Map<String, Object> formData = context.getFormData();
+
+        String movieCollection = (String) args.getOrDefault("movieCollection", "movies");
+        String screenCollection = (String) args.getOrDefault("screenCollection", "screens");
+        String showtimeCollection = (String) args.getOrDefault("showtimeCollection", "showtimes");
+        String movieDurationField = (String) args.getOrDefault("movieDurationField", "duration");
+        String screenBreakTimeField = (String) args.getOrDefault("screenBreakTimeField", "breakTime");
+        boolean excludeCurrentRecord = Boolean.TRUE.equals(args.get("excludeCurrentRecord"));
+
+        try {
+            // Extract required fields from formData
+            String movieId = (String) formData.get("movieId");
+            String screenId = (String) formData.get("screenId");
+            String showDate = (String) formData.get("showDate");
+            String showTime = (String) formData.get("showTime");
+            String documentId = context.getDocumentId();
+
+            // Validate required fields
+            if (movieId == null || movieId.isBlank()) {
+                throw new IllegalArgumentException("movieId is required");
+            }
+            if (screenId == null || screenId.isBlank()) {
+                throw new IllegalArgumentException("screenId is required");
+            }
+            if (showDate == null || showDate.isBlank()) {
+                throw new IllegalArgumentException("showDate is required");
+            }
+            if (showTime == null || showTime.isBlank()) {
+                throw new IllegalArgumentException("showTime is required");
+            }
+
+            log.debug("preventShowtimeOverlap: Checking overlap for movieId={}, screenId={}, showDate={}, showTime={}",
+                    movieId, screenId, showDate, showTime);
+
+            // Fetch movie duration
+            Query movieQuery = Query.query(Criteria.where("_id").is(movieId));
+            Map<String, Object> movie = mongoTemplate.findOne(movieQuery, Map.class, movieCollection);
+
+            if (movie == null) {
+                throw new IllegalArgumentException("Movie not found: " + movieId);
+            }
+
+            Integer movieDuration = null;
+            Object durationObj = movie.get(movieDurationField);
+            if (durationObj instanceof Integer) {
+                movieDuration = (Integer) durationObj;
+            } else if (durationObj instanceof Double) {
+                movieDuration = ((Double) durationObj).intValue();
+            } else if (durationObj instanceof Long) {
+                movieDuration = ((Long) durationObj).intValue();
+            }
+
+            if (movieDuration == null || movieDuration <= 0) {
+                throw new IllegalArgumentException("Invalid movie duration: " + movieDuration);
+            }
+
+            log.debug("preventShowtimeOverlap: Movie duration = {} minutes", movieDuration);
+
+            // Fetch screen break time
+            Query screenQuery = Query.query(Criteria.where("_id").is(screenId));
+            Map<String, Object> screen = mongoTemplate.findOne(screenQuery, Map.class, screenCollection);
+
+            if (screen == null) {
+                throw new IllegalArgumentException("Screen not found: " + screenId);
+            }
+
+            Integer breakTime = 10; // Default 10 minutes
+            Object breakTimeObj = screen.get(screenBreakTimeField);
+            if (breakTimeObj instanceof Integer) {
+                breakTime = (Integer) breakTimeObj;
+            } else if (breakTimeObj instanceof Double) {
+                breakTime = ((Double) breakTimeObj).intValue();
+            } else if (breakTimeObj instanceof Long) {
+                breakTime = ((Long) breakTimeObj).intValue();
+            }
+
+            log.debug("preventShowtimeOverlap: Screen break time = {} minutes", breakTime);
+
+            // Parse show time (HH:MM format)
+            String[] timeparts = showTime.split(":");
+            if (timeparts.length != 2) {
+                throw new IllegalArgumentException("Invalid showTime format. Expected HH:MM");
+            }
+
+            int newShowHour = Integer.parseInt(timeparts[0]);
+            int newShowMinute = Integer.parseInt(timeparts[1]);
+            int newShowTimeInMinutes = newShowHour * 60 + newShowMinute;
+            int newEndTimeInMinutes = newShowTimeInMinutes + movieDuration + breakTime;
+
+            log.debug("preventShowtimeOverlap: New showtime: {} minutes, end time: {} minutes",
+                    newShowTimeInMinutes, newEndTimeInMinutes);
+
+            // Query existing showtimes on same screen and date
+            Criteria criteria = Criteria.where("screenId").is(screenId)
+                    .and("showDate").is(showDate)
+                    .and("deletedAt").is(null);
+
+            if (excludeCurrentRecord && documentId != null && !documentId.isBlank()) {
+                criteria.and("_id").ne(documentId);
+            }
+
+            Query existingShowtimesQuery = Query.query(criteria);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> existingShowtimes = (List<Map<String, Object>>) (List<?>) mongoTemplate.find(existingShowtimesQuery, Map.class, showtimeCollection);
+
+            log.debug("preventShowtimeOverlap: Found {} existing showtimes on same screen/date", existingShowtimes.size());
+
+            // Check for overlaps
+            for (Map<String, Object> existingShowtime : existingShowtimes) {
+                String existingShowTime = (String) existingShowtime.get("showTime");
+                String existingMovieId = (String) existingShowtime.get("movieId");
+
+                if (existingShowTime == null || existingMovieId == null) {
+                    log.warn("preventShowtimeOverlap: Skipping incomplete showtime record");
+                    continue;
+                }
+
+                // Fetch existing movie duration
+                Query existingMovieQuery = Query.query(Criteria.where("_id").is(existingMovieId));
+                Map<String, Object> existingMovie = mongoTemplate.findOne(existingMovieQuery, Map.class, movieCollection);
+
+                if (existingMovie == null) {
+                    log.warn("preventShowtimeOverlap: Existing movie not found: {}", existingMovieId);
+                    continue;
+                }
+
+                Integer existingMovieDuration = null;
+                Object existingDurationObj = existingMovie.get(movieDurationField);
+                if (existingDurationObj instanceof Integer) {
+                    existingMovieDuration = (Integer) existingDurationObj;
+                } else if (existingDurationObj instanceof Double) {
+                    existingMovieDuration = ((Double) existingDurationObj).intValue();
+                } else if (existingDurationObj instanceof Long) {
+                    existingMovieDuration = ((Long) existingDurationObj).intValue();
+                }
+
+                if (existingMovieDuration == null || existingMovieDuration <= 0) {
+                    log.warn("preventShowtimeOverlap: Invalid existing movie duration: {}", existingMovieDuration);
+                    continue;
+                }
+
+                // Parse existing show time
+                String[] existingTimeParts = existingShowTime.split(":");
+                if (existingTimeParts.length != 2) {
+                    log.warn("preventShowtimeOverlap: Invalid existing showTime format: {}", existingShowTime);
+                    continue;
+                }
+
+                int existingShowHour = Integer.parseInt(existingTimeParts[0]);
+                int existingShowMinute = Integer.parseInt(existingTimeParts[1]);
+                int existingShowTimeInMinutes = existingShowHour * 60 + existingShowMinute;
+                int existingEndTimeInMinutes = existingShowTimeInMinutes + existingMovieDuration + breakTime;
+
+                log.debug("preventShowtimeOverlap: Checking against existing: showTime={} minutes, endTime={} minutes",
+                        existingShowTimeInMinutes, existingEndTimeInMinutes);
+
+                // Check for overlap: newStart < existingEnd AND existingStart < newEnd
+                if (newShowTimeInMinutes < existingEndTimeInMinutes && existingShowTimeInMinutes < newEndTimeInMinutes) {
+                    String errorMsg = String.format(
+                            "Showtime overlaps with existing showtime. Existing: %s (ends at %02d:%02d), New: %s (ends at %02d:%02d)",
+                            existingShowTime,
+                            existingEndTimeInMinutes / 60,
+                            existingEndTimeInMinutes % 60,
+                            showTime,
+                            newEndTimeInMinutes / 60,
+                            newEndTimeInMinutes % 60
+                    );
+
+                    log.warn("preventShowtimeOverlap: OVERLAP DETECTED - {}", errorMsg);
+                    throw new com.awal.cineq.exception.BusinessException(errorMsg);
+                }
+            }
+
+            log.info("preventShowtimeOverlap: No overlaps detected. Showtime is valid.");
+
+        } catch (com.awal.cineq.exception.BusinessException e) {
+            // Re-throw business exceptions
+            throw e;
+        } catch (IllegalArgumentException e) {
+            log.error("preventShowtimeOverlap ERROR (Invalid Argument): {}", e.getMessage());
+            throw new com.awal.cineq.exception.BusinessException("Validation error: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("preventShowtimeOverlap ERROR: {}", e.getMessage(), e);
+            throw new com.awal.cineq.exception.BusinessException("Overlap prevention check failed: " + e.getMessage());
+        }
+    }
+
+    // ==================================================================================
     // COMMON HANDLERS
     // ==================================================================================
 

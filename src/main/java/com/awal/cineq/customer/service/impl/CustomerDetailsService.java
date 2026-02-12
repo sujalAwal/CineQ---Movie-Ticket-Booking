@@ -1,4 +1,4 @@
-package com.awal.cineq.customer.service;
+package com.awal.cineq.customer.service.impl;
 
 import com.awal.cineq.customer.model.Customer;
 import com.awal.cineq.customer.repository.CustomerRepository;

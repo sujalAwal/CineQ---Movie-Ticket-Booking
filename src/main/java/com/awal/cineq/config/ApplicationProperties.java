@@ -10,10 +10,12 @@ import lombok.Data;
 @ConfigurationProperties(prefix = "app")
 @Data
 public class ApplicationProperties {
-    
+
     private Jwt jwt = new Jwt();
     private File file = new File();
     private Security security = new Security();
+    private Email email = new Email();
+    private App app = new App();
 
     @Data
     public static class Jwt {
@@ -34,5 +36,22 @@ public class ApplicationProperties {
         private String prominentRole ;
 
         private String authorizationProvider = "RBAC";
+    }
+
+    @Data
+    public static class Email {
+        private String smtpHost = "smtp.gmail.com";
+        private int smtpPort = 587;
+        private String smtpUsername;
+        private String smtpPassword;
+        private String fromAddress;
+        private String fromName = "CineQ";  // Display name for sender
+        private boolean enableTls = true;
+        private boolean enableSsl = false;
+    }
+
+    @Data
+    public static class App {
+        private String url = "http://localhost:8080";  // Backend API URL
     }
 }
