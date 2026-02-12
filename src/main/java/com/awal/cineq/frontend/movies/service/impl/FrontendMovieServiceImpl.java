@@ -42,8 +42,10 @@ public class FrontendMovieServiceImpl implements FrontendMovieService {
         movies,
         pageRequest.getPage(),
         pageRequest.getSize(),
+        result.getTotalPages(),
         result.getTotalElements(),
-        result.getTotalPages()
+        result.hasNext(),
+        result.hasPrevious()
       );
       log.info("getAllMovies END");
       return response;

@@ -45,8 +45,10 @@ public class FrontendShowtimeServiceImpl implements FrontendShowtimeService {
         showtimes,
         pageRequest.getPage(),
         pageRequest.getSize(),
+        result.getTotalPages(),
         result.getTotalElements(),
-        result.getTotalPages()
+        result.hasNext(),
+        result.hasPrevious()
       );
       log.info("getAllShowtimes END");
       return response;
@@ -84,8 +86,10 @@ public class FrontendShowtimeServiceImpl implements FrontendShowtimeService {
         showtimes,
         page,
         size,
+        result.getTotalPages(),
         result.getTotalElements(),
-        result.getTotalPages()
+        result.hasNext(),
+        result.hasPrevious()
       );
       log.info("getShowtimesByMovieId END");
       return response;
@@ -109,8 +113,10 @@ public class FrontendShowtimeServiceImpl implements FrontendShowtimeService {
         showtimes,
         page,
         size,
+        result.getTotalPages(),
         result.getTotalElements(),
-        result.getTotalPages()
+        result.hasNext(),
+        result.hasPrevious()
       );
       log.info("getShowtimesByTheatreId END");
       return response;
@@ -134,8 +140,10 @@ public class FrontendShowtimeServiceImpl implements FrontendShowtimeService {
         showtimes,
         page,
         size,
+        result.getTotalPages(),
         result.getTotalElements(),
-        result.getTotalPages()
+        result.hasNext(),
+        result.hasPrevious()
       );
       log.info("getShowtimesByScreenId END");
       return response;

@@ -45,8 +45,10 @@ public class FrontendScreenServiceImpl implements FrontendScreenService {
         screens,
         pageRequest.getPage(),
         pageRequest.getSize(),
+        result.getTotalPages(),
         result.getTotalElements(),
-        result.getTotalPages()
+        result.hasNext(),
+        result.hasPrevious()
       );
       log.info("getAllScreens END");
       return response;
@@ -84,8 +86,10 @@ public class FrontendScreenServiceImpl implements FrontendScreenService {
         screens,
         page,
         size,
+        result.getTotalPages(),
         result.getTotalElements(),
-        result.getTotalPages()
+        result.hasNext(),
+        result.hasPrevious()
       );
       log.info("getScreensByTheatreId END");
       return response;
@@ -109,8 +113,10 @@ public class FrontendScreenServiceImpl implements FrontendScreenService {
         screens,
         page,
         size,
+        result.getTotalPages(),
         result.getTotalElements(),
-        result.getTotalPages()
+        result.hasNext(),
+        result.hasPrevious()
       );
       log.info("getScreensByType END");
       return response;
