@@ -38,7 +38,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
                 // Public endpoints - Auth
-                .requestMatchers("/auth/login", "/auth/register").permitAll()
+                .requestMatchers("/auth/login").permitAll()
                 .requestMatchers("/frontend/customer/auth/**").permitAll()
                 
                 // Public endpoints - Docs & Health
@@ -55,7 +55,6 @@ public class SecurityConfig {
                 
                 // Form system routes (admin users)
                 .requestMatchers("/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "USER")
-                .requestMatchers("/form-manager/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                 
                 // All other requests need authentication
                 .anyRequest().authenticated()
