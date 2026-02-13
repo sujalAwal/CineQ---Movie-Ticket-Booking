@@ -1,40 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- Spring Boot default properties -->
-    <springProperty scope="context" name="springAppName" source="spring.application.name"/>
-    <springProperty scope="context" name="logLevel" source="APP_LOG_LEVEL" defaultValue="ERROR"/>
+    <!-- 
+         Read APP_LOG_LEVEL directly from OS environment variable (not Spring property).
+         This ensures it works at logback init time, before Spring context is fully loaded.
+    -->
+    <variable name="LOG_LEVEL" value="${APP_LOG_LEVEL:-INFO}"/>
 
-    <!-- KUBERNETES / DOCKER PROFILE: Log to STDOUT -->
-    <springProfile name="docker,kubernetes">
-        <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder>
-                <!-- Detailed format: timestamp [thread] level logger - message -->
-                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-            </encoder>
-        </appender>
+    <!-- ============================================================
+         GLOBAL CONSOLE APPENDER (always active, regardless of profile)
+         This ensures logs are ALWAYS written to stdout/stderr.
+         ============================================================ -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
 
-        <!-- Root logger uses APP_LOG_LEVEL environment variable -->
-        <root level="${logLevel}">
-            <appender-ref ref="STDOUT"/>
-        </root>
+    <!-- Global root logger — ALWAYS outputs to CONSOLE -->
+    <root level="${LOG_LEVEL}">
+        <appender-ref ref="CONSOLE"/>
+    </root>
 
-        <!-- Application loggers -->
-        <logger name="com.awal.cineq" level="${logLevel}"/>
-        <logger name="org.springframework.web" level="${logLevel}"/>
-        <logger name="org.springframework.security" level="${logLevel}"/>
-        <logger name="org.springframework.boot" level="${logLevel}"/>
-        <logger name="org.hibernate.SQL" level="${logLevel}"/>
-        <logger name="org.springframework.data" level="${logLevel}"/>
-    </springProfile>
+    <!-- Application loggers (always active) -->
+    <logger name="com.awal.cineq" level="${LOG_LEVEL}"/>
+    <logger name="org.springframework.web" level="${LOG_LEVEL}"/>
+    <logger name="org.springframework.security" level="${LOG_LEVEL}"/>
+    <logger name="org.springframework.boot" level="${LOG_LEVEL}"/>
+    <logger name="org.springframework.data" level="${LOG_LEVEL}"/>
 
-    <!-- LOCAL PROFILE: Log to CONSOLE and FILE with DEBUG -->
+    <!-- LOCAL PROFILE: Additionally log to FILE with DEBUG -->
     <springProfile name="local">
-        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder>
-                <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-            </encoder>
-        </appender>
-
         <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
             <file>application.log</file>
             <encoder>
@@ -49,7 +44,6 @@
         </appender>
 
         <root level="DEBUG">
-            <appender-ref ref="CONSOLE"/>
             <appender-ref ref="FILE"/>
         </root>
 
@@ -58,21 +52,5 @@
         <logger name="org.springframework.security" level="DEBUG"/>
         <logger name="org.hibernate.SQL" level="DEBUG"/>
         <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
-    </springProfile>
-
-    <!-- DEFAULT FALLBACK -->
-    <springProfile name="default">
-        <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder>
-                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-            </encoder>
-        </appender>
-
-        <root level="${logLevel}">
-            <appender-ref ref="STDOUT"/>
-        </root>
-
-        <logger name="com.awal.cineq" level="${logLevel}"/>
-        <logger name="org.springframework" level="${logLevel}"/>
     </springProfile>
 </configuration>
