@@ -28,6 +28,21 @@
     <logger name="org.springframework.boot" level="${LOG_LEVEL}"/>
     <logger name="org.springframework.data" level="${LOG_LEVEL}"/>
 
+    <!-- 
+         Cap noisy Spring internals at WARN even if APP_LOG_LEVEL=DEBUG.
+         These produce thousands of lines (bean scanning, factory creation) and 
+         cause significant I/O overhead that slows down startup and request handling.
+    -->
+    <logger name="org.springframework.beans" level="WARN"/>
+    <logger name="org.springframework.context.annotation" level="WARN"/>
+    <logger name="org.springframework.core" level="WARN"/>
+    <logger name="org.springframework.aop" level="WARN"/>
+    <logger name="org.springframework.cache" level="WARN"/>
+    <logger name="org.mongodb.driver" level="WARN"/>
+    <logger name="org.springframework.boot.web.servlet" level="INFO"/>
+    <logger name="org.apache" level="WARN"/>
+    <logger name="io.netty" level="WARN"/>
+
     <!-- LOCAL PROFILE: Additionally log to FILE with DEBUG -->
     <springProfile name="local">
         <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">

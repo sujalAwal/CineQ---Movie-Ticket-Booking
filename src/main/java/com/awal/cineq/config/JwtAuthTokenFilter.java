@@ -1,7 +1,9 @@
 package com.awal.cineq.config;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,9 +16,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @RequiredArgsConstructor
@@ -28,24 +29,32 @@ public class JwtAuthTokenFilter extends OncePerRequestFilter {
 
     // Public endpoints that should skip JWT authentication
     // This prevents slow database queries from blocking health checks, docs, etc.
+    // NOTE: Paths must match getServletPath() (relative to context-path, NOT full URI)
     private static final List<String> PUBLIC_PATHS = Arrays.asList(
         "/auth/",                  // User login/register
         "/frontend/customer/auth/", // Customer auth
+        "/frontend/",              // All frontend public routes
         "/health",                 // Health check
         "/actuator",               // Actuator metrics
         "/swagger-ui",             // API docs
         "/v3/api-docs",            // OpenAPI docs
         "/login",                  // Login page
-        "/h2-console/"             // H2 console (dev only)
+        "/h2-console/",            // H2 console (dev only)
+        "/"                        // Root health check
     );
 
     /**
      * Skip JWT filter for public endpoints to prevent database queries
-     * from blocking health checks and metrics
+     * from blocking health checks and metrics.
+     * 
+     * Uses getServletPath() instead of getRequestURI() because
+     * getRequestURI() includes the context-path (/api), causing
+     * path matching to fail (e.g., "/api/health" doesn't startWith "/health").
      */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String requestPath = request.getRequestURI();
+        // Use getServletPath() which is relative to context-path
+        String requestPath = request.getServletPath();
         log.debug("Checking if path should skip JWT filter: {}", requestPath);
 
         return PUBLIC_PATHS.stream()
