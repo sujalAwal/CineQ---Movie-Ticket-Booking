@@ -31,16 +31,14 @@ public class JwtAuthTokenFilter extends OncePerRequestFilter {
     // This prevents slow database queries from blocking health checks, docs, etc.
     // NOTE: Paths must match getServletPath() (relative to context-path, NOT full URI)
     private static final List<String> PUBLIC_PATHS = Arrays.asList(
-        "/auth/",                  // User login/register
+        "/auth/login",                  // User login/register
         "/frontend/customer/auth/", // Customer auth
         "/frontend/",              // All frontend public routes
         "/health",                 // Health check
         "/actuator",               // Actuator metrics
         "/swagger-ui",             // API docs
         "/v3/api-docs",            // OpenAPI docs
-        "/login",                  // Login page
-        "/h2-console/",            // H2 console (dev only)
-        "/"                        // Root health check
+        "/login"             // Login page
     );
 
     /**
