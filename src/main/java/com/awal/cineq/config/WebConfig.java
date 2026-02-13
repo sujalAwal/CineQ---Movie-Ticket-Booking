@@ -11,6 +11,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.Arrays;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebMvc
@@ -38,7 +39,7 @@ public class WebConfig implements WebMvcConfigurer {
         if (origins.length > 0 && !origins[0].trim().isEmpty()) {
             configuration.setAllowedOrigins(Arrays.stream(origins)
                     .map(String::trim)
-                    .toArray(String[]::new));
+                    .collect(Collectors.toList()));
         } else {
             // Fallback to allowing all origins if property is empty
             configuration.setAllowedOriginPatterns(Arrays.asList("*"));
