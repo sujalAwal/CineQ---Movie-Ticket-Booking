@@ -77,6 +77,14 @@ public class SecurityConfig {
                             "/frontend/**"
                     ).permitAll()
 
+                     // ============================================
+                    // ADMIN AUTHENTICATION
+                    // ============================================
+                    .requestMatchers(
+                            "/auth/login",
+                            "/auth/register"
+                    ).permitAll()
+
                     // ============================================
                     // ADMIN API (Everything else - your clean way!)
                     // ============================================
