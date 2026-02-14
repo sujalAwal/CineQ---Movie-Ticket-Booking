@@ -13,9 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.awal.cineq.common.util.EmailHelper;
 import com.awal.cineq.common.util.SecureTokenGenerator;
 import com.awal.cineq.config.JwtUtil;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import com.awal.cineq.customer.config.CookieConfig;
 import com.awal.cineq.customer.config.CustomerAuthConfig;
 import com.awal.cineq.customer.dto.CustomerAuthResponse;
@@ -24,12 +21,16 @@ import com.awal.cineq.customer.dto.CustomerRegisterRequest;
 import com.awal.cineq.customer.model.Customer;
 import com.awal.cineq.customer.repository.CustomerRepository;
 import com.awal.cineq.customer.service.CustomerAuthService;
+import com.awal.cineq.customer.service.PasswordHistoryService;
+import com.awal.cineq.customer.service.TokenBlacklistService;
 import com.awal.cineq.email.model.EmailTemplate;
 import com.awal.cineq.email.repository.EmailTemplateRepository;
 import com.awal.cineq.exception.BadRequestException;
-import com.awal.cineq.exception.DuplicateResourceException;
 import com.awal.cineq.exception.ResourceNotFoundException;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
