@@ -3,6 +3,8 @@ package com.awal.cineq.customer.controller;
 import com.awal.cineq.customer.dto.*;
 import com.awal.cineq.customer.service.CustomerAuthService;
 import com.awal.cineq.dto.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,16 +17,17 @@ import java.util.Map;
 @RequestMapping("/frontend/customer/auth")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class CustomerAuthController {
 
     private final CustomerAuthService customerAuthService;
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<CustomerAuthResponse>> login(@Valid @RequestBody CustomerLoginRequest loginRequest) {
+    public ResponseEntity<ApiResponse<CustomerAuthResponse>> login(
+            @Valid @RequestBody CustomerLoginRequest loginRequest,
+            HttpServletResponse response) {
         log.info("Customer login attempt for email: {}", loginRequest.getEmail());
         
-        CustomerAuthResponse authResponse = customerAuthService.login(loginRequest);
+        CustomerAuthResponse authResponse = customerAuthService.login(loginRequest, response);
         
         return ResponseEntity.ok(ApiResponse.success("Login successful", authResponse));
     }
@@ -43,14 +46,10 @@ public class CustomerAuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<String>> logout(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<ApiResponse<String>> logout(HttpServletRequest request, HttpServletResponse response) {
         log.info("Customer logout attempt");
         
-        if (token.startsWith("Bearer ")) {
-            token = token.substring(7);
-        }
-        
-        customerAuthService.logout(token);
+        customerAuthService.logout(request, response);
         
         return ResponseEntity.ok(ApiResponse.success("Logout successful", "Customer logged out successfully"));
     }

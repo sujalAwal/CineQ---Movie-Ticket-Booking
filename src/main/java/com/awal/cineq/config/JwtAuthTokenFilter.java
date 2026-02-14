@@ -26,6 +26,7 @@ public class JwtAuthTokenFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final CompositeUserDetailsService compositeUserDetailsService;
+    private final com.awal.cineq.customer.service.TokenBlacklistService tokenBlacklistService;
 
     // Public endpoints that should skip JWT authentication
     // This prevents slow database queries from blocking health checks, docs, etc.
@@ -65,6 +66,13 @@ public class JwtAuthTokenFilter extends OncePerRequestFilter {
 
         try {
             String jwt = parseJwt(request);
+
+            // Check if token is blacklisted (logged out)
+            if (jwt != null && tokenBlacklistService.isBlacklisted(jwt)) {
+                log.debug("Token is blacklisted, rejecting authentication");
+                filterChain.doFilter(request, response);
+                return;
+            }
 
             if (jwt != null && jwtUtil.validateToken(jwt)) {
                 String username = jwtUtil.extractUsername(jwt);
@@ -116,7 +124,7 @@ public class JwtAuthTokenFilter extends OncePerRequestFilter {
         // Then try httpOnly cookie (for web clients)
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
-                if ("jwt-auth-token".equals(cookie.getName())) {
+                if ("auth_token".equals(cookie.getName())) {
                     return cookie.getValue();
                 }
             }

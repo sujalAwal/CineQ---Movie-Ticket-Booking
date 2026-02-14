@@ -49,6 +49,10 @@ public interface CustomerRepository extends MongoRepository<Customer, String> {
     // Check if email exists
     boolean existsByEmail(String email);
     
+    // Check if email exists (case-insensitive, only active customers)
+    @Query(value = "{ 'email': { $regex: ?0, $options: 'i' }, 'deletedAt': null }", exists = true)
+    boolean existsByEmailIgnoreCaseAndDeletedAtIsNull(String email);
+    
     // Count active customers
     @Query(value = "{ 'isActive': true, 'deletedAt': null }", count = true)
     Long countActiveCustomers();

@@ -34,6 +34,9 @@ public class Customer {
     @Field("first_name")
     private String firstName;
     
+    @Field("middle_name")
+    private String middleName;
+    
     @Field("last_name")
     private String lastName;
     

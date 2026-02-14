@@ -19,6 +19,7 @@ public class CustomerAuthResponse {
     private String id;  // MongoDB ObjectId as String
     private String email;
     private String firstName;
+    private String middleName;
     private String lastName;
     private Integer loyaltyPoints;
     private Boolean isEmailVerified;

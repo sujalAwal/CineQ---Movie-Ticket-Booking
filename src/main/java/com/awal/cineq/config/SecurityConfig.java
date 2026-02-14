@@ -2,6 +2,7 @@ package com.awal.cineq.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -10,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ public class SecurityConfig {
 
     private final JwtAuthEntryPoint jwtAuthEntryPoint;
     private final JwtAuthTokenFilter jwtAuthTokenFilter;
+    private final RateLimitingFilter rateLimitingFilter;
     private final CorsConfigurationSource corsConfigurationSource;
 
     @Bean
@@ -60,11 +63,32 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             );
 
+        // Add rate limiting filter (before JWT to prevent auth token consumption on rate limited requests)
+        http.addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class);
+        
         // Add JWT filter
         http.addFilterBefore(jwtAuthTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
-        // For H2 console (development only)
-        http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+        // Security headers
+        http.headers(headers -> headers
+            .frameOptions(frame -> frame.sameOrigin())  // X-Frame-Options: SAMEORIGIN
+            .xssProtection(xss -> xss.disable())  // Disable XSS protection (modern browsers use CSP)
+            .contentSecurityPolicy(csp -> csp.policyDirectives(
+                "default-src 'self'; " +
+                "script-src 'self' 'unsafe-inline'; " +
+                "style-src 'self' 'unsafe-inline'; " +
+                "img-src 'self' data: https:; " +
+                "font-src 'self' data:;"
+            ))
+            .httpStrictTransportSecurity(hsts -> hsts
+                .maxAgeInSeconds(31536000)  // 1 year
+                .includeSubDomains(true)
+            )
+            .contentTypeOptions(Customizer.withDefaults())  // X-Content-Type-Options: nosniff
+            .referrerPolicy(referrer -> referrer.policy(
+                ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN
+            ))
+        );
 
         return http.build();
     }

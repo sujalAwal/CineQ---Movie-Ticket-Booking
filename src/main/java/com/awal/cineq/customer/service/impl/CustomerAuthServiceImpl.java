@@ -3,7 +3,6 @@ package com.awal.cineq.customer.service.impl;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.Year;
-import java.util.UUID;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -12,7 +11,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.awal.cineq.common.util.EmailHelper;
+import com.awal.cineq.common.util.SecureTokenGenerator;
 import com.awal.cineq.config.JwtUtil;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import com.awal.cineq.customer.config.CookieConfig;
 import com.awal.cineq.customer.config.CustomerAuthConfig;
 import com.awal.cineq.customer.dto.CustomerAuthResponse;
 import com.awal.cineq.customer.dto.CustomerLoginRequest;
@@ -39,14 +43,20 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final CustomerAuthConfig customerAuthConfig;
+    private final CookieConfig cookieConfig;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final PasswordHistoryService passwordHistoryService;
     private final EmailTemplateRepository emailTemplateRepository;
     private final EmailHelper emailHelper;
 
     @Override
-    public CustomerAuthResponse login(CustomerLoginRequest loginRequest) {
+    public CustomerAuthResponse login(CustomerLoginRequest loginRequest, HttpServletResponse response) {
+        // Normalize email to lowercase
+        String normalizedEmail = normalizeEmail(loginRequest.getEmail());
+        
         // Find customer by email
-        Customer customer = customerRepository.findByEmailAndIsActiveTrue(loginRequest.getEmail())
-                .orElseThrow(() -> new BadRequestException("Invalid email or password"));
+        Customer customer = customerRepository.findByEmailAndIsActiveTrue(normalizedEmail)
+                .orElseThrow(() -> new BadRequestException("Invalid credentials"));
 
         // Check if account is locked
         if (customer.isLocked()) {
@@ -57,12 +67,13 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         // Verify password
         if (!passwordEncoder.matches(loginRequest.getPassword(), customer.getPassword())) {
             handleFailedLogin(customer);
-            int attemptsRemaining = customerAuthConfig.getMaxFailedLoginAttempts() - customer.getFailedLoginAttempts();
-            if (attemptsRemaining > 0) {
-                throw new BadRequestException("Invalid email or password. " + attemptsRemaining + " attempts remaining before lockout.");
-            } else {
-                throw new BadRequestException("Account locked due to too many failed attempts. Try again in " + customerAuthConfig.getLockoutDurationMinutes() + " minutes.");
+            // Check if account is now locked after failed attempt
+            if (customer.isLocked()) {
+                long minutesRemaining = Duration.between(LocalDateTime.now(), customer.getLockedUntil()).toMinutes() + 1;
+                throw new BadRequestException("Account temporarily locked. Please try again in " + minutesRemaining + " minutes.");
             }
+            // Generic error message to prevent email enumeration
+            throw new BadRequestException("Invalid credentials");
         }
 
         // Check email verification requirement
@@ -75,14 +86,27 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         customerRepository.save(customer);
 
         String token = jwtUtil.generateToken(customer.getEmail(), "CUSTOMER");
+        
+        // Set HttpOnly cookie for secure token storage
+        Cookie authCookie = new Cookie(cookieConfig.getName(), token);
+        authCookie.setHttpOnly(cookieConfig.isHttpOnly());
+        authCookie.setSecure(cookieConfig.isSecure());
+        authCookie.setPath(cookieConfig.getPath());
+        authCookie.setMaxAge(cookieConfig.getMaxAge());
+        authCookie.setAttribute("SameSite", cookieConfig.getSameSite());
+        
+        response.addCookie(authCookie);
+        
         log.info("Customer {} logged in successfully", customer.getEmail());
 
+        // Return response WITHOUT token in body (token is in HttpOnly cookie)
         return CustomerAuthResponse.builder()
-                .token(token)
-                .type("Bearer")
+                .token(null)  // Don't send token to client - cookie handles auth
+                .type(null)
                 .id(customer.getId())
                 .email(customer.getEmail())
                 .firstName(customer.getFirstName())
+                .middleName(customer.getMiddleName())
                 .lastName(customer.getLastName())
                 .loyaltyPoints(customer.getLoyaltyPoints())
                 .isEmailVerified(customer.getIsEmailVerified())
@@ -93,15 +117,31 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     private void handleFailedLogin(Customer customer) {
         customer.incrementFailedLoginAttempts();
         
-        if (customer.getFailedLoginAttempts() >= customerAuthConfig.getMaxFailedLoginAttempts()) {
-            customer.lockAccount(customerAuthConfig.getLockoutDurationMinutes());
-            log.warn("Customer {} account locked after {} failed attempts", 
-                    customer.getEmail(), customer.getFailedLoginAttempts());
+        int attempts = customer.getFailedLoginAttempts();
+        
+        // Progressive lockout durations (exponential backoff)
+        if (attempts >= 10) {
+            customer.lockAccount(60);  // 1 hour after 10+ attempts
+            log.warn("Customer {} account locked for 60 minutes after {} failed attempts", 
+                    customer.getEmail(), attempts);
+        } else if (attempts >= 7) {
+            customer.lockAccount(30);  // 30 minutes after 7-9 attempts
+            log.warn("Customer {} account locked for 30 minutes after {} failed attempts", 
+                    customer.getEmail(), attempts);
+        } else if (attempts >= 5) {
+            customer.lockAccount(15);  // 15 minutes after 5-6 attempts
+            log.warn("Customer {} account locked for 15 minutes after {} failed attempts", 
+                    customer.getEmail(), attempts);
+        } else if (attempts >= 3) {
+            customer.lockAccount(5);   // 5 minutes after 3-4 attempts
+            log.warn("Customer {} account locked for 5 minutes after {} failed attempts", 
+                    customer.getEmail(), attempts);
+        } else {
+            // Less than 3 attempts - just log, no lockout
+            log.info("Failed login attempt {} for customer {}", attempts, customer.getEmail());
         }
         
         customerRepository.save(customer);
-        log.info("Failed login attempt for customer {}. Attempts: {}/{}", 
-                customer.getEmail(), customer.getFailedLoginAttempts(), customerAuthConfig.getMaxFailedLoginAttempts());
     }
 
     @Override
@@ -112,14 +152,19 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
             throw new BadRequestException("Passwords do not match");
         }
 
-         if (customerRepository.existsByEmail(registerRequest.getEmail())) {
-           // throw new DuplicateResourceException("Email already exists");
+        // Normalize email to lowercase
+        String normalizedEmail = normalizeEmail(registerRequest.getEmail());
+        
+        // Check for duplicate (only active customers) - generic error message to prevent email enumeration
+        if (customerRepository.existsByEmailIgnoreCaseAndDeletedAtIsNull(normalizedEmail)) {
+            throw new BadRequestException("Unable to complete registration. Please try again or contact support.");
         }
 
         Customer customer = new Customer();
         customer.setFirstName(registerRequest.getFirstName());
+        customer.setMiddleName(registerRequest.getMiddleName());
         customer.setLastName(registerRequest.getLastName());
-        customer.setEmail(registerRequest.getEmail());
+        customer.setEmail(normalizedEmail);
         customer.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
         customer.setPhone(registerRequest.getPhone());
         customer.setDateOfBirth(registerRequest.getDateOfBirth());
@@ -128,8 +173,8 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         customer.setIsEmailVerified(false);
         customer.setFailedLoginAttempts(0);
 
-        // Generate email verification token
-        String verificationToken = UUID.randomUUID().toString();
+        // Generate email verification token (cryptographically secure)
+        String verificationToken = SecureTokenGenerator.generateToken();
         customer.setEmailVerificationToken(verificationToken);
         customer.setEmailVerificationExpiresAt(LocalDateTime.now().plusHours(24));
 
@@ -137,7 +182,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
 
         // Send verification email
         sendVerificationEmail(savedCustomer, verificationToken);
-        log.info("Email verification token generated for {}: {}", savedCustomer.getEmail(), verificationToken);
+        log.info("Email verification initiated for customer: {}", savedCustomer.getEmail());
 
         // If verification required, don't return token
         if (customerAuthConfig.isEmailVerificationRequired()) {
@@ -146,6 +191,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
                     .id(savedCustomer.getId())
                     .email(savedCustomer.getEmail())
                     .firstName(savedCustomer.getFirstName())
+                    .middleName(savedCustomer.getMiddleName())
                     .lastName(savedCustomer.getLastName())
                     .loyaltyPoints(savedCustomer.getLoyaltyPoints())
                     .isEmailVerified(false)
@@ -165,6 +211,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
                 .id(savedCustomer.getId())
                 .email(savedCustomer.getEmail())
                 .firstName(savedCustomer.getFirstName())
+                .middleName(savedCustomer.getMiddleName())
                 .lastName(savedCustomer.getLastName())
                 .loyaltyPoints(savedCustomer.getLoyaltyPoints())
                 .isEmailVerified(savedCustomer.getIsEmailVerified())
@@ -173,9 +220,48 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     }
 
     @Override
-    public void logout(String token) {
+    public void logout(HttpServletRequest request, HttpServletResponse response) {
+        // Extract token from cookie before clearing it
+        String token = extractTokenFromRequest(request);
+        
+        // Blacklist the token to prevent reuse
+        if (token != null && !token.isEmpty()) {
+            tokenBlacklistService.blacklistToken(token);
+            log.info("Token blacklisted successfully");
+        }
+        
+        // Clear the HttpOnly cookie
+        Cookie authCookie = new Cookie(cookieConfig.getName(), null);
+        authCookie.setHttpOnly(cookieConfig.isHttpOnly());
+        authCookie.setSecure(cookieConfig.isSecure());
+        authCookie.setPath(cookieConfig.getPath());
+        authCookie.setMaxAge(0);  // Expire immediately
+        
+        response.addCookie(authCookie);
         SecurityContextHolder.clearContext();
         log.info("Customer logged out successfully");
+    }
+    
+    /**
+     * Extract JWT token from request (Authorization header or cookie)
+     */
+    private String extractTokenFromRequest(HttpServletRequest request) {
+        // Try Authorization header first
+        String headerAuth = request.getHeader("Authorization");
+        if (headerAuth != null && headerAuth.startsWith("Bearer ")) {
+            return headerAuth.substring(7);
+        }
+        
+        // Then try cookie
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if (cookieConfig.getName().equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        
+        return null;
     }
 
     @Override
@@ -197,15 +283,16 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
 
     @Override
     public void resendVerificationEmail(String email) {
-        Customer customer = customerRepository.findByEmailAndIsActiveTrue(email)
+        String normalizedEmail = normalizeEmail(email);
+        Customer customer = customerRepository.findByEmailAndIsActiveTrue(normalizedEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
 
         if (customer.getIsEmailVerified()) {
             throw new BadRequestException("Email is already verified");
         }
 
-        // Generate new verification token
-        String verificationToken = UUID.randomUUID().toString();
+        // Generate new verification token (cryptographically secure)
+        String verificationToken = SecureTokenGenerator.generateToken();
         customer.setEmailVerificationToken(verificationToken);
         customer.setEmailVerificationExpiresAt(LocalDateTime.now().plusHours(24));
 
@@ -213,12 +300,13 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
 
         // Send verification email
         sendVerificationEmail(customer, verificationToken);
-        log.info("New email verification token generated for {}: {}", customer.getEmail(), verificationToken);
+        log.info("Verification email resent to customer: {}", customer.getEmail());
     }
 
     @Override
     public void forgotPassword(String email) {
-        Customer customer = customerRepository.findByEmailAndIsActiveTrue(email)
+        String normalizedEmail = normalizeEmail(email);
+        Customer customer = customerRepository.findByEmailAndIsActiveTrue(normalizedEmail)
                 .orElse(null);
         
         // Always return success to prevent email enumeration attacks
@@ -227,8 +315,8 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
             return;
         }
 
-        // Generate password reset token
-        String resetToken = UUID.randomUUID().toString();
+        // Generate password reset token (cryptographically secure)
+        String resetToken = SecureTokenGenerator.generateToken();
         customer.setPasswordResetToken(resetToken);
         customer.setPasswordResetTokenExpiresAt(
                 LocalDateTime.now().plusHours(customerAuthConfig.getPasswordResetTokenExpiryHours())
@@ -237,7 +325,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         customerRepository.save(customer);
 
         // TODO: Send actual password reset email with link
-        log.info("Password reset token generated for {}: {}", customer.getEmail(), resetToken);
+        log.info("Password reset initiated for customer: {}", customer.getEmail());
     }
 
     @Override
@@ -249,8 +337,19 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
             throw new BadRequestException("Reset token has expired. Please request a new one.");
         }
 
+        // Validate password not in recent history
+        passwordHistoryService.validatePasswordNotReused(customer.getId(), newPassword);
+
+        // Encode new password
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        
+        // Add current password to history before updating
+        if (customer.getPassword() != null && !customer.getPassword().isEmpty()) {
+            passwordHistoryService.addPasswordToHistory(customer.getId(), customer.getPassword());
+        }
+        
         // Update password
-        customer.setPassword(passwordEncoder.encode(newPassword));
+        customer.setPassword(encodedPassword);
         
         // Clear reset token
         customer.setPasswordResetToken(null);
@@ -337,5 +436,17 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         } catch (Exception e) {
             log.error("Error sending verification email to {}: {}", customer.getEmail(), e.getMessage(), e);
         }
+    }
+    
+    /**
+     * Normalize email address to lowercase and trim whitespace
+     * @param email Raw email address
+     * @return Normalized email address
+     */
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.toLowerCase().trim();
     }
 }

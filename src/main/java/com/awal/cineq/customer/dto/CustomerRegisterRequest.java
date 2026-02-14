@@ -1,8 +1,10 @@
 package com.awal.cineq.customer.dto;
 
 import com.awal.cineq.customer.model.Customer;
+import com.awal.cineq.customer.validation.ValidPassword;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,6 +21,9 @@ public class CustomerRegisterRequest {
     @Size(max = 100, message = "First name must not exceed 100 characters")
     private String firstName;
     
+    @Size(max = 100, message = "Middle name must not exceed 100 characters")
+    private String middleName;  // Optional field
+    
     @NotBlank(message = "Last name is required")
     @Size(max = 100, message = "Last name must not exceed 100 characters")
     private String lastName;
@@ -29,14 +34,17 @@ public class CustomerRegisterRequest {
     private String email;
     
     @NotBlank(message = "Password is required")
-    @Size(min = 6, message = "Password must be at least 6 characters long")
+    @ValidPassword
     private String password;
 
     @NotBlank(message = "Password confirmation is required")
-    @Size(min = 6, message = "Password confirmation must be at least 6 characters long")
     private String confirmPassword;
 
-    @Size(max = 20, message = "Phone number must not exceed 20 characters")
+    @Pattern(
+        regexp = "^[0-9+\\-\\(\\)\\s]{7,20}$",
+        message = "Phone number must contain 7-20 characters and only digits, +, -, (, ), and spaces"
+    )
+    @Size(min = 7, max = 20, message = "Phone number must be between 7 and 20 characters")
     private String phone;
     
     private LocalDate dateOfBirth;

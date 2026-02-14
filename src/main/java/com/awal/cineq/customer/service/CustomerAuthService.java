@@ -1,11 +1,13 @@
 package com.awal.cineq.customer.service;
 
 import com.awal.cineq.customer.dto.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 public interface CustomerAuthService {
-    CustomerAuthResponse login(CustomerLoginRequest loginRequest);
+    CustomerAuthResponse login(CustomerLoginRequest loginRequest, HttpServletResponse response);
     CustomerAuthResponse register(CustomerRegisterRequest registerRequest);
-    void logout(String token);
+    void logout(HttpServletRequest request, HttpServletResponse response);
     void verifyEmail(String token);
     void resendVerificationEmail(String email);
     
