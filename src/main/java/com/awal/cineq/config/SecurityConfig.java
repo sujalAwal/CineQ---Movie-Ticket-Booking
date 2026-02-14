@@ -40,24 +40,47 @@ public class SecurityConfig {
             .exceptionHandling(exception -> exception.authenticationEntryPoint(jwtAuthEntryPoint))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
-                // Public endpoints - Auth
-                .requestMatchers("/auth/login").permitAll()
-                .requestMatchers("/frontend/customer/auth/**").permitAll()
-                
-                // Public endpoints - Docs & Health
-                .requestMatchers("/health").permitAll()
-                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
-                .requestMatchers("/login").permitAll()
-                .requestMatchers("/h2-console/**").permitAll()
-                
-                // Public frontend endpoints (non-auth)
-                .requestMatchers("/frontend/**").permitAll()
-                
-                // Customer protected routes (MUST come before admin catch-all)
-                .requestMatchers("/customer/**").hasRole("CUSTOMER")
-                
-                // Form system routes (admin users)
-                .requestMatchers("/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "USER")
+
+
+                    // ============================================
+                    // PUBLIC API
+                    // ============================================
+                    .requestMatchers("/public/**").permitAll()
+
+                    // ============================================
+                    // CUSTOMER AUTHENTICATION (Public exceptions)
+                    // ============================================
+                    .requestMatchers(
+                            "/customer/auth/login",
+                            "/customer/auth/register",
+                            "/customer/auth/verify-email",
+                            "/customer/auth/forgot-password",
+                            "/customer/auth/reset-password"
+                    ).permitAll()
+
+                    // ============================================
+                    // CUSTOMER PROTECTED API
+                    // ============================================
+                    .requestMatchers("/customer/**").hasRole("CUSTOMER")
+
+                    // ============================================
+                    // HEALTH & DOCS
+                    // ============================================
+                    .requestMatchers("/health").permitAll()
+//                    .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+//                    .requestMatchers("/h2-console/**").permitAll()
+
+                    // ============================================
+                    // FRONTEND STATIC FILES (if serving from same app)
+                    // ============================================
+                    .requestMatchers(
+                            "/frontend/**"
+                    ).permitAll()
+
+                    // ============================================
+                    // ADMIN API (Everything else - your clean way!)
+                    // ============================================
+                    .requestMatchers("/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "USER")
                 
                 // All other requests need authentication
                 .anyRequest().authenticated()
