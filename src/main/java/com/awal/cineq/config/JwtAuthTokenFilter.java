@@ -124,7 +124,7 @@ public class JwtAuthTokenFilter extends OncePerRequestFilter {
         // Then try httpOnly cookie (for web clients)
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
-                if ("auth_token".equals(cookie.getName())) {
+                if ("jwt-auth-token".equals(cookie.getName())) {
                     return cookie.getValue();
                 }
             }
