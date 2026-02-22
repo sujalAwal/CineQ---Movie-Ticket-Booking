@@ -1,0 +1,336 @@
+{
+  "slug": "showtime-statuses",
+  "title": "Showtime Status Management",
+  "description": "Manage showtime statuses with codes and names (Available, Housefull, Cancelled)",
+  "modelName": "ShowtimeStatus",
+  "isActive": true,
+
+  "formSteps": [
+    {
+      "stepSlug": "v1",
+      "stepTitle": "Showtime Status Configuration",
+      "stepOrder": 1,
+      "isActive": true,
+      "description": "Create, update, or delete showtime statuses",
+
+      "formSchema": {
+        "type": "object",
+        "title": "Showtime Status Form",
+        "properties": {
+          "code": {
+            "type": "STRING",
+            "title": "Code",
+            "placeholder": "e.g., AV, HF, X",
+            "description": "1-2 character unique code for showtime status (used in backend logic)",
+            "required": true,
+            "order": 1
+          },
+          "name": {
+            "type": "STRING",
+            "title": "Name",
+            "placeholder": "e.g., Available, Housefull, Cancelled",
+            "description": "Display name for the showtime status",
+            "required": true,
+            "order": 2
+          },
+          "description": {
+            "type": "STRING",
+            "title": "Description",
+            "placeholder": "Brief description of this status...",
+            "description": "Details about this showtime status",
+            "required": false,
+            "order": 3
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this status is available",
+            "default": true,
+            "order": 4
+          }
+        },
+        "required": ["code", "name"]
+      },
+
+      "validationRules": {
+        "code": {
+          "type": "STRING",
+          "collectionField": "code",
+          "fieldTransformer": "uppercase",
+          "baseValidation": [
+            "@NotBlank(message='Code is required')",
+            "@Size(min=1, max=2, message='Code must be 1-2 characters')",
+            "@Pattern(regexp='^[A-Z0-9]+$', message='Code must contain only uppercase letters and numbers')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Code is required')",
+              "@Size(min=1, max=2)",
+              "@Pattern(regexp='^[A-Z0-9]+$')",
+              "@Unique(collection='showtime_statuses', field='code', message='Code already exists')"
+            ],
+            "update": [
+              "@Size(min=1, max=2)",
+              "@Pattern(regexp='^[A-Z0-9]+$')",
+              "@UniqueExcludingSelf(collection='showtime_statuses', field='code', idField='_id', message='Code already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "code"
+          }
+        },
+
+        "name": {
+          "type": "STRING",
+          "collectionField": "name",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Name is required')",
+            "@Size(min=2, max=50, message='Name must be 2-50 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Name is required')",
+              "@Size(min=2, max=50)",
+              "@Unique(collection='showtime_statuses', field='name', message='Name already exists')"
+            ],
+            "update": [
+              "@Size(min=2, max=50)",
+              "@UniqueExcludingSelf(collection='showtime_statuses', field='name', idField='_id', message='Name already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "name"
+          }
+        },
+
+        "description": {
+          "type": "STRING",
+          "collectionField": "description",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@Size(min=0, max=500, message='Description cannot exceed 500 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(min=0, max=500)"
+            ],
+            "update": [
+              "@Size(min=0, max=500)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "description"
+          }
+        },
+
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isActive"
+          }
+        },
+
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='showtime_statuses', field='_id', message='Showtime status not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='showtime_statuses', field='_id', message='Showtime status not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "showtime_statuses",
+        "fieldMapping": {
+          "code": "code",
+          "name": "name",
+          "description": "description",
+          "isActive": "isActive"
+        },
+        "autoFields": {
+          "createdAt": "{{now}}",
+          "updatedAt": "{{now}}",
+          "deletedAt": null,
+          "createdBy": "{{currentUser}}",
+          "updatedBy": "{{currentUser}}"
+        },
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating new showtime status",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["showtimeStatuses"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "ShowtimeStatus",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Showtime status created successfully",
+              "error": "Failed to create showtime status"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["showtimeStatuses"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "ShowtimeStatus",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Showtime status updated successfully",
+              "error": "Failed to update showtime status"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["showtimeStatuses"]
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Showtime status deleted successfully",
+              "error": "Failed to delete showtime status"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "single-column",
+        "sections": [
+          {
+            "title": "Showtime Status Details",
+            "fields": ["code", "name", "description"]
+          },
+          {
+            "title": "Status",
+            "fields": ["isActive"]
+          }
+        ],
+        "submitButton": {
+          "label": "Save Showtime Status",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "cinema-configuration",
+        "version": "1.0",
+        "lastUpdated": "2026-02-12T00:00:00Z",
+        "fieldCount": 4,
+        "author": "system"
+      }
+    }
+  ],
+
+  "metadata": {
+    "module": "cinema-configuration",
+    "version": "1.0",
+    "documentCount": "showtime_statuses"
+  }
+}

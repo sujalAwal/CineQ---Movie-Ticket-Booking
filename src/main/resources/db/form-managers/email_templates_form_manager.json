@@ -1,0 +1,502 @@
+{
+  "formManager": {
+    "_id": "fm_email_templates_001",
+    "title": "Email Template Management",
+    "slug": "email-templates",
+    "description": "Manage email templates for system notifications and communications",
+    "modelName": "EmailTemplate",
+    "isActive": true,
+    "metadata": {
+      "category": "communication",
+      "version": "1.0",
+      "icon": "mail",
+      "order": 10
+    },
+    "createdAt": "2026-02-08T00:00:00.000Z",
+    "updatedAt": "2026-02-08T00:00:00.000Z",
+    "deletedAt": null
+  },
+
+  "formSteps": [
+    {
+      "_id": "fs_email_templates_v1",
+      "formManagerId": "fm_email_templates_001",
+      "stepTitle": "v1",
+      "stepSlug": "v1",
+      "stepOrder": 1,
+      "isActive": true,
+
+      "validationRules": {
+        "name": {
+          "type": "STRING",
+          "collectionField": "name",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotBlank(message='Template name is required')",
+            "@Size(min=2, max=100, message='Template name must be 2-100 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Template name is required')",
+              "@Size(min=2, max=100)",
+              "@Unique(collection='email_templates', field='name', message='Template name already exists')"
+            ],
+            "update": [
+              "@Size(min=2, max=100)",
+              "@UniqueExcludingSelf(collection='email_templates', field='name', idField='_id', message='Template name already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "name"
+          }
+        },
+        "slug": {
+          "type": "STRING",
+          "collectionField": "slug",
+          "fieldTransformer": "lowercase",
+          "baseValidation": [
+            "@NotBlank(message='Slug is required')",
+            "@Size(max=100, message='Slug too long')",
+            "@Pattern(regexp='^[a-z0-9-_]+$', message='Only lowercase letters, numbers, hyphens and underscores allowed')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Slug is required')",
+              "@Pattern(regexp='^[a-z0-9-_]+$')",
+              "@Unique(collection='email_templates', field='slug', message='Slug already exists')"
+            ],
+            "update": [
+              "@Pattern(regexp='^[a-z0-9-_]+$')",
+              "@UniqueExcludingSelf(collection='email_templates', field='slug', idField='_id', message='Slug already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "slug"
+          }
+        },
+        "subject": {
+          "type": "STRING",
+          "collectionField": "subject",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotBlank(message='Email subject is required')",
+            "@Size(max=255, message='Subject cannot exceed 255 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Email subject is required')",
+              "@Size(max=255)"
+            ],
+            "update": [
+              "@Size(max=255)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "subject"
+          }
+        },
+        "message": {
+          "type": "STRING",
+          "collectionField": "message",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotBlank(message='Email message body is required')",
+            "@Size(max=50000, message='Message cannot exceed 50000 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Email message body is required')",
+              "@Size(max=50000)"
+            ],
+            "update": [
+              "@Size(max=50000)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "message"
+          }
+        },
+        "adminSubject": {
+          "type": "STRING",
+          "collectionField": "adminSubject",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@Size(max=255, message='Admin subject cannot exceed 255 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(max=255)"
+            ],
+            "update": [
+              "@Size(max=255)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "adminSubject"
+          }
+        },
+        "adminMessage": {
+          "type": "STRING",
+          "collectionField": "adminMessage",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@Size(max=50000, message='Admin message cannot exceed 50000 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(max=50000)"
+            ],
+            "update": [
+              "@Size(max=50000)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "adminMessage"
+          }
+        },
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isActive"
+          }
+        },
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='email_templates', field='_id', message='Email template not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='email_templates', field='_id', message='Email template not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "formSchema": {
+        "type": "object",
+        "title": "Email Template Form",
+        "properties": {
+          "name": {
+            "type": "STRING",
+            "title": "Template Name",
+            "placeholder": "e.g., Welcome Email, Password Reset",
+            "description": "Unique identifier name for this template",
+            "required": true,
+            "order": 1
+          },
+          "slug": {
+            "type": "STRING",
+            "title": "Template Slug",
+            "placeholder": "e.g., welcome-email, password-reset",
+            "description": "URL-friendly identifier (lowercase, hyphens allowed)",
+            "required": true,
+            "order": 2
+          },
+          "subject": {
+            "type": "STRING",
+            "title": "Email Subject",
+            "placeholder": "e.g., Welcome to CineQ!",
+            "description": "Subject line for emails sent to users. Supports placeholders like {{userName}}",
+            "required": true,
+            "order": 3
+          },
+          "message": {
+            "type": "STRING",
+            "title": "Email Message",
+            "placeholder": "Enter the email body content...",
+            "description": "HTML or text content for user emails. Supports placeholders like {{userName}}, {{bookingId}}",
+            "required": true,
+            "order": 4,
+            "ui": {
+              "widget": "rich-text-editor",
+              "rows": 10
+            }
+          },
+          "adminSubject": {
+            "type": "STRING",
+            "title": "Admin Subject",
+            "placeholder": "e.g., [Admin] New User Registration",
+            "description": "Subject line for admin notification emails (optional)",
+            "required": false,
+            "order": 5
+          },
+          "adminMessage": {
+            "type": "STRING",
+            "title": "Admin Message",
+            "placeholder": "Enter the admin notification content...",
+            "description": "HTML or text content for admin notification emails (optional). Supports placeholders",
+            "required": false,
+            "order": 6,
+            "ui": {
+              "widget": "rich-text-editor",
+              "rows": 8
+            }
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this template is active and can be used",
+            "default": true,
+            "order": 7
+          }
+        },
+        "required": ["name", "slug", "subject", "message"]
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "email_templates",
+
+        "fieldMapping": {
+          "name": "name",
+          "slug": "slug",
+          "subject": "subject",
+          "message": "message",
+          "adminSubject": "adminSubject",
+          "adminMessage": "adminMessage",
+          "isActive": "isActive"
+        },
+
+        "fieldTransformers": {
+          "slug": "lowercase"
+        },
+
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating new email template",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["emailTemplates"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "EmailTemplate",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Email template creation failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Email template created successfully",
+              "error": "Failed to create email template",
+              "validation": "Please check the form for errors"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Updating email template",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["emailTemplates"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "EmailTemplate",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Email template update failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Email template updated successfully",
+              "error": "Failed to update email template",
+              "notFound": "Email template not found or has been deleted"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["emailTemplates"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "DELETE",
+                    "entity": "EmailTemplate"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Email template deleted successfully",
+              "error": "Failed to delete email template",
+              "notFound": "Email template not found"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN", "MANAGER"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "single-column",
+        "sections": [
+          {
+            "title": "Basic Information",
+            "fields": ["name", "slug", "isActive"]
+          },
+          {
+            "title": "User Email Content",
+            "fields": ["subject", "message"]
+          },
+          {
+            "title": "Admin Notification (Optional)",
+            "fields": ["adminSubject", "adminMessage"]
+          }
+        ],
+        "submitButton": {
+          "label": "Save Template",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "communication",
+        "version": "1.0",
+        "lastUpdated": "2026-02-08T00:00:00.000Z",
+        "fieldCount": 7,
+        "author": "system",
+        "supportedPlaceholders": [
+          "{{userName}}",
+          "{{userEmail}}",
+          "{{bookingId}}",
+          "{{movieName}}",
+          "{{showDate}}",
+          "{{showTime}}",
+          "{{theaterName}}",
+          "{{totalAmount}}",
+          "{{ticketCount}}",
+          "{{seatNumbers}}",
+          "{{resetLink}}",
+          "{{verificationLink}}",
+          "{{appName}}"
+        ]
+      },
+
+      "createdAt": "2026-02-08T00:00:00.000Z",
+      "updatedAt": "2026-02-08T00:00:00.000Z",
+      "deletedAt": null
+    }
+  ]
+}

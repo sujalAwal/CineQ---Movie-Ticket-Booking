@@ -1,0 +1,311 @@
+{
+  "_documentation": "Universal Form System - Frontend API Reference",
+  "_version": "1.0",
+  "_lastUpdated": "2026-02-08",
+
+  "concept": {
+    "summary": "ALL CRUD operations use the SAME endpoints. Just change formSlug and stepSlug for different modules.",
+    "example": "To manage 'roles' → formSlug='roles'. To manage 'email-templates' → formSlug='email-templates'. Same API, different slug."
+  },
+
+  "baseUrl": "/v1",
+
+  "endpoints": {
+    "create_update_delete": {
+      "method": "POST",
+      "url": "/v1/submit/{formSlug}",
+      "description": "Single endpoint for CREATE, UPDATE, DELETE operations",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {token}",
+        "X-User-Roles": "ADMIN,MANAGER (optional - for testing)"
+      },
+      "requestBody": {
+        "stepSlug": "v1",
+        "action": "CREATE | UPDATE | DELETE",
+        "formData": {}
+      }
+    },
+    "list": {
+      "method": "GET",
+      "url": "/v1/list/{formSlug}",
+      "description": "Get paginated list of all records",
+      "queryParams": {
+        "page": "Page number (default: 1)",
+        "size": "Items per page (default: 10)"
+      }
+    },
+    "view": {
+      "method": "GET",
+      "url": "/v1/view/{formSlug}/{id}",
+      "description": "Get single record by ID"
+    },
+    "bulk_status": {
+      "method": "PATCH",
+      "url": "/v1/update-status",
+      "description": "Bulk update isActive status",
+      "requestBody": {
+        "formSlug": "email-templates",
+        "ids": ["id1", "id2"],
+        "isActive": true
+      }
+    }
+  },
+
+  "registeredModules": [
+    {
+      "module": "Email Templates",
+      "formSlug": "email-templates",
+      "stepSlug": "v1",
+      "collection": "email_templates",
+      "fields": ["name", "slug", "subject", "message", "adminSubject", "adminMessage", "isActive"]
+    },
+    {
+      "module": "Roles",
+      "formSlug": "roles",
+      "stepSlug": "v1",
+      "collection": "roles",
+      "fields": ["name", "slug", "permissions", "isActive"]
+    },
+    {
+      "module": "Banners",
+      "formSlug": "banners",
+      "stepSlug": "v1",
+      "collection": "banners",
+      "fields": ["title", "imageUrl", "linkUrl", "isActive", "order"]
+    }
+  ],
+
+  "examples": {
+    "email_templates": {
+      "create": {
+        "method": "POST",
+        "url": "/v1/submit/email-templates",
+        "body": {
+          "stepSlug": "v1",
+          "action": "CREATE",
+          "formData": {
+            "name": "Welcome Email",
+            "slug": "welcome-email",
+            "subject": "Welcome to CineQ, {{userName}}!",
+            "message": "<h1>Welcome!</h1><p>Thank you for joining CineQ.</p>",
+            "adminSubject": "[Admin] New User Registration",
+            "adminMessage": "New user registered: {{userEmail}}",
+            "isActive": true
+          }
+        }
+      },
+      "update": {
+        "method": "POST",
+        "url": "/v1/submit/email-templates",
+        "body": {
+          "stepSlug": "v1",
+          "action": "UPDATE",
+          "formData": {
+            "id": "67890abcdef12345",
+            "subject": "Welcome to CineQ - Updated!",
+            "isActive": false
+          }
+        }
+      },
+      "delete": {
+        "method": "POST",
+        "url": "/v1/submit/email-templates",
+        "body": {
+          "stepSlug": "v1",
+          "action": "DELETE",
+          "formData": {
+            "id": "67890abcdef12345"
+          }
+        }
+      },
+      "list": {
+        "method": "GET",
+        "url": "/v1/list/email-templates?page=1&size=10"
+      },
+      "view": {
+        "method": "GET",
+        "url": "/v1/view/email-templates/67890abcdef12345"
+      }
+    },
+
+    "roles": {
+      "create": {
+        "method": "POST",
+        "url": "/v1/submit/roles",
+        "body": {
+          "stepSlug": "v1",
+          "action": "CREATE",
+          "formData": {
+            "name": "EDITOR",
+            "slug": "editor",
+            "permissions": { "movies": ["view", "edit"], "banners": ["view"] },
+            "isActive": true
+          }
+        }
+      },
+      "list": {
+        "method": "GET",
+        "url": "/v1/list/roles?page=1&size=10&search="
+      }
+    }
+  },
+
+  "responseFormat": {
+    "success": {
+      "status": 200,
+      "body": {
+        "success": true,
+        "message": "Operation successful",
+        "data": {},
+        "timestamp": "2026-02-08T12:00:00Z"
+      }
+    },
+    "list": {
+      "status": 200,
+      "body": {
+        "success": true,
+        "message": "Records fetched successfully",
+        "data": [],
+        "page": 1,
+        "size": 10,
+        "totalPages": 5,
+        "totalElements": 48,
+        "hasNext": true,
+        "hasPrevious": false
+      }
+    },
+    "error": {
+      "status": 400,
+      "body": {
+        "success": false,
+        "message": "Validation failed",
+        "errors": {
+          "name": "Template name is required",
+          "slug": "Slug already exists"
+        }
+      }
+    }
+  },
+
+  "quickReference": {
+    "_note": "Copy-paste these patterns. Just replace {formSlug} with your module slug.",
+    
+    "CREATE": "POST /v1/submit/{formSlug} → { stepSlug: 'v1', action: 'CREATE', formData: {...} }",
+    "UPDATE": "POST /v1/submit/{formSlug} → { stepSlug: 'v1', action: 'UPDATE', formData: { id: '...', ...changes } }",
+    "DELETE": "POST /v1/submit/{formSlug} → { stepSlug: 'v1', action: 'DELETE', formData: { id: '...' } }",
+    "LIST":   "GET  /v1/list/{formSlug}?page=1&size=10&search=",
+    "VIEW":   "GET  /v1/view/{formSlug}/{id}"
+  },
+
+  "formSlugsAvailable": {
+    "email-templates": "Email Template Management",
+    "roles": "Role Management",
+    "banners": "Banner Management"
+  },
+
+  "customerAuth": {
+    "_note": "Customer authentication (separate from admin auth)",
+    "baseUrl": "/frontend/customer/auth",
+    
+    "configuration": {
+      "CUSTOMER_EMAIL_VERIFICATION": "true/false - If true, login blocked until email verified (default: false)",
+      "CUSTOMER_MAX_FAILED_ATTEMPTS": "Max wrong passwords before lockout (default: 10)",
+      "CUSTOMER_LOCKOUT_MINUTES": "Lockout duration in minutes (default: 60)",
+      "CUSTOMER_RESET_TOKEN_EXPIRY": "Password reset token validity in hours (default: 24)",
+      "ADMIN_NOTIFICATION_EMAILS": "Comma-separated admin emails for notifications (e.g., 'admin1@example.com,admin2@example.com')",
+      "APP_FRONTEND_URL": "Frontend app URL for email links (default: http://localhost:3000)",
+      "APP_ADMIN_URL": "Admin panel URL for email links (default: http://localhost:3000/admin)"
+    },
+
+    "endpoints": {
+      "register": {
+        "method": "POST",
+        "url": "/frontend/customer/auth/register",
+        "body": {
+          "firstName": "sujal (required)",
+          "lastName": "Doe (required)",
+          "email": "sujal@example.com (required)",
+          "password": "Min 6 chars (required)",
+          "phone": "Optional",
+          "dateOfBirth": "YYYY-MM-DD (optional)",
+          "gender": "MALE | FEMALE | OTHER | PREFER_NOT_TO_SAY (optional)"
+        }
+      },
+      "login": {
+        "method": "POST",
+        "url": "/frontend/customer/auth/login",
+        "body": {
+          "email": "sujal@example.com",
+          "password": "password123"
+        },
+        "responses": {
+          "success": {
+            "token": "eyJhbG...",
+            "type": "Bearer",
+            "id": "...",
+            "email": "...",
+            "firstName": "sujal",
+            "lastName": "Doe",
+            "loyaltyPoints": 100,
+            "isEmailVerified": true,
+            "role": "CUSTOMER"
+          },
+          "account_locked": {
+            "success": false,
+            "message": "Account locked due to too many failed attempts. Try again in 45 minutes."
+          },
+          "wrong_password": {
+            "success": false,
+            "message": "Invalid email or password. 3 attempts remaining before lockout."
+          },
+          "email_not_verified": {
+            "success": false,
+            "message": "Please verify your email before logging in."
+          }
+        }
+      },
+      "logout": {
+        "method": "POST",
+        "url": "/frontend/customer/auth/logout",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        }
+      },
+      "verify_email": {
+        "method": "POST",
+        "url": "/frontend/customer/auth/verify-email?token={verificationToken}"
+      },
+      "resend_verification": {
+        "method": "POST",
+        "url": "/frontend/customer/auth/resend-verification",
+        "body": {
+          "email": "sujal@example.com"
+        }
+      },
+      "forgot_password": {
+        "method": "POST",
+        "url": "/frontend/customer/auth/forgot-password",
+        "body": {
+          "email": "sujal@example.com"
+        },
+        "note": "Always returns success to prevent email enumeration"
+      },
+      "reset_password": {
+        "method": "POST",
+        "url": "/frontend/customer/auth/reset-password",
+        "body": {
+          "token": "reset-token-from-email",
+          "newPassword": "newPassword123"
+        }
+      },
+      "validate_reset_token": {
+        "method": "GET",
+        "url": "/frontend/customer/auth/validate-reset-token?token={resetToken}",
+        "response": {
+          "data": { "valid": true }
+        }
+      }
+    }
+  }
+}

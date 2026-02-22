@@ -1,0 +1,362 @@
+{
+  "slug": "settings-groups",
+  "title": "Settings Groups Management",
+  "description": "Manage settings groups used to organize settings across admin portal, customer portal, and backend",
+  "modelName": "SettingsGroup",
+  "isActive": true,
+
+  "formSteps": [
+    {
+      "stepSlug": "v1",
+      "stepTitle": "Settings Group Configuration",
+      "stepOrder": 1,
+      "isActive": true,
+      "description": "Create, update, or delete settings groups",
+
+      "formSchema": {
+        "type": "object",
+        "title": "Settings Group Form",
+        "properties": {
+          "title": {
+            "type": "STRING",
+            "title": "Group Title",
+            "placeholder": "e.g., Branding, Features, Email, SEO, Layout, Security",
+            "description": "Human-readable name for this settings group",
+            "required": true,
+            "order": 1
+          },
+          "slug": {
+            "type": "STRING",
+            "title": "Group Slug",
+            "placeholder": "e.g., branding, features, email, seo",
+            "description": "URL-friendly unique identifier (auto-lowercased)",
+            "required": true,
+            "order": 2
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this settings group is enabled or disabled",
+            "default": true,
+            "order": 3
+          }
+        },
+        "required": ["title", "slug"]
+      },
+
+      "validationRules": {
+        "title": {
+          "type": "STRING",
+          "collectionField": "title",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Title is required')",
+            "@Size(min=2, max=100, message='Title must be 2-100 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Title is required')",
+              "@Size(min=2, max=100)",
+              "@Unique(collection='settings_groups', field='title', message='Group title already exists')"
+            ],
+            "update": [
+              "@Size(min=2, max=100)",
+              "@UniqueExcludingSelf(collection='settings_groups', field='title', idField='_id', message='Group title already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "title"
+          }
+        },
+
+        "slug": {
+          "type": "STRING",
+          "collectionField": "slug",
+          "fieldTransformer": "lowercase",
+          "baseValidation": [
+            "@NotBlank(message='Slug is required')",
+            "@Size(min=2, max=100, message='Slug must be 2-100 characters')",
+            "@Pattern(regexp='^[a-z0-9_-]+$', message='Only lowercase letters, numbers, hyphens and underscores allowed')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Slug is required')",
+              "@Size(min=2, max=100)",
+              "@Pattern(regexp='^[a-z0-9_-]+$')",
+              "@Unique(collection='settings_groups', field='slug', message='Slug already exists')"
+            ],
+            "update": [
+              "@Size(min=2, max=100)",
+              "@Pattern(regexp='^[a-z0-9_-]+$')",
+              "@UniqueExcludingSelf(collection='settings_groups', field='slug', idField='_id', message='Slug already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "slug"
+          }
+        },
+
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isActive"
+          }
+        },
+
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='settings_groups', field='_id', message='Settings group not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='settings_groups', field='_id', message='Settings group not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "settings_groups",
+        "fieldMapping": {
+          "title": "title",
+          "slug": "slug",
+          "isActive": "isActive"
+        },
+        "autoFields": {
+          "createdAt": "{{now}}",
+          "updatedAt": "{{now}}",
+          "deletedAt": null,
+          "createdBy": "{{currentUser}}",
+          "updatedBy": "{{currentUser}}"
+        },
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating settings group",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["settingsGroups"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "SettingsGroup",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Settings group creation failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Settings group created successfully",
+              "error": "Failed to create settings group",
+              "validation": "Please check the form for errors"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Updating settings group",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["settingsGroups"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "SettingsGroup",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Settings group update failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Settings group updated successfully",
+              "error": "Failed to update settings group",
+              "notFound": "Settings group not found or has been deleted"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Deleting settings group",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["settingsGroups"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "DELETE",
+                    "entity": "SettingsGroup"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Settings group deleted successfully",
+              "error": "Failed to delete settings group",
+              "notFound": "Settings group not found"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "single-column",
+        "sections": [
+          {
+            "title": "Group Details",
+            "fields": ["title", "slug"]
+          },
+          {
+            "title": "Status",
+            "fields": ["isActive"]
+          }
+        ],
+        "fieldWidgets": {
+          "title": { "ui:widget": "text", "ui:placeholder": "Enter group title" },
+          "slug": { "ui:widget": "text", "ui:placeholder": "Enter unique slug" },
+          "isActive": { "ui:widget": "checkbox" }
+        },
+        "submitButton": {
+          "label": "Save Settings Group",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "settings",
+        "portal": "all",
+        "version": "1.0",
+        "lastUpdated": "2026-02-22T00:00:00Z",
+        "fieldCount": 3,
+        "author": "system"
+      }
+    }
+  ],
+
+  "metadata": {
+    "module": "settings",
+    "version": "1.0",
+    "documentCount": "settings_groups"
+  }
+}

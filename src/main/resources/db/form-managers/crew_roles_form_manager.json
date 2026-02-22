@@ -1,0 +1,387 @@
+{
+  "slug": "crew-roles",
+  "title": "Crew Roles Management",
+  "description": "Manage crew roles like Actor, Director, Producer, etc.",
+  "modelName": "CrewRole",
+  "isActive": true,
+
+  "formSteps": [
+    {
+      "stepSlug": "v1",
+      "stepTitle": "Crew Role Configuration",
+      "stepOrder": 1,
+      "isActive": true,
+      "description": "Create, update, or delete crew roles",
+
+      "formSchema": {
+        "type": "object",
+        "title": "Crew Role Form",
+        "properties": {
+          "name": {
+            "type": "STRING",
+            "title": "Role Name",
+            "placeholder": "e.g., Actor, Director, Producer, Writer, Cinematographer",
+            "description": "Name of the crew role",
+            "required": true,
+            "order": 1
+          },
+          "slug": {
+            "type": "STRING",
+            "title": "Role Slug",
+            "placeholder": "e.g., actor, director, producer",
+            "description": "URL-friendly identifier (auto-generated if not provided)",
+            "required": true,
+            "order": 2
+          },
+          "description": {
+            "type": "STRING",
+            "title": "Description",
+            "placeholder": "Brief description of this role...",
+            "description": "Details about what this role entails",
+            "required": false,
+            "order": 3
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this role is available for use",
+            "default": true,
+            "order": 4
+          }
+        },
+        "required": ["name", "slug"]
+      },
+
+      "validationRules": {
+        "name": {
+          "type": "STRING",
+          "collectionField": "name",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Role name is required')",
+            "@Size(min=2, max=50, message='Role name must be 2-50 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Role name is required')",
+              "@Size(min=2, max=50)",
+              "@Unique(collection='crew_roles', field='name', message='Role name already exists')"
+            ],
+            "update": [
+              "@Size(min=2, max=50)",
+              "@UniqueExcludingSelf(collection='crew_roles', field='name', idField='_id', message='Role name already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "name"
+          }
+        },
+
+        "slug": {
+          "type": "STRING",
+          "collectionField": "slug",
+          "fieldTransformer": "lowercase",
+          "baseValidation": [
+            "@NotBlank(message='Slug is required')",
+            "@Size(min=2, max=50, message='Slug must be 2-50 characters')",
+            "@Pattern(regexp='^[a-z0-9-_]+$', message='Only lowercase letters, numbers, hyphens and underscores allowed')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Slug is required')",
+              "@Size(min=2, max=50)",
+              "@Pattern(regexp='^[a-z0-9-_]+$')",
+              "@Unique(collection='crew_roles', field='slug', message='Slug already exists')"
+            ],
+            "update": [
+              "@Size(min=2, max=50)",
+              "@Pattern(regexp='^[a-z0-9-_]+$')",
+              "@UniqueExcludingSelf(collection='crew_roles', field='slug', idField='_id', message='Slug already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "slug"
+          }
+        },
+
+        "description": {
+          "type": "STRING",
+          "collectionField": "description",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@Size(min=0, max=500, message='Description cannot exceed 500 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(min=0, max=500)"
+            ],
+            "update": [
+              "@Size(min=0, max=500)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "description"
+          }
+        },
+
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isActive"
+          }
+        },
+
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='crew_roles', field='_id', message='Crew role not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='crew_roles', field='_id', message='Crew role not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "crew_roles",
+        "fieldMapping": {
+          "name": "name",
+          "slug": "slug",
+          "description": "description",
+          "isActive": "isActive"
+        },
+        "autoFields": {
+          "createdAt": "{{now}}",
+          "updatedAt": "{{now}}",
+          "deletedAt": null,
+          "createdBy": "{{currentUser}}",
+          "updatedBy": "{{currentUser}}"
+        },
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating new crew role",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["crewRoles"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "CrewRole",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Crew role creation failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Crew role created successfully",
+              "error": "Failed to create crew role",
+              "validation": "Please check the form for errors"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Updating crew role",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["crewRoles"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "CrewRole",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Crew role update failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Crew role updated successfully",
+              "error": "Failed to update crew role",
+              "notFound": "Crew role not found or has been deleted"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Deleting crew role",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["crewRoles"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "DELETE",
+                    "entity": "CrewRole"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Crew role deleted successfully",
+              "error": "Failed to delete crew role",
+              "notFound": "Crew role not found"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN", "USER"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "single-column",
+        "sections": [
+          {
+            "title": "Role Details",
+            "fields": ["name", "slug"]
+          },
+          {
+            "title": "Additional Information",
+            "fields": ["description", "isActive"]
+          }
+        ],
+        "submitButton": {
+          "label": "Save Crew Role",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "cinema",
+        "version": "1.0",
+        "lastUpdated": "2026-02-12T00:00:00Z",
+        "fieldCount": 4,
+        "author": "system"
+      }
+    }
+  ],
+
+  "metadata": {
+    "module": "cinema",
+    "version": "1.0",
+    "documentCount": "crew_roles"
+  }
+}

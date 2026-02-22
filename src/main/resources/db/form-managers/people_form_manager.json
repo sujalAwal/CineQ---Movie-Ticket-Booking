@@ -1,0 +1,386 @@
+{
+  "slug": "people",
+  "title": "People Management",
+  "description": "Manage cast and crew members",
+  "modelName": "People",
+  "isActive": true,
+
+  "formSteps": [
+    {
+      "stepSlug": "v1",
+      "stepTitle": "People Information",
+      "stepOrder": 1,
+      "isActive": true,
+      "description": "Create, update, or delete people (cast and crew members)",
+
+      "formSchema": {
+        "type": "object",
+        "title": "People Form",
+        "properties": {
+          "name": {
+            "type": "STRING",
+            "title": "Name",
+            "placeholder": "e.g., Shah Rukh Khan, Karan Johar",
+            "description": "Full name of the person",
+            "required": true,
+            "order": 1
+          },
+          "image": {
+            "type": "STRING",
+            "title": "Image URL",
+            "placeholder": "https://example.com/image.jpg",
+            "description": "URL to the person's image/photo",
+            "required": true,
+            "order": 2
+          },
+          "description": {
+            "type": "STRING",
+            "title": "Description",
+            "placeholder": "Brief biography or description...",
+            "description": "Biography or description of the person",
+            "required": true,
+            "order": 3
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this person is active",
+            "default": true,
+            "order": 4
+          }
+        },
+        "required": ["name", "image", "description"]
+      },
+
+      "validationRules": {
+        "name": {
+          "type": "STRING",
+          "collectionField": "name",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Name is required')",
+            "@Size(min=2, max=100, message='Name must be 2-100 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Name is required')",
+              "@Size(min=2, max=100)",
+              "@Unique(collection='people', field='name', message='Person with this name already exists')"
+            ],
+            "update": [
+              "@Size(min=2, max=100)",
+              "@UniqueExcludingSelf(collection='people', field='name', idField='_id', message='Person with this name already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "name"
+          }
+        },
+
+        "image": {
+          "type": "STRING",
+          "collectionField": "image",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Image URL is required')",
+            "@Size(min=10, max=500, message='Image URL must be 10-500 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Image URL is required')",
+              "@Size(min=10, max=500)",
+              "@Unique(collection='people', field='image', message='This image URL is already used')"
+            ],
+            "update": [
+              "@Size(min=10, max=500)",
+              "@UniqueExcludingSelf(collection='people', field='image', idField='_id', message='This image URL is already used')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "image"
+          }
+        },
+
+        "description": {
+          "type": "STRING",
+          "collectionField": "description",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Description is required')",
+            "@Size(min=10, max=2000, message='Description must be 10-2000 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Description is required')",
+              "@Size(min=10, max=2000)"
+            ],
+            "update": [
+              "@Size(min=10, max=2000)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "description"
+          }
+        },
+
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isActive"
+          }
+        },
+
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='people', field='_id', message='Person not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='people', field='_id', message='Person not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "people",
+        "fieldMapping": {
+          "name": "name",
+          "image": "image",
+          "description": "description",
+          "isActive": "isActive"
+        },
+        "autoFields": {
+          "createdAt": "{{now}}",
+          "updatedAt": "{{now}}",
+          "deletedAt": null,
+          "createdBy": "{{currentUser}}",
+          "updatedBy": "{{currentUser}}"
+        },
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating new person",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["people"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "People",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Person creation failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Person created successfully",
+              "error": "Failed to create person",
+              "validation": "Please check the form for errors"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Updating person",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["people"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "People",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Person update failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Person updated successfully",
+              "error": "Failed to update person",
+              "notFound": "Person not found or has been deleted"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Deleting person",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["people"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "DELETE",
+                    "entity": "People"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Person deleted successfully",
+              "error": "Failed to delete person",
+              "notFound": "Person not found"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN", "USER"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "single-column",
+        "sections": [
+          {
+            "title": "Basic Information",
+            "fields": ["name", "image"]
+          },
+          {
+            "title": "Details",
+            "fields": ["description", "isActive"]
+          }
+        ],
+        "submitButton": {
+          "label": "Save Person",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "cinema",
+        "version": "1.0",
+        "lastUpdated": "2026-02-12T00:00:00Z",
+        "fieldCount": 4,
+        "author": "system"
+      }
+    }
+  ],
+
+  "metadata": {
+    "module": "cinema",
+    "version": "1.0",
+    "documentCount": "people"
+  }
+}

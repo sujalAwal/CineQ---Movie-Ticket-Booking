@@ -1,0 +1,336 @@
+{
+  "slug": "seat-statuses",
+  "title": "Seat Status Management",
+  "description": "Manage seat statuses with codes and names (Available, Booked, Reserved, etc.)",
+  "modelName": "SeatStatus",
+  "isActive": true,
+
+  "formSteps": [
+    {
+      "stepSlug": "v1",
+      "stepTitle": "Seat Status Configuration",
+      "stepOrder": 1,
+      "isActive": true,
+      "description": "Create, update, or delete seat statuses",
+
+      "formSchema": {
+        "type": "object",
+        "title": "Seat Status Form",
+        "properties": {
+          "code": {
+            "type": "INTEGER",
+            "title": "Code",
+            "placeholder": "e.g., 1, 2, 3, 4, 5",
+            "description": "Numeric code (1-8) for seat status (used in backend logic)",
+            "required": true,
+            "order": 1
+          },
+          "name": {
+            "type": "STRING",
+            "title": "Name",
+            "placeholder": "e.g., Available, Booked, Reserved",
+            "description": "Display name for the seat status",
+            "required": true,
+            "order": 2
+          },
+          "description": {
+            "type": "STRING",
+            "title": "Description",
+            "placeholder": "Brief description of this status...",
+            "description": "Details about this seat status",
+            "required": false,
+            "order": 3
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this status is available",
+            "default": true,
+            "order": 4
+          }
+        },
+        "required": ["code", "name"]
+      },
+
+      "validationRules": {
+        "code": {
+          "type": "INTEGER",
+          "collectionField": "code",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotNull(message='Code is required')",
+            "@Min(value=1, message='Code must be between 1 and 8')",
+            "@Max(value=8, message='Code must be between 1 and 8')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotNull(message='Code is required')",
+              "@Min(value=1)",
+              "@Max(value=8)",
+              "@Unique(collection='seat_statuses', field='code', message='Code already exists')"
+            ],
+            "update": [
+              "@Min(value=1)",
+              "@Max(value=8)",
+              "@UniqueExcludingSelf(collection='seat_statuses', field='code', idField='_id', message='Code already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "code"
+          }
+        },
+
+        "name": {
+          "type": "STRING",
+          "collectionField": "name",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Name is required')",
+            "@Size(min=2, max=50, message='Name must be 2-50 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Name is required')",
+              "@Size(min=2, max=50)",
+              "@Unique(collection='seat_statuses', field='name', message='Name already exists')"
+            ],
+            "update": [
+              "@Size(min=2, max=50)",
+              "@UniqueExcludingSelf(collection='seat_statuses', field='name', idField='_id', message='Name already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "name"
+          }
+        },
+
+        "description": {
+          "type": "STRING",
+          "collectionField": "description",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@Size(min=0, max=500, message='Description cannot exceed 500 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(min=0, max=500)"
+            ],
+            "update": [
+              "@Size(min=0, max=500)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "description"
+          }
+        },
+
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isActive"
+          }
+        },
+
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='seat_statuses', field='_id', message='Seat status not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='seat_statuses', field='_id', message='Seat status not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "seat_statuses",
+        "fieldMapping": {
+          "code": "code",
+          "name": "name",
+          "description": "description",
+          "isActive": "isActive"
+        },
+        "autoFields": {
+          "createdAt": "{{now}}",
+          "updatedAt": "{{now}}",
+          "deletedAt": null,
+          "createdBy": "{{currentUser}}",
+          "updatedBy": "{{currentUser}}"
+        },
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating new seat status",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["seatStatuses"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "SeatStatus",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Seat status created successfully",
+              "error": "Failed to create seat status"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["seatStatuses"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "SeatStatus",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Seat status updated successfully",
+              "error": "Failed to update seat status"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["seatStatuses"]
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Seat status deleted successfully",
+              "error": "Failed to delete seat status"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "single-column",
+        "sections": [
+          {
+            "title": "Seat Status Details",
+            "fields": ["code", "name", "description"]
+          },
+          {
+            "title": "Status",
+            "fields": ["isActive"]
+          }
+        ],
+        "submitButton": {
+          "label": "Save Seat Status",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "cinema-configuration",
+        "version": "1.0",
+        "lastUpdated": "2026-02-12T00:00:00Z",
+        "fieldCount": 4,
+        "author": "system"
+      }
+    }
+  ],
+
+  "metadata": {
+    "module": "cinema-configuration",
+    "version": "1.0",
+    "documentCount": "seat_statuses"
+  }
+}

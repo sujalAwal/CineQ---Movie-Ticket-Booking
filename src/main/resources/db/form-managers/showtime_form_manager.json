@@ -1,0 +1,615 @@
+{
+  "slug": "showtimes",
+  "title": "Showtime Management",
+  "description": "Manage movie showtimes with overlap prevention (considers movie duration and screen break time)",
+  "modelName": "Showtime",
+  "isActive": true,
+
+  "formSteps": [
+    {
+      "stepSlug": "v1",
+      "stepTitle": "Showtime Configuration",
+      "stepOrder": 1,
+      "isActive": true,
+      "description": "Create, update, or delete showtimes with automatic overlap prevention",
+
+      "formSchema": {
+        "type": "object",
+        "title": "Showtime Form",
+        "properties": {
+          "movieId": {
+            "type": "STRING",
+            "title": "Movie",
+            "placeholder": "Select movie",
+            "description": "Movie to be shown",
+            "required": true,
+            "order": 1
+          },
+          "screenId": {
+            "type": "STRING",
+            "title": "Screen",
+            "placeholder": "Select screen",
+            "description": "Screen where the movie will be shown",
+            "required": true,
+            "order": 2
+          },
+          "theatreId": {
+            "type": "STRING",
+            "title": "Theatre",
+            "placeholder": "Select theatre",
+            "description": "Theatre containing the screen",
+            "required": true,
+            "order": 3
+          },
+          "showDate": {
+            "type": "DATE",
+            "title": "Show Date",
+            "placeholder": "YYYY-MM-DD",
+            "description": "Date of the showtime",
+            "required": true,
+            "order": 4
+          },
+          "showTime": {
+            "type": "STRING",
+            "title": "Show Time",
+            "placeholder": "HH:MM (24-hour format)",
+            "description": "Time when the show starts",
+            "required": true,
+            "order": 5
+          },
+          "language": {
+            "type": "STRING",
+            "title": "Language",
+            "placeholder": "e.g., ENG, HIN, NEP, MAL, MARA",
+            "description": "Language of the movie for this showtime",
+            "required": true,
+            "order": 6
+          },
+          "format": {
+            "type": "STRING",
+            "title": "Format",
+            "placeholder": "e.g., 2D, 3D, IMAX, 4DX",
+            "description": "Screen format for this showtime",
+            "required": true,
+            "order": 7
+          },
+          "statusCode": {
+            "type": "STRING",
+            "title": "Status",
+            "placeholder": "Select status",
+            "description": "Showtime status (AV=Available, HF=Housefull, X=Cancelled)",
+            "required": true,
+            "order": 8
+          },
+          "basePrice": {
+            "type": "DOUBLE",
+            "title": "Base Price",
+            "placeholder": "e.g., 200.00",
+            "description": "Base ticket price (will be adjusted per seat type)",
+            "required": true,
+            "order": 9
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this showtime is operational",
+            "default": true,
+            "order": 10
+          }
+        },
+        "required": ["movieId", "screenId", "theatreId", "showDate", "showTime", "language", "format", "statusCode", "basePrice"]
+      },
+
+      "validationRules": {
+        "movieId": {
+          "type": "STRING",
+          "collectionField": "movieId",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotBlank(message='Movie is required')",
+            "@Exists(collection='movies', field='_id', message='Movie not found')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Movie is required')",
+              "@Exists(collection='movies', field='_id', message='Movie not found')"
+            ],
+            "update": [
+              "@Exists(collection='movies', field='_id', message='Movie not found')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "movieId"
+          }
+        },
+
+        "screenId": {
+          "type": "STRING",
+          "collectionField": "screenId",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotBlank(message='Screen is required')",
+            "@Exists(collection='screens', field='_id', message='Screen not found')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Screen is required')",
+              "@Exists(collection='screens', field='_id', message='Screen not found')"
+            ],
+            "update": [
+              "@Exists(collection='screens', field='_id', message='Screen not found')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "screenId"
+          }
+        },
+
+        "theatreId": {
+          "type": "STRING",
+          "collectionField": "theatreId",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotBlank(message='Theatre is required')",
+            "@Exists(collection='theatres', field='_id', message='Theatre not found')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Theatre is required')",
+              "@Exists(collection='theatres', field='_id', message='Theatre not found')"
+            ],
+            "update": [
+              "@Exists(collection='theatres', field='_id', message='Theatre not found')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "theatreId"
+          }
+        },
+
+        "showDate": {
+          "type": "DATE",
+          "collectionField": "showDate",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotNull(message='Show date is required')",
+            "@FutureDate(message='Show date must be in the future')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotNull(message='Show date is required')",
+              "@FutureDate(message='Show date must be in the future')"
+            ],
+            "update": [
+              "@FutureDate(message='Show date must be in the future')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "showDate"
+          }
+        },
+
+        "showTime": {
+          "type": "STRING",
+          "collectionField": "showTime",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Show time is required')",
+            "@Pattern(regexp='^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$', message='Show time must be in HH:MM format (24-hour)')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Show time is required')",
+              "@Pattern(regexp='^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$')"
+            ],
+            "update": [
+              "@Pattern(regexp='^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "showTime"
+          }
+        },
+
+        "language": {
+          "type": "STRING",
+          "collectionField": "language",
+          "fieldTransformer": "uppercase",
+          "baseValidation": [
+            "@NotBlank(message='Language is required')",
+            "@Pattern(regexp='^[A-Z]{2,4}$', message='Language must be 2-4 uppercase letters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Language is required')",
+              "@Pattern(regexp='^[A-Z]{2,4}$')"
+            ],
+            "update": [
+              "@Pattern(regexp='^[A-Z]{2,4}$')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "language"
+          }
+        },
+
+        "format": {
+          "type": "STRING",
+          "collectionField": "format",
+          "fieldTransformer": "uppercase",
+          "baseValidation": [
+            "@NotBlank(message='Format is required')",
+            "@Pattern(regexp='^(2D|3D|IMAX|4DX)$', message='Format must be one of: 2D, 3D, IMAX, 4DX')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Format is required')",
+              "@Pattern(regexp='^(2D|3D|IMAX|4DX)$')"
+            ],
+            "update": [
+              "@Pattern(regexp='^(2D|3D|IMAX|4DX)$')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "format"
+          }
+        },
+
+        "statusCode": {
+          "type": "STRING",
+          "collectionField": "statusCode",
+          "fieldTransformer": "uppercase",
+          "baseValidation": [
+            "@NotBlank(message='Status is required')",
+            "@Exists(collection='showtime_statuses', field='code', message='Invalid showtime status')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Status is required')",
+              "@Exists(collection='showtime_statuses', field='code', message='Invalid showtime status')"
+            ],
+            "update": [
+              "@Exists(collection='showtime_statuses', field='code', message='Invalid showtime status')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "statusCode"
+          }
+        },
+
+        "basePrice": {
+          "type": "DOUBLE",
+          "collectionField": "basePrice",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotNull(message='Base price is required')",
+            "@Min(value=0, message='Base price must be greater than 0')",
+            "@Max(value=10000, message='Base price cannot exceed 10000')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotNull(message='Base price is required')",
+              "@Min(value=0)",
+              "@Max(value=10000)"
+            ],
+            "update": [
+              "@Min(value=0)",
+              "@Max(value=10000)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "basePrice"
+          }
+        },
+
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isActive"
+          }
+        },
+
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='showtimes', field='_id', message='Showtime not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='showtimes', field='_id', message='Showtime not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "showtimes",
+        "fieldMapping": {
+          "movieId": "movieId",
+          "screenId": "screenId",
+          "theatreId": "theatreId",
+          "showDate": "showDate",
+          "showTime": "showTime",
+          "language": "language",
+          "format": "format",
+          "statusCode": "statusCode",
+          "basePrice": "basePrice",
+          "isActive": "isActive"
+        },
+        "autoFields": {
+          "createdAt": "{{now}}",
+          "updatedAt": "{{now}}",
+          "deletedAt": null,
+          "createdBy": "{{currentUser}}",
+          "updatedBy": "{{currentUser}}"
+        },
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating new showtime",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "preventShowtimeOverlap",
+                  "args": {
+                    "movieCollection": "movies",
+                    "screenCollection": "screens",
+                    "showtimeCollection": "showtimes",
+                    "movieDurationField": "duration",
+                    "screenBreakTimeField": "breakTime"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["showtimes"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "Showtime",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Showtime creation failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Showtime created successfully",
+              "error": "Failed to create showtime",
+              "validation": "Please check the form for errors"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Updating showtime",
+                    "level": "INFO"
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "preventShowtimeOverlap",
+                  "args": {
+                    "movieCollection": "movies",
+                    "screenCollection": "screens",
+                    "showtimeCollection": "showtimes",
+                    "movieDurationField": "duration",
+                    "screenBreakTimeField": "breakTime",
+                    "excludeCurrentRecord": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["showtimes"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "Showtime",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Showtime update failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Showtime updated successfully",
+              "error": "Failed to update showtime",
+              "notFound": "Showtime not found or has been deleted"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Deleting showtime",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["showtimes"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "DELETE",
+                    "entity": "Showtime"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Showtime deleted successfully",
+              "error": "Failed to delete showtime",
+              "notFound": "Showtime not found"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN", "USER"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "two-column",
+        "sections": [
+          {
+            "title": "Basic Information",
+            "fields": ["movieId", "screenId", "theatreId"]
+          },
+          {
+            "title": "Schedule",
+            "fields": ["showDate", "showTime"]
+          },
+          {
+            "title": "Configuration",
+            "fields": ["language", "format", "statusCode", "basePrice"]
+          },
+          {
+            "title": "Status",
+            "fields": ["isActive"]
+          }
+        ],
+        "submitButton": {
+          "label": "Save Showtime",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "cinema-management",
+        "version": "1.0",
+        "lastUpdated": "2026-02-12T00:00:00Z",
+        "fieldCount": 9,
+        "author": "system",
+        "notes": "Includes automatic overlap prevention via preventShowtimeOverlap interceptor"
+      }
+    }
+  ],
+
+  "metadata": {
+    "module": "cinema-management",
+    "version": "1.0",
+    "documentCount": "showtimes"
+  }
+}

@@ -1,0 +1,776 @@
+{
+  "slug": "movies",
+  "title": "Movies Management",
+  "description": "Manage movies with details, languages, formats, certifications, genres, and cast",
+  "modelName": "Movie",
+  "isActive": true,
+
+  "formSteps": [
+    {
+      "stepSlug": "v1",
+      "stepTitle": "Movie Information",
+      "stepOrder": 1,
+      "isActive": true,
+      "description": "Create, update, or delete movies with complete information",
+
+      "formSchema": {
+        "type": "object",
+        "title": "Movie Form",
+        "properties": {
+          "title": {
+            "type": "STRING",
+            "title": "Movie Title",
+            "placeholder": "e.g., Inception, The Dark Knight",
+            "description": "Official movie title",
+            "required": true,
+            "order": 1
+          },
+          "description": {
+            "type": "STRING",
+            "title": "Description",
+            "placeholder": "Enter movie description...",
+            "description": "Brief plot description or synopsis",
+            "required": true,
+            "order": 2
+          },
+          "poster": {
+            "type": "STRING",
+            "title": "Poster URL",
+            "placeholder": "https://example.com/poster.jpg",
+            "description": "URL to movie poster image",
+            "required": true,
+            "order": 3
+          },
+          "banner": {
+            "type": "STRING",
+            "title": "Banner URL",
+            "placeholder": "https://example.com/banner.jpg",
+            "description": "URL to movie banner image",
+            "required": true,
+            "order": 4
+          },
+          "trailerUrl": {
+            "type": "STRING",
+            "title": "Trailer URL",
+            "placeholder": "https://youtube.com/watch?v=...",
+            "description": "YouTube or video URL for trailer",
+            "required": false,
+            "order": 5
+          },
+          "duration": {
+            "type": "INTEGER",
+            "title": "Duration (minutes)",
+            "placeholder": "e.g., 148",
+            "description": "Movie duration in minutes",
+            "required": true,
+            "order": 6
+          },
+          "releaseDate": {
+            "type": "DATE",
+            "title": "Release Date",
+            "placeholder": "YYYY-MM-DD",
+            "description": "Date when movie releases/released",
+            "required": true,
+            "order": 7
+          },
+          "language": {
+            "type": "ARRAY",
+            "title": "Languages",
+            "placeholder": "Select languages",
+            "description": "Available languages for the movie",
+            "required": true,
+            "order": 8
+          },
+          "country": {
+            "type": "STRING",
+            "title": "Country",
+            "placeholder": "e.g., India, USA, UK",
+            "description": "Country of origin",
+            "required": true,
+            "order": 9
+          },
+          "certification": {
+            "type": "STRING",
+            "title": "Certification",
+            "placeholder": "e.g., U, UA, A, R",
+            "description": "Content rating/certification",
+            "required": true,
+            "order": 10
+          },
+          "formats": {
+            "type": "ARRAY",
+            "title": "Formats",
+            "placeholder": "Select available formats",
+            "description": "Available formats (2D, 3D, IMAX, 4DX)",
+            "required": true,
+            "order": 11
+          },
+          "genres": {
+            "type": "ARRAY",
+            "title": "Genres",
+            "placeholder": "Select genres",
+            "description": "Movie genres",
+            "required": true,
+            "order": 12
+          },
+          "status": {
+            "type": "STRING",
+            "title": "Status",
+            "placeholder": "Select status",
+            "description": "Current status of the movie",
+            "required": true,
+            "order": 13
+          },
+          "starcast": {
+            "type": "ARRAY",
+            "title": "Star Cast & Crew",
+            "placeholder": "Add cast and crew members",
+            "description": "List of actors and crew members",
+            "required": true,
+            "order": 14
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this movie is active",
+            "default": true,
+            "order": 15
+          }
+        },
+        "required": ["title", "description", "poster", "banner", "duration", "releaseDate", "language", "country", "certification", "formats", "genres", "status", "starcast"]
+      },
+
+      "validationRules": {
+        "title": {
+          "type": "STRING",
+          "collectionField": "title",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Movie title is required')",
+            "@Size(min=1, max=200, message='Title must be 1-200 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Movie title is required')",
+              "@Size(min=1, max=200)",
+              "@Unique(collection='movies', field='title', message='Movie with this title already exists')"
+            ],
+            "update": [
+              "@Size(min=1, max=200)",
+              "@UniqueExcludingSelf(collection='movies', field='title', idField='_id', message='Movie with this title already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "title"
+          }
+        },
+
+        "description": {
+          "type": "STRING",
+          "collectionField": "description",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Description is required')",
+            "@Size(min=10, max=2000, message='Description must be 10-2000 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Description is required')",
+              "@Size(min=10, max=2000)"
+            ],
+            "update": [
+              "@Size(min=10, max=2000)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "description"
+          }
+        },
+
+        "poster": {
+          "type": "STRING",
+          "collectionField": "poster",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Poster URL is required')",
+            "@Size(min=10, max=500, message='Poster URL must be 10-500 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Poster URL is required')",
+              "@Size(min=10, max=500)",
+              "@Unique(collection='movies', field='poster', message='Poster URL already used')"
+            ],
+            "update": [
+              "@Size(min=10, max=500)",
+              "@UniqueExcludingSelf(collection='movies', field='poster', idField='_id', message='Poster URL already used')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "poster"
+          }
+        },
+
+        "banner": {
+          "type": "STRING",
+          "collectionField": "banner",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Banner URL is required')",
+            "@Size(min=10, max=500, message='Banner URL must be 10-500 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Banner URL is required')",
+              "@Size(min=10, max=500)",
+              "@Unique(collection='movies', field='banner', message='Banner URL already used')"
+            ],
+            "update": [
+              "@Size(min=10, max=500)",
+              "@UniqueExcludingSelf(collection='movies', field='banner', idField='_id', message='Banner URL already used')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "banner"
+          }
+        },
+
+        "trailerUrl": {
+          "type": "STRING",
+          "collectionField": "trailerUrl",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@Size(min=0, max=500, message='Trailer URL cannot exceed 500 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(min=0, max=500)"
+            ],
+            "update": [
+              "@Size(min=0, max=500)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "trailerUrl"
+          }
+        },
+
+        "duration": {
+          "type": "INTEGER",
+          "collectionField": "duration",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotNull(message='Duration is required')",
+            "@Min(value=30, message='Duration must be at least 30 minutes')",
+            "@Max(value=300, message='Duration cannot exceed 300 minutes')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotNull(message='Duration is required')",
+              "@Min(value=30)",
+              "@Max(value=300)"
+            ],
+            "update": [
+              "@Min(value=30)",
+              "@Max(value=300)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "duration"
+          }
+        },
+
+        "releaseDate": {
+          "type": "DATE",
+          "collectionField": "releaseDate",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotBlank(message='Release date is required')",
+            "@DateFormat(format='yyyy-MM-dd', message='Date format must be yyyy-MM-dd')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Release date is required')",
+              "@DateFormat(format='yyyy-MM-dd')"
+            ],
+            "update": [
+              "@DateFormat(format='yyyy-MM-dd')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "releaseDate"
+          }
+        },
+
+        "language": {
+          "type": "ARRAY",
+          "collectionField": "language",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotEmpty(message='At least one language is required')",
+            "@Size(min=1, max=10, message='Maximum 10 languages allowed')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotEmpty(message='At least one language is required')",
+              "@Size(min=1, max=10)"
+            ],
+            "update": [
+              "@NotEmpty(message='At least one language is required')",
+              "@Size(min=1, max=10)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "language"
+          }
+        },
+
+        "country": {
+          "type": "STRING",
+          "collectionField": "country",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Country is required')",
+            "@Size(min=2, max=100, message='Country must be 2-100 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Country is required')",
+              "@Size(min=2, max=100)"
+            ],
+            "update": [
+              "@Size(min=2, max=100)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "country"
+          }
+        },
+
+        "certification": {
+          "type": "STRING",
+          "collectionField": "certification",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotBlank(message='Certification is required')",
+            "@Pattern(regexp='^(U|UA|A|R)$', message='Certification must be U, UA, A, or R')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Certification is required')",
+              "@Pattern(regexp='^(U|UA|A|R)$')"
+            ],
+            "update": [
+              "@Pattern(regexp='^(U|UA|A|R)$')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "certification"
+          }
+        },
+
+        "formats": {
+          "type": "ARRAY",
+          "collectionField": "formats",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotEmpty(message='At least one format is required')",
+            "@Size(min=1, max=4, message='Maximum 4 formats allowed')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotEmpty(message='At least one format is required')",
+              "@Size(min=1, max=4)"
+            ],
+            "update": [
+              "@NotEmpty(message='At least one format is required')",
+              "@Size(min=1, max=4)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "formats"
+          }
+        },
+
+        "genres": {
+          "type": "ARRAY",
+          "collectionField": "genres",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotEmpty(message='At least one genre is required')",
+            "@Size(min=1, max=10, message='Maximum 10 genres allowed')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotEmpty(message='At least one genre is required')",
+              "@Size(min=1, max=10)"
+            ],
+            "update": [
+              "@NotEmpty(message='At least one genre is required')",
+              "@Size(min=1, max=10)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "genres"
+          }
+        },
+
+        "status": {
+          "type": "STRING",
+          "collectionField": "status",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotBlank(message='Status is required')",
+            "@Pattern(regexp='^(coming_soon|now_showing|ended)$', message='Status must be coming_soon, now_showing, or ended')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Status is required')",
+              "@Pattern(regexp='^(coming_soon|now_showing|ended)$')"
+            ],
+            "update": [
+              "@Pattern(regexp='^(coming_soon|now_showing|ended)$')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "status"
+          }
+        },
+
+        "starcast": {
+          "type": "ARRAY",
+          "collectionField": "starcast",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotEmpty(message='Star cast is required')",
+            "@Size(min=2, max=20, message='Star cast must have minimum 2 and maximum 20 members')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotEmpty(message='Star cast is required')",
+              "@Size(min=2, max=20)"
+            ],
+            "update": [
+              "@NotEmpty(message='Star cast is required')",
+              "@Size(min=2, max=20)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "starcast"
+          }
+        },
+
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isActive"
+          }
+        },
+
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='movies', field='_id', message='Movie not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='movies', field='_id', message='Movie not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "movies",
+        "fieldMapping": {
+          "title": "title",
+          "description": "description",
+          "poster": "poster",
+          "banner": "banner",
+          "trailerUrl": "trailerUrl",
+          "duration": "duration",
+          "releaseDate": "releaseDate",
+          "language": "language",
+          "country": "country",
+          "certification": "certification",
+          "formats": "formats",
+          "genres": "genres",
+          "status": "status",
+          "starcast": "starcast",
+          "isActive": "isActive"
+        },
+        "autoFields": {
+          "createdAt": "{{now}}",
+          "updatedAt": "{{now}}",
+          "deletedAt": null,
+          "createdBy": "{{currentUser}}",
+          "updatedBy": "{{currentUser}}"
+        },
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating new movie",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["movies"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "Movie",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Movie creation failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Movie created successfully",
+              "error": "Failed to create movie",
+              "validation": "Please check the form for errors"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Updating movie",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["movies"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "Movie",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Movie update failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Movie updated successfully",
+              "error": "Failed to update movie",
+              "notFound": "Movie not found or has been deleted"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Deleting movie",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["movies"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "DELETE",
+                    "entity": "Movie"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Movie deleted successfully",
+              "error": "Failed to delete movie",
+              "notFound": "Movie not found"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN", "USER"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "two-column",
+        "sections": [
+          {
+            "title": "Basic Information",
+            "fields": ["title", "description", "releaseDate"]
+          },
+          {
+            "title": "Media",
+            "fields": ["poster", "banner", "trailerUrl"]
+          },
+          {
+            "title": "Movie Details",
+            "fields": ["duration", "country", "language"]
+          },
+          {
+            "title": "Ratings & Formats",
+            "fields": ["certification", "formats"]
+          },
+          {
+            "title": "Content",
+            "fields": ["genres", "status"]
+          },
+          {
+            "title": "Cast & Crew",
+            "fields": ["starcast"]
+          },
+          {
+            "title": "Availability",
+            "fields": ["isActive"]
+          }
+        ],
+        "submitButton": {
+          "label": "Save Movie",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "cinema",
+        "version": "1.0",
+        "lastUpdated": "2026-02-12T00:00:00Z",
+        "fieldCount": 15,
+        "author": "system"
+      }
+    }
+  ],
+
+  "metadata": {
+    "module": "cinema",
+    "version": "1.0",
+    "documentCount": "movies"
+  }
+}
