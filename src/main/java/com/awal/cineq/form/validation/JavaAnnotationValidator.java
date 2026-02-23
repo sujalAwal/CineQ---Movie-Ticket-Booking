@@ -3,8 +3,6 @@ package com.awal.cineq.form.validation;
 import com.awal.cineq.common.enums.FieldType;
 import com.awal.cineq.common.util.TypeValidator;
 import com.awal.cineq.exception.ValidationException;
-import com.awal.cineq.form.model.FormSubmission;
-import com.awal.cineq.form.repository.FormSubmissionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.types.ObjectId;
@@ -25,7 +23,6 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class JavaAnnotationValidator {
 
-    private final FormSubmissionRepository formSubmissionRepository;
     private final MongoTemplate mongoTemplate;
 
     /**
@@ -469,19 +466,19 @@ public class JavaAnnotationValidator {
                 validateDateBefore(fieldName, fieldValue, rule, errors, formData);
             }
 
-            // @Unique - value must be unique in FormSubmission for this formManager + formStep
+            // @UniqueExcludingSelf MUST come BEFORE @Unique (since "@UniqueExcludingSelf".startsWith("@Unique") is true)
+            else if (rule.startsWith("@UniqueExcludingSelf")) {
+                validateUniqueExcludingSelf(fieldName, fieldValue, rule, errors, formData);
+            }
+
+            // @Unique - value must be unique in target collection
             else if (rule.startsWith("@Unique")) {
-                validateUnique(fieldName, fieldValue, rule, errors, formManagerId, formStepId, action, formData);
+                validateUnique(fieldName, fieldValue, rule, errors, action, formData);
             }
 
             // @Exists - value must exist in specified collection
             else if (rule.startsWith("@Exists")) {
                 validateExists(fieldName, fieldValue, rule, errors, formData);
-            }
-
-            // @UniqueExcludingSelf - value must be unique excluding current document (for UPDATE)
-            else if (rule.startsWith("@UniqueExcludingSelf")) {
-                validateUniqueExcludingSelf(fieldName, fieldValue, rule, errors, formData);
             }
 
             // @MustMatchExisting - value must match existing document value (immutable field check)
@@ -804,140 +801,87 @@ public class JavaAnnotationValidator {
 
     /**
      * Validate @Unique constraint
-     * Checks if the field value already exists in FormSubmission for the given formManager and formStep
+     * Queries the target collection directly using mongoTemplate.exists() for efficiency.
+     *
+     * Format: @Unique(collection='crew_roles', field='name', message='Already exists', exclude='id')
+     *
+     * For CREATE: checks if any non-deleted document has the same field value
+     * For UPDATE: same check but excludes the current document (via 'exclude' param, default 'id')
      *
      * @param fieldName Field name
      * @param fieldValue Field value to check
-     * @param rule Rule string containing message (e.g., "@Unique(message='Already exists')")
+     * @param rule Rule string (e.g., "@Unique(collection='crew_roles', field='name', message='...')")
      * @param errors Error list
-     * @param formManagerId FormManager ID (required for uniqueness scope)
-     * @param formStepId FormStep ID (required for uniqueness scope)
+     * @param action Action being performed (create, update, delete)
+     * @param formData Complete form data (needed to get document ID for UPDATE exclusion)
      */
     private void validateUnique(String fieldName, Object fieldValue, String rule, List<String> errors,
-                               String formManagerId, String formStepId) {
+                               String action, Map<String, Object> formData) {
 
-        // Skip if context is missing
-        if (fieldValue == null || formManagerId == null || formStepId == null) {
-            log.debug("@Unique validation skipped for field '{}': missing context (formManagerId or formStepId)", fieldName);
+        // Skip if value is null or empty
+        if (fieldValue == null || fieldValue.toString().trim().isEmpty()) {
+            log.debug("@Unique validation skipped for field '{}': value is null/empty", fieldName);
             return;
         }
 
+        // For non-write actions (delete, etc.), skip uniqueness validation
+        if (action != null && !"create".equalsIgnoreCase(action) && !"update".equalsIgnoreCase(action)) {
+            log.debug("@Unique validation skipped for field '{}': action '{}' does not require uniqueness check", fieldName, action);
+            return;
+        }
+
+        String collection = extractStringParam(rule, "collection");
+        String field = extractStringParam(rule, "field");
         String message = extractMessage(rule, fieldName + " already exists");
 
-        try {
-            // Query: check if this field value exists in FormSubmission for this formManager + formStep
-            List<FormSubmission> existingSubmissions = formSubmissionRepository.findByFormManagerIdAndFormStepIdAndFieldValue(
-                formManagerId,
-                formStepId,
-                fieldName,
-                fieldValue
-            );
+        if (collection == null || field == null) {
+            log.error("@Unique validation failed: missing 'collection' or 'field' parameter in rule: {}", rule);
+            errors.add("Invalid @Unique configuration for field: " + fieldName);
+            return;
+        }
 
-            if (existingSubmissions != null && !existingSubmissions.isEmpty()) {
-                log.debug("@Unique validation failed for field '{}': value '{}' already exists in formManager='{}' formStep='{}'",
-                         fieldName, fieldValue, formManagerId, formStepId);
+        try {
+            Query query = new Query();
+            query.addCriteria(Criteria.where(field).is(fieldValue));
+            query.addCriteria(Criteria.where("deletedAt").is(null));
+
+            // For UPDATE: exclude the current document
+            if ("update".equalsIgnoreCase(action)) {
+                String excludeKey = extractExcludeKey(rule); // default: "id"
+
+                Object currentId = formData != null ? formData.get(excludeKey) : null;
+                // Fallback: if excludeKey is "id", also try "_id"
+                if (currentId == null && "id".equals(excludeKey) && formData != null) {
+                    currentId = formData.get("_id");
+                }
+
+                if (currentId == null) {
+                    log.error("@Unique validation failed: UPDATE requires '{}' in formData for field '{}'", excludeKey, fieldName);
+                    errors.add("Unable to validate uniqueness: missing '" + excludeKey + "' in form data for UPDATE");
+                    return;
+                }
+
+                try {
+                    ObjectId objectId = new ObjectId(currentId.toString());
+                    query.addCriteria(Criteria.where("_id").ne(objectId));
+                } catch (IllegalArgumentException e) {
+                    query.addCriteria(Criteria.where("_id").ne(currentId));
+                }
+            }
+
+            boolean exists = mongoTemplate.exists(query, collection);
+
+            if (exists) {
+                log.debug("@Unique validation failed for field '{}': value '{}' already exists in collection '{}' (action={})",
+                         fieldName, fieldValue, collection, action);
                 errors.add(message);
             } else {
-                log.debug("@Unique validation passed for field '{}': value '{}' is unique in formManager='{}' formStep='{}'",
-                         fieldName, fieldValue, formManagerId, formStepId);
+                log.debug("@Unique validation passed for field '{}': value '{}' is unique in collection '{}'",
+                         fieldName, fieldValue, collection);
             }
-        } catch (Exception e) {
-            log.warn("Error during @Unique validation for field '{}': {}", fieldName, e.getMessage());
-            // Don't fail validation if database query fails, log warning instead
-            errors.add("Unable to validate uniqueness: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Validate @Unique constraint with UPDATE support
-     * Checks if the field value already exists in FormSubmission for the given formManager and formStep
-     *
-     * For UPDATE operations, use exclude parameter to skip the current record:
-     * @Unique(message='Already exists', exclude='id')
-     *
-     * @param fieldName Field name
-     * @param fieldValue Field value to check
-     * @param rule Rule string containing message and optional exclude (e.g., "@Unique(message='...', exclude='id')")
-     * @param errors Error list
-     * @param formManagerId FormManager ID (required for uniqueness scope)
-     * @param formStepId FormStep ID (required for uniqueness scope)
-     * @param action Action being performed (create, update, delete)
-     * @param formData Complete form data (needed to get exclude value for UPDATE)
-     */
-    private void validateUnique(String fieldName, Object fieldValue, String rule, List<String> errors,
-                               String formManagerId, String formStepId, String action, Map<String, Object> formData) {
-
-        // Skip if context is missing
-        if (fieldValue == null || formManagerId == null || formStepId == null) {
-            log.debug("@Unique validation skipped for field '{}': missing context (formManagerId or formStepId)", fieldName);
-            return;
-        }
-
-        String message = extractMessage(rule, fieldName + " already exists");
-
-        try {
-            // Query: get all submissions matching this field value for this formManager + formStep
-            List<FormSubmission> existingSubmissions = formSubmissionRepository.findByFormManagerIdAndFormStepIdAndFieldValue(
-                formManagerId,
-                formStepId,
-                fieldName,
-                fieldValue
-            );
-
-            // If no submissions found, value is unique
-            if (existingSubmissions == null || existingSubmissions.isEmpty()) {
-                log.debug("@Unique validation passed for field '{}': value '{}' is unique", fieldName, fieldValue);
-                return;
-            }
-
-            // For CREATE: any existing submission = duplicate ✗
-            if ("create".equalsIgnoreCase(action)) {
-                log.debug("@Unique validation failed for field '{}': value '{}' already exists (CREATE action)", fieldName, fieldValue);
-                errors.add(message);
-                return;
-            }
-
-            // For UPDATE: need to exclude current record using exclude parameter
-            if ("update".equalsIgnoreCase(action)) {
-                // Extract exclude key name from rule (default: 'id')
-                String excludeKey = extractExcludeKey(rule);
-
-                // Get exclude value from formData
-                Object excludeValue = formData.get(excludeKey);
-
-                if (excludeValue == null) {
-                    log.error("@Unique validation failed: UPDATE action requires exclude key '{}' in formData", excludeKey);
-                    errors.add("Unable to validate uniqueness: Missing '" + excludeKey + "' in form data for UPDATE");
-                    return;
-                }
-
-                // Loop through existing submissions
-                // Skip if ID matches current record, fail if any other record has same value
-                for (FormSubmission submission : existingSubmissions) {
-                    String submissionId = submission.getId();
-
-                    // If this is the current record being updated, skip it
-                    if (submissionId != null && submissionId.equals(excludeValue.toString())) {
-                        log.debug("@Unique validation: skipping current record (id='{}') during UPDATE", excludeValue);
-                        continue;
-                    }
-
-                    // Found a different record with same value = duplicate
-                    log.debug("@Unique validation failed for field '{}': value '{}' already exists in different record (UPDATE action)", fieldName, fieldValue);
-                    errors.add(message);
-                    return;
-                }
-
-                // All other records have different IDs = value is unique for this update
-                log.debug("@Unique validation passed for field '{}': value '{}' is unique in UPDATE (excluding current record)", fieldName, fieldValue);
-                return;
-            }
-
-            // For other actions (delete, etc.): don't validate uniqueness
-            log.debug("@Unique validation skipped for field '{}': action '{}' not supported", fieldName, action);
 
         } catch (Exception e) {
-            log.warn("Error during @Unique validation for field '{}': {}", fieldName, e.getMessage());
+            log.error("Error during @Unique validation for field '{}': {}", fieldName, e.getMessage(), e);
             errors.add("Unable to validate uniqueness: " + e.getMessage());
         }
     }
@@ -1062,7 +1006,7 @@ public class JavaAnnotationValidator {
      * @param formData Complete form data (must contain idField value)
      */
     private void validateUniqueExcludingSelf(String fieldName, Object fieldValue, String rule, List<String> errors, Map<String, Object> formData) {
-        log.info("@UniqueExcludingSelf ENTRY: fieldName='{}', fieldValue='{}', rule='{}'", fieldName, fieldValue, rule);
+        log.debug("@UniqueExcludingSelf ENTRY: fieldName='{}', fieldValue='{}', rule='{}'", fieldName, fieldValue, rule);
 
         // Skip if value is null or empty
         if (fieldValue == null || fieldValue.toString().trim().isEmpty()) {
@@ -1119,15 +1063,10 @@ public class JavaAnnotationValidator {
             // Check if any OTHER document has this value
             boolean existsInOtherDoc = mongoTemplate.exists(query, collection);
 
-            log.info("@UniqueExcludingSelf DEBUG: field='{}', value='{}', collection='{}', existsInOtherDoc={}, message='{}'",
-                     fieldName, fieldValue, collection, existsInOtherDoc, message);
-
             if (existsInOtherDoc) {
                 log.debug("@UniqueExcludingSelf validation failed for field '{}': value '{}' exists in another document in collection '{}'",
                          fieldName, fieldValue, collection);
-                log.info("@UniqueExcludingSelf DEBUG: Adding error to errors list. Current errors size: {}", errors.size());
                 errors.add(message);
-                log.info("@UniqueExcludingSelf DEBUG: After adding error. New errors size: {}", errors.size());
             } else {
                 log.debug("@UniqueExcludingSelf validation passed for field '{}': value '{}' is unique (excluding current document)",
                          fieldName, fieldValue);

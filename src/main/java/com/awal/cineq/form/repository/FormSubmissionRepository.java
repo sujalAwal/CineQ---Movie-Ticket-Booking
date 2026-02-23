@@ -33,13 +33,6 @@ public interface FormSubmissionRepository extends MongoRepository<FormSubmission
     @Query("{ 'formManagerId': ?0, '_id': ?1, 'deletedAt': null }")
     Optional<FormSubmission> findByFormIdAndChildId(String formManagerId, String childId);
 
-    // Check if a field value already exists in FormSubmission for given formManager and formStep
-    // Used for @Unique validation
-    @Query("{ 'formManagerId': ?0, 'formStepId': ?1, 'submittedData.?2': ?3, 'deletedAt': null }")
-    List<FormSubmission> findByFormManagerIdAndFormStepIdAndFieldValue(String formManagerId, String formStepId,
-                                                                       String fieldName, Object fieldValue);
-
-
     /**
      * Get specific keys from submittedData
      */
