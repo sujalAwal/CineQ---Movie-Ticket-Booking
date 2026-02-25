@@ -53,5 +53,6 @@ public class ApplicationProperties {
     @Data
     public static class App {
         private String url = "http://localhost:8080";  // Backend API URL
+        private String googleClientId ;
     }
 }

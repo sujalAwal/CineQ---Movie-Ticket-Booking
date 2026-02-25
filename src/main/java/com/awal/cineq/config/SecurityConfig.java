@@ -52,6 +52,7 @@ public class SecurityConfig {
                     // ============================================
                     .requestMatchers(
                             "/customer/auth/login",
+                            "/customer/auth/login/google",
                             "/customer/auth/register",
                             "/customer/auth/verify-email",
                             "/customer/auth/forgot-password",
@@ -68,14 +69,7 @@ public class SecurityConfig {
                     // ============================================
                     .requestMatchers("/health").permitAll()
 //                    .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-//                    .requestMatchers("/h2-console/**").permitAll()
-
-                    // ============================================
-                    // FRONTEND STATIC FILES (if serving from same app)
-                    // ============================================
-                    .requestMatchers(
-                            "/frontend/**"
-                    ).permitAll()
+//                    .requestMatchers("/h2-console/**").permitAll(
 
                      // ============================================
                     // ADMIN AUTHENTICATION

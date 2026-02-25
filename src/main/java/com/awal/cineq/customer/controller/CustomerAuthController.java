@@ -2,6 +2,7 @@ package com.awal.cineq.customer.controller;
 
 import com.awal.cineq.customer.dto.*;
 import com.awal.cineq.customer.service.CustomerAuthService;
+import com.awal.cineq.customer.service.GoogleAuthService;
 import com.awal.cineq.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,12 +15,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/frontend/customer/auth")
+@RequestMapping("/customer/auth")
 @RequiredArgsConstructor
 @Slf4j
 public class CustomerAuthController {
 
     private final CustomerAuthService customerAuthService;
+
+    private final GoogleAuthService googleAuthService;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<CustomerAuthResponse>> login(
@@ -107,5 +110,16 @@ public class CustomerAuthController {
                 isValid ? "Token is valid" : "Token is invalid or expired",
                 Map.of("valid", isValid)
         ));
+    }
+
+    @PostMapping("/login/google")
+    public ResponseEntity<ApiResponse<CustomerAuthResponse>> loginWithGoogle(
+            @Valid @RequestBody GoogleLoginRequest request,
+            HttpServletResponse response) {
+        log.info("Attempting Google login");
+
+        CustomerAuthResponse authResponse = googleAuthService.login(request, response);
+
+        return ResponseEntity.ok(ApiResponse.success("Google login successful", authResponse));
     }
 }
