@@ -24,9 +24,12 @@ public class CustomerDetailsService implements UserDetailsService {
         Customer customer = customerRepository.findByEmailAndIsActiveTrue(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Customer not found with email: " + email));
 
+        // Google OAuth customers have null password - use placeholder since they authenticate via OAuth
+        String password = customer.getPassword() != null ? customer.getPassword() : "";
+
         return new org.springframework.security.core.userdetails.User(
                 customer.getEmail(),
-                customer.getPassword(),
+                password,
                 customer.getIsActive(),
                 true,
                 true,
