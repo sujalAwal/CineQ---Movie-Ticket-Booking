@@ -1,11 +1,24 @@
 package com.awal.cineq.user.controller;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.awal.cineq.config.ApplicationProperties;
 import com.awal.cineq.dto.ApiResponse;
 import com.awal.cineq.user.dto.AuthResponse;
 import com.awal.cineq.user.dto.LoginRequest;
 import com.awal.cineq.user.dto.ProfileResponse;
 import com.awal.cineq.user.dto.RegisterRequest;
 import com.awal.cineq.user.service.AuthService;
+
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.Cookie;
@@ -13,11 +26,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
@@ -28,9 +36,8 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final ApplicationProperties applicationProperties;
     
-    @Value("${app.jwt.expiration}")
-    private long jwtExpiration;
 
     @SecurityRequirements() // ← ONLY annotation needed for public endpoints
     @PostMapping("/login")
@@ -43,14 +50,15 @@ public class AuthController {
         AuthResponse authResponse = authService.login(loginRequest);
         
         // Create httpOnly cookie for secure web clients
-        Cookie jwtCookie = new Cookie("jwt-auth-token", authResponse.getToken());
-        jwtCookie.setHttpOnly(true);              // Prevents JavaScript access (XSS protection)
-        jwtCookie.setSecure(true);               // Set to true in production with HTTPS
-        jwtCookie.setPath("/");                   // Available for entire app
-       jwtCookie.setMaxAge((int) (jwtExpiration / 1000)); // CORRECT - convert ms to seconds
-        jwtCookie.setAttribute("SameSite", "None"); // CSRF protection
+    
+        Cookie authCookie = new Cookie(applicationProperties.getSecurity().getCookie().getName(), authResponse.getToken());
+        authCookie.setHttpOnly(applicationProperties.getSecurity().getCookie().isHttpOnly());
+        authCookie.setSecure(applicationProperties.getSecurity().getCookie().isSecure());
+        authCookie.setPath(applicationProperties.getSecurity().getCookie().getPath());
+        authCookie.setMaxAge(applicationProperties.getSecurity().getCookie().getMaxAge());
+        authCookie.setAttribute("SameSite", applicationProperties.getSecurity().getCookie().getSameSite());
         
-        response.addCookie(jwtCookie);
+        response.addCookie(authCookie);
         
         // Return full response (token included for API clients, cookie for web clients)
         return ResponseEntity.ok(ApiResponse.success("Login successful", authResponse));
@@ -74,9 +82,10 @@ public class AuthController {
         log.info("Logout attempt");
         
         // Clear the JWT cookie
-        Cookie jwtCookie = new Cookie("jwt-auth-token", null);
-        jwtCookie.setHttpOnly(true);
-        jwtCookie.setPath("/");
+        Cookie jwtCookie = new Cookie(applicationProperties.getSecurity().getCookie().getName(), null);
+        jwtCookie.setHttpOnly(applicationProperties.getSecurity().getCookie().isHttpOnly());
+        jwtCookie.setSecure(applicationProperties.getSecurity().getCookie().isSecure());
+        jwtCookie.setPath(applicationProperties.getSecurity().getCookie().getPath());
         jwtCookie.setMaxAge(0); // Expire immediately
         
         response.addCookie(jwtCookie);
