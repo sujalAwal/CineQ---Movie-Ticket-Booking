@@ -2,7 +2,6 @@ package com.awal.cineq.customer.service.impl;
 
 import com.awal.cineq.config.ApplicationProperties;
 import com.awal.cineq.config.JwtUtil;
-import com.awal.cineq.customer.config.CookieConfig;
 import com.awal.cineq.customer.dto.CustomerAuthResponse;
 import com.awal.cineq.customer.dto.GoogleLoginRequest;
 import com.awal.cineq.customer.model.Customer;
@@ -31,7 +30,6 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
     private final ApplicationProperties appProperties;
     private final CustomerRepository customerRepository;
     private final JwtUtil jwtUtil;
-    private final CookieConfig cookieConfig;
 
     @Override
     public CustomerAuthResponse login(GoogleLoginRequest googleLoginRequest, HttpServletResponse response) {
@@ -90,12 +88,12 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
             String token = jwtUtil.generateToken(customer.getEmail(), "CUSTOMER");
 
             // Set HttpOnly cookie
-            Cookie authCookie = new Cookie(cookieConfig.getName(), token);
-            authCookie.setHttpOnly(cookieConfig.isHttpOnly());
-            authCookie.setSecure(cookieConfig.isSecure());
-            authCookie.setPath(cookieConfig.getPath());
-            authCookie.setMaxAge(cookieConfig.getMaxAge());
-            authCookie.setAttribute("SameSite", cookieConfig.getSameSite());
+            Cookie authCookie = new Cookie(appProperties.getSecurity().getCookie().getName(), token);
+            authCookie.setHttpOnly(appProperties.getSecurity().getCookie().isHttpOnly());
+            authCookie.setSecure(appProperties.getSecurity().getCookie().isSecure());
+            authCookie.setPath(appProperties.getSecurity().getCookie().getPath());
+            authCookie.setMaxAge(appProperties.getSecurity().getCookie().getMaxAge());
+            authCookie.setAttribute("SameSite", appProperties.getSecurity().getCookie().getSameSite());
             response.addCookie(authCookie);
 
             // Return response matching existing login format (token NOT in body)

@@ -12,9 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.awal.cineq.common.util.EmailHelper;
 import com.awal.cineq.common.util.SecureTokenGenerator;
+import com.awal.cineq.config.ApplicationProperties;
 import com.awal.cineq.config.JwtUtil;
-import com.awal.cineq.customer.config.CookieConfig;
-import com.awal.cineq.customer.config.CustomerAuthConfig;
 import com.awal.cineq.customer.dto.CustomerAuthResponse;
 import com.awal.cineq.customer.dto.CustomerLoginRequest;
 import com.awal.cineq.customer.dto.CustomerRegisterRequest;
@@ -43,8 +42,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-    private final CustomerAuthConfig customerAuthConfig;
-    private final CookieConfig cookieConfig;
+    private final ApplicationProperties appProperties;
     private final TokenBlacklistService tokenBlacklistService;
     private final PasswordHistoryService passwordHistoryService;
     private final EmailTemplateRepository emailTemplateRepository;
@@ -78,7 +76,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         }
 
         // Check email verification requirement
-        if (customerAuthConfig.isEmailVerificationRequired() && !customer.getIsEmailVerified()) {
+        if (appProperties.getCustomer().isEmailVerificationRequired() && !customer.getIsEmailVerified()) {
             throw new BadRequestException("Please verify your email before logging in. Check your inbox or request a new verification email.");
         }
 
@@ -89,12 +87,12 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         String token = jwtUtil.generateToken(customer.getEmail(), "CUSTOMER");
         
         // Set HttpOnly cookie for secure token storage
-        Cookie authCookie = new Cookie(cookieConfig.getName(), token);
-        authCookie.setHttpOnly(cookieConfig.isHttpOnly());
-        authCookie.setSecure(cookieConfig.isSecure());
-        authCookie.setPath(cookieConfig.getPath());
-        authCookie.setMaxAge(cookieConfig.getMaxAge());
-        authCookie.setAttribute("SameSite", cookieConfig.getSameSite());
+        Cookie authCookie = new Cookie(appProperties.getSecurity().getCookie().getName(), token);
+        authCookie.setHttpOnly(appProperties.getSecurity().getCookie().isHttpOnly());
+        authCookie.setSecure(appProperties.getSecurity().getCookie().isSecure());
+        authCookie.setPath(appProperties.getSecurity().getCookie().getPath());
+        authCookie.setMaxAge(appProperties.getSecurity().getCookie().getMaxAge());
+        authCookie.setAttribute("SameSite", appProperties.getSecurity().getCookie().getSameSite());
         
         response.addCookie(authCookie);
         
@@ -186,7 +184,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         log.info("Email verification initiated for customer: {}", savedCustomer.getEmail());
 
         // If verification required, don't return token
-        if (customerAuthConfig.isEmailVerificationRequired()) {
+        if (appProperties.getCustomer().isEmailVerificationRequired()) {
             log.info("Customer {} registered - email verification required", savedCustomer.getEmail());
             return CustomerAuthResponse.builder()
                     .id(savedCustomer.getId())
@@ -232,10 +230,10 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         }
         
         // Clear the HttpOnly cookie
-        Cookie authCookie = new Cookie(cookieConfig.getName(), null);
-        authCookie.setHttpOnly(cookieConfig.isHttpOnly());
-        authCookie.setSecure(cookieConfig.isSecure());
-        authCookie.setPath(cookieConfig.getPath());
+        Cookie authCookie = new Cookie(appProperties.getSecurity().getCookie().getName(), null);
+        authCookie.setHttpOnly(appProperties.getSecurity().getCookie().isHttpOnly());
+        authCookie.setSecure(appProperties.getSecurity().getCookie().isSecure());
+        authCookie.setPath(appProperties.getSecurity().getCookie().getPath());
         authCookie.setMaxAge(0);  // Expire immediately
         
         response.addCookie(authCookie);
@@ -256,7 +254,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         // Then try cookie
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
-                if (cookieConfig.getName().equals(cookie.getName())) {
+                if (appProperties.getSecurity().getCookie().getName().equals(cookie.getName())) {
                     return cookie.getValue();
                 }
             }
@@ -320,7 +318,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         String resetToken = SecureTokenGenerator.generateToken();
         customer.setPasswordResetToken(resetToken);
         customer.setPasswordResetTokenExpiresAt(
-                LocalDateTime.now().plusHours(customerAuthConfig.getPasswordResetTokenExpiryHours())
+                LocalDateTime.now().plusHours(appProperties.getCustomer().getPasswordResetTokenExpiryHours())
         );
 
         customerRepository.save(customer);
@@ -414,7 +412,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
             // 1. Extract token from URL params
             // 2. Call POST /api/frontend/customer/auth/verify-email?token=XXX
             // 3. Show success/error to user
-            String frontendUrl = customerAuthConfig.getFrontendUrl();
+            String frontendUrl = appProperties.getCustomer().getFrontendUrl();
             String verificationLink = frontendUrl + "/verify-email?token=" + verificationToken;
 
             // Replace placeholders in subject and message

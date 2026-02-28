@@ -16,6 +16,7 @@ public class ApplicationProperties {
     private Security security = new Security();
     private Email email = new Email();
     private App app = new App();
+    private Customer customer = new Customer();
 
     @Data
     public static class Jwt {
@@ -36,6 +37,19 @@ public class ApplicationProperties {
         private String prominentRole ;
 
         private String authorizationProvider = "RBAC";
+        private Cookie cookie = new Cookie();
+
+        @Data
+        public static class Cookie {
+            // @Value cannot be used in nested static classes for ConfigurationProperties easily without setters
+            // We'll rely on the getter of ApplicationProperties.Jwt to access jwt expiration
+            private String name = "jwt-auth-token";
+            private boolean secure = true;
+            private boolean httpOnly = true;
+            private String sameSite = "Strict";
+            private int maxAge = 86400;
+            private String path = "/";
+        }
     }
 
     @Data
@@ -54,5 +68,30 @@ public class ApplicationProperties {
     public static class App {
         private String url = "http://localhost:8080";  // Backend API URL
         private String googleClientId ;
+    }
+
+    @Data
+    public static class Customer {
+        private boolean emailVerificationRequired = false;
+        private int maxFailedLoginAttempts = 10;
+        private int lockoutDurationMinutes = 60;
+        private int passwordResetTokenExpiryHours = 24;
+        private String adminNotificationEmails = "";
+        private String frontendUrl = "http://localhost:3000";
+        private String adminUrl = "http://localhost:3000/admin";
+
+        public java.util.List<String> getAdminEmailList() {
+            if (adminNotificationEmails == null || adminNotificationEmails.trim().isEmpty()) {
+                return new java.util.ArrayList<>();
+            }
+            return java.util.Arrays.stream(adminNotificationEmails.split(","))
+                    .map(String::trim)
+                    .filter(email -> !email.isEmpty())
+                    .toList();
+        }
+
+        public boolean isAdminNotificationEnabled() {
+            return !getAdminEmailList().isEmpty();
+        }
     }
 }
