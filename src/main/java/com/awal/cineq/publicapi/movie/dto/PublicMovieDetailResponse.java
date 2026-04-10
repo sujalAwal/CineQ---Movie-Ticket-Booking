@@ -40,7 +40,7 @@ public class PublicMovieDetailResponse {
     private Object formats;
     private String status;
     private String director;
-    private Object starcast;
+    private List<StarcastInfo> starcast;
     private List<GenreInfo> genres;
     private Boolean isActive;
 }

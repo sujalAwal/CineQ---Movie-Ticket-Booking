@@ -10,6 +10,9 @@ import com.awal.cineq.genre.repository.GenreRepository;
 import com.awal.cineq.masterdata.repository.MovieReleaseStatusRepository;
 import com.awal.cineq.publicapi.movie.dto.GenreInfo;
 import com.awal.cineq.publicapi.movie.dto.PublicMovieDetailResponse;
+import com.awal.cineq.publicapi.movie.dto.StarcastInfo;
+import com.awal.cineq.publicapi.movie.dto.ArtistInfo;
+import com.awal.cineq.publicapi.movie.dto.ArtistTypeInfo;
 import com.awal.cineq.publicapi.movie.service.PublicMovieService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,8 +27,11 @@ import org.springframework.data.support.PageableExecutionUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -90,7 +96,8 @@ public class PublicMovieServiceImpl implements PublicMovieService {
 
             // Execute query
             Query query = new Query(criteria).with(pageable);
-            List<Map> movies = mongoTemplate.find(query, Map.class, "movies");
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> movies = (List<Map<String, Object>>) (List<?>) mongoTemplate.find(query, Map.class, "movies");
             long total = mongoTemplate.count(new Query(criteria), "movies");
 
             // Convert to DTOs
@@ -191,6 +198,9 @@ public class PublicMovieServiceImpl implements PublicMovieService {
                 });
             }
 
+            // Enrich starcast data with full artist and artist type information
+            List<StarcastInfo> enrichedStarcast = enrichStarcast(doc.get("starcast"));
+
             PublicMovieDetailResponse detail = PublicMovieDetailResponse.builder()
                     .id(doc.get("_id") != null ? doc.get("_id").toString() : null)
                     .title((String) doc.get("title"))
@@ -206,7 +216,7 @@ public class PublicMovieServiceImpl implements PublicMovieService {
                     .formats(doc.get("formats"))
                     .status((String) doc.get("status"))
                     .director((String) doc.get("director"))
-                    .starcast(doc.get("starcast"))
+                    .starcast(enrichedStarcast)
                     .genres(resolvedGenres)
                     .isActive(isActive)
                     .build();
@@ -273,5 +283,132 @@ public class PublicMovieServiceImpl implements PublicMovieService {
         }
         
         return dto;
+    }
+
+    /**
+     * Enriches starcast data with full artist and artist type information.
+     * 
+     * AVOIDS N+1 QUERIES:
+     * - Extracts all unique artistIds and artistTypeIds in one pass
+     * - Batch queries artists collection with IN operator
+     * - Batch queries artist_types collection with IN operator
+     * - Maps results for O(1) lookup
+     * - Returns enriched starcast list
+     * 
+     * @param starcastRaw Raw starcast array from movie document
+     * @return List of enriched StarcastInfo objects
+     */
+    private List<StarcastInfo> enrichStarcast(Object starcastRaw) {
+        List<StarcastInfo> enrichedList = new ArrayList<>();
+        
+        if (!(starcastRaw instanceof List<?>)) {
+            return enrichedList;
+        }
+
+        List<?> starcastList = (List<?>) starcastRaw;
+        if (starcastList.isEmpty()) {
+            return enrichedList;
+        }
+
+        // Step 1: Collect all unique artistIds and artistTypeIds
+        Set<String> artistIds = new HashSet<>();
+        Set<String> artistTypeIds = new HashSet<>();
+        List<Map<String, Object>> starcastMaps = new ArrayList<>();
+
+        for (Object item : starcastList) {
+            if (item instanceof Map starcastItem) {
+                starcastMaps.add(starcastItem);
+                String artistId = (String) starcastItem.get("artistId");
+                String artistTypeId = (String) starcastItem.get("artistTypeId");
+                if (artistId != null) artistIds.add(artistId);
+                if (artistTypeId != null) artistTypeIds.add(artistTypeId);
+            }
+        }
+
+        // Step 2: Batch query artists collection
+        Map<String, ArtistInfo> artistMap = new HashMap<>();
+        if (!artistIds.isEmpty()) {
+            List<ObjectId> artistObjectIds = artistIds.stream()
+                    .map(id -> {
+                        try {
+                            return new ObjectId(id);
+                        } catch (Exception e) {
+                            log.warn("Invalid ObjectId format for artist: {}", id);
+                            return null;
+                        }
+                    })
+                    .filter(obj -> obj != null)
+                    .collect(Collectors.toList());
+
+            if (!artistObjectIds.isEmpty()) {
+                Query artistQuery = new Query(
+                        Criteria.where("_id").in(artistObjectIds)
+                                .and("isActive").is(true)
+                                .and("deletedAt").is(null)
+                );
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> artistDocs = (List<Map<String, Object>>) (List<?>) mongoTemplate.find(artistQuery, Map.class, "artists");
+                
+                for (Map<String, Object> artistDoc : artistDocs) {
+                    String id = artistDoc.get("_id") != null ? artistDoc.get("_id").toString() : null;
+                    ArtistInfo artistInfo = ArtistInfo.builder()
+                            .id(id)
+                            .fullName((String) artistDoc.get("full_name"))
+                            .avatar((String) artistDoc.get("avatar"))
+                            .rating(artistDoc.get("rating") != null ? ((Number) artistDoc.get("rating")).doubleValue() : null)
+                            .bio((String) artistDoc.get("bio"))
+                            .build();
+                    if (id != null) {
+                        artistMap.put(id, artistInfo);
+                    }
+                }
+            }
+        }
+
+        // Step 3: Batch query artist_types collection
+        Map<String, ArtistTypeInfo> artistTypeMap = new HashMap<>();
+        if (!artistTypeIds.isEmpty()) {
+            Query artistTypeQuery = new Query(
+                    Criteria.where("_id").in(artistTypeIds.stream()
+                            .map(ObjectId::new)
+                            .collect(Collectors.toList()))
+                            .and("isActive").is(true)
+                            .and("deletedAt").is(null)
+            );
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> artistTypeDocs = (List<Map<String, Object>>) (List<?>) mongoTemplate.find(artistTypeQuery, Map.class, "artist_types");
+            
+            for (Map<String, Object> typeDoc : artistTypeDocs) {
+                String id = typeDoc.get("_id") != null ? typeDoc.get("_id").toString() : null;
+                ArtistTypeInfo typeInfo = ArtistTypeInfo.builder()
+                        .id(id)
+                        .name((String) typeDoc.get("name"))
+                        .icon((String) typeDoc.get("icon"))
+                        .description((String) typeDoc.get("description"))
+                        .build();
+                if (id != null) {
+                    artistTypeMap.put(id, typeInfo);
+                }
+            }
+        }
+
+        // Step 4: Build enriched starcast list
+        for (Map<String, Object> starcastItem : starcastMaps) {
+            String artistId = (String) starcastItem.get("artistId");
+            String artistTypeId = (String) starcastItem.get("artistTypeId");
+            String characterName = (String) starcastItem.get("characterName");
+
+            StarcastInfo enrichedItem = StarcastInfo.builder()
+                    .characterName(characterName)
+                    .artistId(artistId)
+                    .artist(artistId != null ? artistMap.get(artistId) : null)
+                    .artistTypeId(artistTypeId)
+                    .artistType(artistTypeId != null ? artistTypeMap.get(artistTypeId) : null)
+                    .build();
+
+            enrichedList.add(enrichedItem);
+        }
+
+        return enrichedList;
     }
 }
