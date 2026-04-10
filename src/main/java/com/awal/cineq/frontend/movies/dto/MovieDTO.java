@@ -1,9 +1,12 @@
 package com.awal.cineq.frontend.movies.dto;
 
+import com.awal.cineq.publicapi.movie.dto.GenreInfo;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -49,4 +52,7 @@ public class MovieDTO {
 
     @JsonProperty("updated_at")
     private Long updatedAt;
+
+    @JsonProperty("genres")
+    private List<GenreInfo> genres;
 }

@@ -109,9 +109,18 @@
             "type": "ARRAY",
             "title": "Genres",
             "placeholder": "Select genres",
-            "description": "Movie genres",
+            "description": "Movie genres (select from existing genres)",
             "required": true,
-            "order": 12
+            "order": 12,
+            "ui": {
+              "widget": "multi-select",
+              "dataSource": {
+                "collection": "genres",
+                "labelField": "name",
+                "valueField": "_id",
+                "filter": { "isActive": true, "deletedAt": null }
+              }
+            }
           },
           "status": {
             "type": "STRING",
@@ -125,9 +134,50 @@
             "type": "ARRAY",
             "title": "Star Cast & Crew",
             "placeholder": "Add cast and crew members",
-            "description": "List of actors and crew members",
+            "description": "List of actors and crew members. Each entry links a person to a crew role.",
             "required": true,
-            "order": 14
+            "order": 14,
+            "items": {
+              "type": "OBJECT",
+              "properties": {
+                "personId": {
+                  "type": "STRING",
+                  "title": "Person",
+                  "placeholder": "Select person",
+                  "required": true,
+                  "ui": {
+                    "widget": "dropdown",
+                    "dataSource": {
+                      "collection": "people",
+                      "labelField": "name",
+                      "valueField": "_id",
+                      "filter": { "isActive": true, "deletedAt": null }
+                    }
+                  }
+                },
+                "crewRoleId": {
+                  "type": "STRING",
+                  "title": "Role",
+                  "placeholder": "Select role (Actor, Director, etc.)",
+                  "required": true,
+                  "ui": {
+                    "widget": "dropdown",
+                    "dataSource": {
+                      "collection": "crew_roles",
+                      "labelField": "name",
+                      "valueField": "_id",
+                      "filter": { "isActive": true, "deletedAt": null }
+                    }
+                  }
+                },
+                "characterName": {
+                  "type": "STRING",
+                  "title": "Character Name",
+                  "placeholder": "e.g., Bruce Wayne (optional for non-actors)",
+                  "required": false
+                }
+              }
+            }
           },
           "isActive": {
             "type": "BOOLEAN",
@@ -322,16 +372,19 @@
           "fieldTransformer": null,
           "baseValidation": [
             "@NotEmpty(message='At least one language is required')",
-            "@Size(min=1, max=10, message='Maximum 10 languages allowed')"
+            "@Size(min=1, max=10, message='Maximum 10 languages allowed')",
+            "@EachExists(collection='languages', field='code', message='One or more selected language codes do not exist')"
           ],
           "actionRules": {
             "create": [
               "@NotEmpty(message='At least one language is required')",
-              "@Size(min=1, max=10)"
+              "@Size(min=1, max=10)",
+              "@EachExists(collection='languages', field='code', message='One or more selected language codes do not exist')"
             ],
             "update": [
               "@NotEmpty(message='At least one language is required')",
-              "@Size(min=1, max=10)"
+              "@Size(min=1, max=10)",
+              "@EachExists(collection='languages', field='code', message='One or more selected language codes do not exist')"
             ],
             "delete": []
           },
@@ -395,16 +448,19 @@
           "fieldTransformer": null,
           "baseValidation": [
             "@NotEmpty(message='At least one format is required')",
-            "@Size(min=1, max=4, message='Maximum 4 formats allowed')"
+            "@Size(min=1, max=4, message='Maximum 4 formats allowed')",
+            "@EachExists(collection='formats', field='code', message='One or more selected format codes do not exist')"
           ],
           "actionRules": {
             "create": [
               "@NotEmpty(message='At least one format is required')",
-              "@Size(min=1, max=4)"
+              "@Size(min=1, max=4)",
+              "@EachExists(collection='formats', field='code', message='One or more selected format codes do not exist')"
             ],
             "update": [
               "@NotEmpty(message='At least one format is required')",
-              "@Size(min=1, max=4)"
+              "@Size(min=1, max=4)",
+              "@EachExists(collection='formats', field='code', message='One or more selected format codes do not exist')"
             ],
             "delete": []
           },
@@ -420,16 +476,19 @@
           "fieldTransformer": null,
           "baseValidation": [
             "@NotEmpty(message='At least one genre is required')",
-            "@Size(min=1, max=10, message='Maximum 10 genres allowed')"
+            "@Size(min=1, max=10, message='Maximum 10 genres allowed')",
+            "@EachExists(collection='genres', field='_id', message='One or more selected genres do not exist')"
           ],
           "actionRules": {
             "create": [
               "@NotEmpty(message='At least one genre is required')",
-              "@Size(min=1, max=10)"
+              "@Size(min=1, max=10)",
+              "@EachExists(collection='genres', field='_id', message='One or more selected genres do not exist')"
             ],
             "update": [
               "@NotEmpty(message='At least one genre is required')",
-              "@Size(min=1, max=10)"
+              "@Size(min=1, max=10)",
+              "@EachExists(collection='genres', field='_id', message='One or more selected genres do not exist')"
             ],
             "delete": []
           },
@@ -481,6 +540,31 @@
               "@Size(min=2, max=20)"
             ],
             "delete": []
+          },
+          "items": {
+            "type": "OBJECT",
+            "properties": {
+              "personId": {
+                "type": "STRING",
+                "baseValidation": [
+                  "@NotBlank(message='Person is required for each cast/crew entry')",
+                  "@Exists(collection='people', field='_id', message='Selected person not found')"
+                ]
+              },
+              "crewRoleId": {
+                "type": "STRING",
+                "baseValidation": [
+                  "@NotBlank(message='Crew role is required for each cast/crew entry')",
+                  "@Exists(collection='crew_roles', field='_id', message='Selected crew role not found')"
+                ]
+              },
+              "characterName": {
+                "type": "STRING",
+                "baseValidation": [
+                  "@Size(max=100, message='Character name cannot exceed 100 characters')"
+                ]
+              }
+            }
           },
           "serialization": {
             "select": true,

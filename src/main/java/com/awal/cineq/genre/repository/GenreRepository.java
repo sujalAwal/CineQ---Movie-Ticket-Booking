@@ -4,6 +4,7 @@ import com.awal.cineq.genre.model.Genre;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.ExistsQuery;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -25,8 +26,8 @@ public interface GenreRepository extends MongoRepository<Genre, String> {
     Optional<Genre> findByName(String name);
 
     // Check if genre exists (exclude soft-deleted)
-    @Query("{ 'name': ?0, 'deletedAt': null }")
-    boolean existsByName(String name);
+    @ExistsQuery("{ 'name': ?0, 'deletedAt': null }")
+    Boolean existsByName(String name);
 
     // Find all active genres (not soft-deleted)
     @Query("{ 'deletedAt': null }")

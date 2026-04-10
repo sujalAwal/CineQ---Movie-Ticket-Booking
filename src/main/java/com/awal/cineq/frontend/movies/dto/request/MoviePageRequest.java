@@ -27,6 +27,9 @@ public class MoviePageRequest extends FrontendPageRequest {
     @JsonProperty("status")
     private String status;
 
+    @JsonProperty("releaseStatus")
+    private String releaseStatus;
+
     public MoviePageRequest() {
         super();
         this.sortBy = "title";

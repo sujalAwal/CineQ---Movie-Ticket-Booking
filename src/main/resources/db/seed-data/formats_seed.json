@@ -1,0 +1,38 @@
+[
+  {
+    "_id": { "$oid": "67a1f006d19cd566d1589fb5" },
+    "code": "2D",
+    "name": "2D",
+    "isActive": true,
+    "createdAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "deletedAt": null
+  },
+  {
+    "_id": { "$oid": "67a1f007d19cd566d1589fb6" },
+    "code": "3D",
+    "name": "3D",
+    "isActive": true,
+    "createdAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "deletedAt": null
+  },
+  {
+    "_id": { "$oid": "67a1f008d19cd566d1589fb7" },
+    "code": "IMAX",
+    "name": "IMAX",
+    "isActive": true,
+    "createdAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "deletedAt": null
+  },
+  {
+    "_id": { "$oid": "67a1f009d19cd566d1589fb8" },
+    "code": "4DX",
+    "name": "4DX",
+    "isActive": true,
+    "createdAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "deletedAt": null
+  }
+]

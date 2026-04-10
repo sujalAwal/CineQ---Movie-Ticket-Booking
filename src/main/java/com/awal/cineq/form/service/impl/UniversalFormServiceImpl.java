@@ -153,7 +153,16 @@ public class UniversalFormServiceImpl implements UniversalFormService {
             // Always add formManagerId and formStepId to stored data
             filteredData.put("formManagerId", formManager.getId());
             filteredData.put("formStepId", formStep.getId());
-            // Note: 'id' is already in formData for UPDATE/DELETE actions (filtered by filterAndMapFields)
+
+            // For UPDATE/DELETE, pass through the document ID from raw formData (not in fieldMapping)
+            FormAction currentAction = request.getAction();
+            if ((currentAction == FormAction.UPDATE || currentAction == FormAction.DELETE)
+                    && request.getFormData() != null) {
+                Object docId = request.getFormData().get("id");
+                if (docId != null) {
+                    filteredData.put("id", docId);
+                }
+            }
 
             // Track operation success for interceptors
             boolean operationSuccess = false;
@@ -191,6 +200,7 @@ public class UniversalFormServiceImpl implements UniversalFormService {
 
                     // Build response with stored data
                     FormSubmissionResponse response = new FormSubmissionResponse();
+                    response.setId(documentId);
                     response.setFormData(filteredData);
 
                     // Execute 'afterReturning' interceptors (only on success)

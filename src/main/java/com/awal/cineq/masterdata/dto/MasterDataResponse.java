@@ -32,8 +32,12 @@ import java.util.Map;
 @AllArgsConstructor
 @Builder
 public class MasterDataResponse {
-    private List<PermissionActionDTO> permission;        // FormAction enum values
-    private List<RoleDTO> role;
+    private List<PermissionActionDTO> permission;                  // FormAction enum values
+    private List<RoleDTO> role;                                    // Role data
+    private List<MovieReleaseStatusDTO> movieReleaseStatuses;     // Movie release status data
+    private List<CertificationDTO> certifications;                // Certification/Rating data
+    private List<LanguageDTO> languages;                          // Language reference data
+    private List<FormatDTO> formats;                              // Format reference data
     // Future enums can be added here without breaking API
     // private List<OtherEnumDTO> otherEnums;
     // private List<AnotherEnumDTO> anotherEnums;

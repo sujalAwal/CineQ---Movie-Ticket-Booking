@@ -18,4 +18,7 @@ public interface FrontendMovieRepository extends MongoRepository<Map, String> {
 
   @Query("{ '_id': ?0, 'isActive': true, 'deletedAt': null }")
   Map findByIdAndActive(String id);
+
+  @Query("{ 'status': ?0, 'isActive': true, 'deletedAt': null }")
+  Page<Map> findByStatus(String status, Pageable pageable);
 }

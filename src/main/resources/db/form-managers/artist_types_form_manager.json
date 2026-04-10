@@ -1,0 +1,408 @@
+{
+  "formManager": {
+    "_id": "fm_artist_types_001",
+    "title": "Artist Types Management",
+    "slug": "artist-types",
+    "description": "Manage artist categories such as Actor, Director, Producer, etc.",
+    "modelName": "ArtistType",
+    "isActive": true,
+    "metadata": {
+      "category": "content-management",
+      "version": "1.0",
+      "icon": "users",
+      "order": 6
+    },
+    "createdAt": "2026-04-05T00:00:00.000Z",
+    "updatedAt": "2026-04-05T00:00:00.000Z",
+    "deletedAt": null
+  },
+
+  "formSteps": [
+    {
+      "_id": "fs_artist_types_v1",
+      "formManagerId": "fm_artist_types_001",
+      "stepTitle": "v1",
+      "stepSlug": "v1",
+      "stepOrder": 1,
+      "isActive": true,
+
+      "validationRules": {
+        "name": {
+          "type": "STRING",
+          "collectionField": "name",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Artist type name is required')",
+            "@Size(min=2, max=100, message='Artist type name must be 2-100 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Artist type name is required')",
+              "@Size(min=2, max=100)",
+              "@Unique(collection='artist_types', field='name', message='Artist type name already exists')"
+            ],
+            "update": [
+              "@Size(min=2, max=100)",
+              "@UniqueExcludingSelf(collection='artist_types', field='name', idField='_id', message='Artist type name already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "name"
+          }
+        },
+        "description": {
+          "type": "STRING",
+          "collectionField": "description",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@Size(max=500, message='Description cannot exceed 500 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(max=500)"
+            ],
+            "update": [
+              "@Size(max=500)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "description"
+          }
+        },
+        "icon": {
+          "type": "STRING",
+          "collectionField": "icon",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@Size(max=100, message='Icon class cannot exceed 100 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(max=100)"
+            ],
+            "update": [
+              "@Size(max=100)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "icon"
+          }
+        },
+        "artistCount": {
+          "type": "INTEGER",
+          "collectionField": "artist_count",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@Min(value=0, message='Artist count cannot be negative')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Min(value=0)"
+            ],
+            "update": [
+              "@Min(value=0)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "artist_count"
+          }
+        },
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "is_active"
+          }
+        },
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='artist_types', field='_id', message='Artist type not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='artist_types', field='_id', message='Artist type not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "formSchema": {
+        "type": "object",
+        "title": "Artist Type Form",
+        "properties": {
+          "name": {
+            "type": "STRING",
+            "title": "Type Name",
+            "placeholder": "e.g., Actor, Director, Producer",
+            "description": "Unique name for this artist type",
+            "required": true,
+            "order": 1
+          },
+          "description": {
+            "type": "STRING",
+            "title": "Description",
+            "placeholder": "e.g., Main performers in movies",
+            "description": "Brief description of what this artist type represents",
+            "required": false,
+            "order": 2,
+            "ui": {
+              "widget": "textarea",
+              "rows": 3
+            }
+          },
+          "icon": {
+            "type": "STRING",
+            "title": "Icon",
+            "placeholder": "e.g., ti ti-user",
+            "description": "Icon class name (Tabler Icons) used in the UI",
+            "required": false,
+            "order": 3
+          },
+          "artistCount": {
+            "type": "INTEGER",
+            "title": "Artist Count",
+            "placeholder": "0",
+            "description": "Number of artists of this type (nullable, auto-updated)",
+            "required": false,
+            "order": 4
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this artist type is available for use",
+            "default": true,
+            "order": 5
+          }
+        },
+        "required": ["name"]
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "artist_types",
+
+        "fieldMapping": {
+          "name": "name",
+          "description": "description",
+          "icon": "icon",
+          "artistCount": "artist_count",
+          "isActive": "isActive"
+        },
+
+        "fieldTransformers": {
+          "name": "trim",
+          "description": "trim",
+          "icon": "trim"
+        },
+
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating new artist type",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["artistTypes"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "ArtistType",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Artist type creation failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Artist type created successfully",
+              "error": "Failed to create artist type",
+              "validation": "Please check the form for errors"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Updating artist type",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["artistTypes"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "ArtistType",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Artist type update failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Artist type updated successfully",
+              "error": "Failed to update artist type",
+              "notFound": "Artist type not found or has been deleted"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["artistTypes"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "DELETE",
+                    "entity": "ArtistType"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Artist type deleted successfully",
+              "error": "Failed to delete artist type",
+              "notFound": "Artist type not found"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN", "MANAGER"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "single-column",
+        "sections": [
+          {
+            "title": "Basic Information",
+            "fields": ["name", "description", "icon", "artistCount", "isActive"]
+          }
+        ],
+        "submitButton": {
+          "label": "Save Artist Type",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "content-management",
+        "version": "1.0",
+        "lastUpdated": "2026-04-05T00:00:00.000Z",
+        "fieldCount": 5,
+        "author": "system"
+      },
+
+      "createdAt": "2026-04-05T00:00:00.000Z",
+      "updatedAt": "2026-04-05T00:00:00.000Z",
+      "deletedAt": null
+    }
+  ]
+}

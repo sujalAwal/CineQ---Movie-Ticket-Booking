@@ -17,6 +17,7 @@ public class ApplicationProperties {
     private Email email = new Email();
     private App app = new App();
     private Customer customer = new Customer();
+    private Payment payment = new Payment();
 
     @Data
     public static class Jwt {
@@ -92,6 +93,28 @@ public class ApplicationProperties {
 
         public boolean isAdminNotificationEnabled() {
             return !getAdminEmailList().isEmpty();
+        }
+    }
+
+    @Data
+    public static class Payment {
+        private Esewa esewa = new Esewa();
+        private Khalti khalti = new Khalti();
+        private String successUrl = "http://localhost:3000/payment/success";
+        private String failureUrl = "http://localhost:3000/payment/failure";
+        private String websiteUrl = "http://localhost:3000";
+
+        @Data
+        public static class Esewa {
+            private String merchantCode = "EPAYTEST";
+            private String secretKey = "8gBm/:&EnhH.1/q";
+            private String paymentUrl = "https://rc-epay.esewa.com.np/api/epay/main/v2/form";
+        }
+
+        @Data
+        public static class Khalti {
+            private String secretKey = "test_secret_key_placeholder";
+            private String initiateUrl = "https://a.khalti.com/api/v2/epayment/initiate/";
         }
     }
 }

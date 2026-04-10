@@ -74,7 +74,7 @@ public class GenreServiceImpl implements GenreService {
         log.info("createGenre STARTED: name={}", genreRequestDto.getName());
         try {
             // Check if genre already exists
-            if (genreRepository.existsByName(genreRequestDto.getName())) {
+            if (Boolean.TRUE.equals(genreRepository.existsByName(genreRequestDto.getName()))) {
                 throw new BusinessException("Genre with name '" + genreRequestDto.getName() + "' already exists");
             }
 

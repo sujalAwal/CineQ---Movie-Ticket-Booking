@@ -41,13 +41,29 @@
             "required": true,
             "order": 3
           },
+          "screenName": {
+            "type": "STRING",
+            "title": "Screen Name",
+            "placeholder": "e.g., Screen 1",
+            "description": "Display name of the screen (must match an existing screen)",
+            "required": true,
+            "order": 4
+          },
+          "theatreName": {
+            "type": "STRING",
+            "title": "Theatre Name",
+            "placeholder": "e.g., PVR Cinemas",
+            "description": "Display name of the theatre (must match an existing theatre)",
+            "required": true,
+            "order": 5
+          },
           "showDate": {
             "type": "DATE",
             "title": "Show Date",
             "placeholder": "YYYY-MM-DD",
             "description": "Date of the showtime",
             "required": true,
-            "order": 4
+            "order": 6
           },
           "showTime": {
             "type": "STRING",
@@ -55,7 +71,7 @@
             "placeholder": "HH:MM (24-hour format)",
             "description": "Time when the show starts",
             "required": true,
-            "order": 5
+            "order": 7
           },
           "language": {
             "type": "STRING",
@@ -63,7 +79,7 @@
             "placeholder": "e.g., ENG, HIN, NEP, MAL, MARA",
             "description": "Language of the movie for this showtime",
             "required": true,
-            "order": 6
+            "order": 8
           },
           "format": {
             "type": "STRING",
@@ -71,7 +87,7 @@
             "placeholder": "e.g., 2D, 3D, IMAX, 4DX",
             "description": "Screen format for this showtime",
             "required": true,
-            "order": 7
+            "order": 9
           },
           "statusCode": {
             "type": "STRING",
@@ -79,7 +95,7 @@
             "placeholder": "Select status",
             "description": "Showtime status (AV=Available, HF=Housefull, X=Cancelled)",
             "required": true,
-            "order": 8
+            "order": 10
           },
           "basePrice": {
             "type": "DOUBLE",
@@ -87,17 +103,17 @@
             "placeholder": "e.g., 200.00",
             "description": "Base ticket price (will be adjusted per seat type)",
             "required": true,
-            "order": 9
+            "order": 11
           },
           "isActive": {
             "type": "BOOLEAN",
             "title": "Active",
             "description": "Whether this showtime is operational",
             "default": true,
-            "order": 10
+            "order": 12
           }
         },
-        "required": ["movieId", "screenId", "theatreId", "showDate", "showTime", "language", "format", "statusCode", "basePrice"]
+        "required": ["movieId", "screenId", "theatreId", "screenName", "theatreName", "showDate", "showTime", "language", "format", "statusCode", "basePrice"]
       },
 
       "validationRules": {
@@ -170,6 +186,56 @@
           "serialization": {
             "select": true,
             "outputField": "theatreId"
+          }
+        },
+
+        "screenName": {
+          "type": "STRING",
+          "collectionField": "screenName",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Screen name is required')",
+            "@Exists(collection='screens', field='screenName', message='Screen name does not exist')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Screen name is required')",
+              "@Exists(collection='screens', field='screenName', message='Screen name does not exist')"
+            ],
+            "update": [
+              "@NotBlank(message='Screen name is required')",
+              "@Exists(collection='screens', field='screenName', message='Screen name does not exist')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "screenName"
+          }
+        },
+
+        "theatreName": {
+          "type": "STRING",
+          "collectionField": "theatreName",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Theatre name is required')",
+            "@Exists(collection='theatres', field='name', message='Theatre name does not exist')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Theatre name is required')",
+              "@Exists(collection='theatres', field='name', message='Theatre name does not exist')"
+            ],
+            "update": [
+              "@NotBlank(message='Theatre name is required')",
+              "@Exists(collection='theatres', field='name', message='Theatre name does not exist')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "theatreName"
           }
         },
 
@@ -366,6 +432,8 @@
           "movieId": "movieId",
           "screenId": "screenId",
           "theatreId": "theatreId",
+          "screenName": "screenName",
+          "theatreName": "theatreName",
           "showDate": "showDate",
           "showTime": "showTime",
           "language": "language",
@@ -575,7 +643,7 @@
         "sections": [
           {
             "title": "Basic Information",
-            "fields": ["movieId", "screenId", "theatreId"]
+            "fields": ["movieId", "screenId", "theatreId", "screenName", "theatreName"]
           },
           {
             "title": "Schedule",
@@ -600,7 +668,7 @@
         "category": "cinema-management",
         "version": "1.0",
         "lastUpdated": "2026-02-12T00:00:00Z",
-        "fieldCount": 9,
+        "fieldCount": 11,
         "author": "system",
         "notes": "Includes automatic overlap prevention via preventShowtimeOverlap interceptor"
       }

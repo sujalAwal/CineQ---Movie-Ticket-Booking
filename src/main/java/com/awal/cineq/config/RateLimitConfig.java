@@ -20,11 +20,11 @@ public class RateLimitConfig {
     private boolean enabled = true;
     
     // Login endpoint rate limits
-    private int loginCapacity = 5;  // 5 attempts
+    private int loginCapacity = 20;  // 20 attempts
     private int loginRefillMinutes = 15;  // per 15 minutes
     
     // Register endpoint rate limits
-    private int registerCapacity = 3;  // 3 attempts
+    private int registerCapacity = 10;  // 10 attempts
     private int registerRefillMinutes = 60;  // per hour
     
     // Password reset endpoint rate limits
