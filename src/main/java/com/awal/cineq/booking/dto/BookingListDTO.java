@@ -6,39 +6,45 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Booking list view DTO with customer information
+ * Used for admin portal bookings listing
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class BookingResponse {
+public class BookingListDTO {
 
-    // Core booking fields
     private String id;
     private String bookingReference;
     private String showtimeId;
-    private String customerId;
-    private String bookingDate;
+
+    // Customer information (joined from customers collection)
+    private CustomerDTO customer;
+
+    // Booking details
     private Integer numberOfSeats;
     private Double totalAmount;
+    private LocalDateTime bookingDate;
 
-    // Seat/booking status from seat_statuses collection
-    private Integer seatStatusCode;   // 3=Reserved, 2=Booked, 1=Available
-    private String seatStatusName;    // e.g. "Reserved"
-    private String seatStatusColor;   // e.g. "#FFA500"
+    // Seat status
+    private Integer seatStatusCode;
+    private String seatStatusName;
+    private String seatStatusColor;
 
-    // Payment info
+    // Payment information
     private String paymentStatus;
     private String paymentMethod;
     private String paymentReference;
 
-    private String expiresAt; // ISO string; null once confirmed
-
     private List<BookingDetailResponse> bookingDetails;
 
-    // Enriched showtime fields
+    // Enriched showtime information
     private String movieId;
     private String movieTitle;
     private String moviePoster;
@@ -50,4 +56,13 @@ public class BookingResponse {
     private String showTime;
     private String language;
     private String format;
+
+    // Timestamps
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private LocalDateTime expiresAt;
+    private LocalDateTime deletedAt;
+
+    // Computed status
+    private String status;
 }

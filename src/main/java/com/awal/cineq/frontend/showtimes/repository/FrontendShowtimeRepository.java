@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
+import java.util.List;
 import java.util.Map;
 
 @Repository
@@ -21,6 +22,9 @@ public interface FrontendShowtimeRepository extends MongoRepository<Map, String>
 
   @Query("{ 'movieId': ?0, 'isActive': true, 'deletedAt': null }")
   Page<Map> findByMovieId(String movieId, Pageable pageable);
+
+  @Query("{ 'movieId': ?0, 'isActive': true, 'deletedAt': null }")
+  List<Map> findAllByMovieId(String movieId);
 
   @Query("{ 'theatreId': ?0, 'isActive': true, 'deletedAt': null }")
   Page<Map> findByTheatreId(String theatreId, Pageable pageable);

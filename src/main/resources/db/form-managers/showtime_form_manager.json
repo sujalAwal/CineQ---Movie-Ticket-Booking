@@ -41,22 +41,6 @@
             "required": true,
             "order": 3
           },
-          "screenName": {
-            "type": "STRING",
-            "title": "Screen Name",
-            "placeholder": "e.g., Screen 1",
-            "description": "Display name of the screen (must match an existing screen)",
-            "required": true,
-            "order": 4
-          },
-          "theatreName": {
-            "type": "STRING",
-            "title": "Theatre Name",
-            "placeholder": "e.g., PVR Cinemas",
-            "description": "Display name of the theatre (must match an existing theatre)",
-            "required": true,
-            "order": 5
-          },
           "showDate": {
             "type": "DATE",
             "title": "Show Date",
@@ -97,23 +81,31 @@
             "required": true,
             "order": 10
           },
-          "basePrice": {
-            "type": "DOUBLE",
-            "title": "Base Price",
-            "placeholder": "e.g., 200.00",
-            "description": "Base ticket price (will be adjusted per seat type)",
+          "pricePerLayout": {
+            "type": "ARRAY",
+            "title": "Price Per Seat Type",
+            "placeholder": "e.g., [{code: 'P', basePrice: 500}]",
+            "description": "Price mapping for each seat type code",
             "required": true,
             "order": 11
+          },
+          "seatLayout": {
+            "type": "ARRAY",
+            "title": "Seat Layout",
+            "placeholder": "e.g., [{seatName: 'A1', row: 'A', col: 1, code: 'P', price: 500}]",
+            "description": "Individual seat configuration with pricing",
+            "required": true,
+            "order": 12
           },
           "isActive": {
             "type": "BOOLEAN",
             "title": "Active",
             "description": "Whether this showtime is operational",
             "default": true,
-            "order": 12
+            "order": 13
           }
         },
-        "required": ["movieId", "screenId", "theatreId", "screenName", "theatreName", "showDate", "showTime", "language", "format", "statusCode", "basePrice"]
+        "required": ["movieId", "screenId", "theatreId", "showDate", "showTime", "language", "format", "statusCode", "pricePerLayout", "seatLayout"]
       },
 
       "validationRules": {
@@ -186,56 +178,6 @@
           "serialization": {
             "select": true,
             "outputField": "theatreId"
-          }
-        },
-
-        "screenName": {
-          "type": "STRING",
-          "collectionField": "screenName",
-          "fieldTransformer": "trim",
-          "baseValidation": [
-            "@NotBlank(message='Screen name is required')",
-            "@Exists(collection='screens', field='screenName', message='Screen name does not exist')"
-          ],
-          "actionRules": {
-            "create": [
-              "@NotBlank(message='Screen name is required')",
-              "@Exists(collection='screens', field='screenName', message='Screen name does not exist')"
-            ],
-            "update": [
-              "@NotBlank(message='Screen name is required')",
-              "@Exists(collection='screens', field='screenName', message='Screen name does not exist')"
-            ],
-            "delete": []
-          },
-          "serialization": {
-            "select": true,
-            "outputField": "screenName"
-          }
-        },
-
-        "theatreName": {
-          "type": "STRING",
-          "collectionField": "theatreName",
-          "fieldTransformer": "trim",
-          "baseValidation": [
-            "@NotBlank(message='Theatre name is required')",
-            "@Exists(collection='theatres', field='name', message='Theatre name does not exist')"
-          ],
-          "actionRules": {
-            "create": [
-              "@NotBlank(message='Theatre name is required')",
-              "@Exists(collection='theatres', field='name', message='Theatre name does not exist')"
-            ],
-            "update": [
-              "@NotBlank(message='Theatre name is required')",
-              "@Exists(collection='theatres', field='name', message='Theatre name does not exist')"
-            ],
-            "delete": []
-          },
-          "serialization": {
-            "select": true,
-            "outputField": "theatreName"
           }
         },
 
@@ -359,30 +301,98 @@
           }
         },
 
-        "basePrice": {
-          "type": "DOUBLE",
-          "collectionField": "basePrice",
-          "fieldTransformer": null,
+        "pricePerLayout": {
+          "type": "ARRAY",
+          "collectionField": "pricePerLayout",
           "baseValidation": [
-            "@NotNull(message='Base price is required')",
-            "@Min(value=0, message='Base price must be greater than 0')",
-            "@Max(value=10000, message='Base price cannot exceed 10000')"
+            "@NotEmpty(message='At least one seat type price is required')",
+            "@Size(min=1, max=10, message='Maximum 10 seat types allowed')"
           ],
-          "actionRules": {
-            "create": [
-              "@NotNull(message='Base price is required')",
-              "@Min(value=0)",
-              "@Max(value=10000)"
-            ],
-            "update": [
-              "@Min(value=0)",
-              "@Max(value=10000)"
-            ],
-            "delete": []
-          },
+          "nestedValidations": [
+            {
+              "fieldName": "pricePerLayout[*].code",
+              "type": "STRING",
+              "required": true,
+              "baseValidation": [
+                "@NotBlank(message='Seat type code cannot be blank')",
+                "@EachExists(collection='seat_types', field='code', message='Seat type code does not exist')"
+              ]
+            },
+            {
+              "fieldName": "pricePerLayout[*].basePrice",
+              "type": "DOUBLE",
+              "required": true,
+              "baseValidation": [
+                "@NotNull(message='Price is required for each seat type')",
+                "@Min(value=50, message='Price must be minimum 50')",
+                "@Max(value=1500, message='Price cannot exceed 1500')"
+              ]
+            }
+          ],
           "serialization": {
             "select": true,
-            "outputField": "basePrice"
+            "outputField": "pricePerLayout"
+          }
+        },
+
+        "seatLayout": {
+          "type": "ARRAY",
+          "collectionField": "seatLayout",
+          "baseValidation": [
+            "@NotEmpty(message='At least one seat must be defined')",
+            "@Size(min=1, max=500, message='Maximum 500 seats allowed per showtime')"
+          ],
+          "nestedValidations": [
+            {
+              "fieldName": "seatLayout[*].seatName",
+              "type": "STRING",
+              "required": true,
+              "baseValidation": [
+                "@NotBlank(message='Seat name cannot be blank')",
+                "@Size(min=2, max=4, message='Seat name must be 2-4 characters')"
+              ]
+            },
+            {
+              "fieldName": "seatLayout[*].row",
+              "type": "STRING",
+              "required": true,
+              "baseValidation": [
+                "@NotBlank(message='Row cannot be blank')",
+                "@Pattern(regexp='^[A-Z]+$', message='Row must contain only uppercase letters A-Z')"
+              ]
+            },
+            {
+              "fieldName": "seatLayout[*].col",
+              "type": "INTEGER",
+              "required": true,
+              "baseValidation": [
+                "@Min(value=1, message='Column must be at least 1')",
+                "@Max(value=100, message='Column cannot exceed 100')"
+              ]
+            },
+            {
+              "fieldName": "seatLayout[*].code",
+              "type": "STRING",
+              "required": true,
+              "baseValidation": [
+                "@NotBlank(message='Seat type code cannot be blank')",
+                "@EachExists(collection='seat_types', field='code', message='Seat type code does not exist')"
+              ]
+            },
+            {
+              "fieldName": "seatLayout[*].price",
+              "type": "DOUBLE",
+              "required": true,
+              "baseValidation": [
+                "@NotNull(message='Price is required for each seat')",
+                "@Min(value=50, message='Price must be minimum 50')",
+                "@Max(value=1500, message='Price cannot exceed 1500')"
+              ]
+            }
+          ],
+          "serialization": {
+            "select": true,
+            "outputField": "seatLayout"
           }
         },
 
@@ -432,14 +442,13 @@
           "movieId": "movieId",
           "screenId": "screenId",
           "theatreId": "theatreId",
-          "screenName": "screenName",
-          "theatreName": "theatreName",
           "showDate": "showDate",
           "showTime": "showTime",
           "language": "language",
           "format": "format",
           "statusCode": "statusCode",
-          "basePrice": "basePrice",
+          "pricePerLayout": "pricePerLayout",
+          "seatLayout": "seatLayout",
           "isActive": "isActive"
         },
         "autoFields": {
@@ -643,7 +652,7 @@
         "sections": [
           {
             "title": "Basic Information",
-            "fields": ["movieId", "screenId", "theatreId", "screenName", "theatreName"]
+            "fields": ["movieId", "screenId", "theatreId"]
           },
           {
             "title": "Schedule",
@@ -651,7 +660,7 @@
           },
           {
             "title": "Configuration",
-            "fields": ["language", "format", "statusCode", "basePrice"]
+            "fields": ["language", "format", "statusCode", "pricePerLayout", "seatLayout"]
           },
           {
             "title": "Status",
@@ -670,7 +679,7 @@
         "lastUpdated": "2026-02-12T00:00:00Z",
         "fieldCount": 11,
         "author": "system",
-        "notes": "Includes automatic overlap prevention via preventShowtimeOverlap interceptor"
+        "notes": "Includes automatic overlap prevention via preventShowtimeOverlap interceptor. Price per seat type and individual seat pricing with validation."
       }
     }
   ],

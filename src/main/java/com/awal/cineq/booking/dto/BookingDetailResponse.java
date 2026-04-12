@@ -13,7 +13,12 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class BookingDetailResponse {
 
-    private String seatNumber;
-    private String seatType;
+    private String seatName;        // e.g. "G3"
+    private String row;             // e.g. "G"
+    private Integer col;            // e.g. 3
+    private String seatCode;        // e.g. "P" — type code
     private Double seatPrice;
+    private Integer seatStatusCode; // from seat_statuses: 3=Reserved, 2=Booked
+    private String seatStatusName;  // e.g. "Reserved"
+    private String seatStatusColor; // e.g. "#FFA500"
 }

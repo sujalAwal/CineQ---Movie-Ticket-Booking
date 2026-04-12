@@ -1,31 +1,30 @@
 package com.awal.cineq.payment.dto;
 
-import jakarta.validation.constraints.DecimalMin;
+import com.awal.cineq.payment.enums.PaymentMethod;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class InitiatePaymentRequest {
 
-    @NotBlank(message = "Booking ID is required")
-    private String bookingId;
+    @NotBlank(message = "Showtime ID is required")
+    private String showtimeId;
 
-    @NotNull(message = "Amount is required")
-    @DecimalMin(value = "0.01", message = "Amount must be greater than 0")
-    private BigDecimal amount;
+    @NotEmpty(message = "At least one seat must be selected")
+    @Size(min = 1, max = 10, message = "You can book between 1 and 10 seats at a time")
+    @Valid
+    private List<SeatSelection> seats;
 
-    @NotBlank(message = "Payment method is required")
-    @Pattern(
-        regexp = "(?i)esewa|khalti|connectips",
-        message = "Supported payment methods: esewa, khalti, connectips"
-    )
-    private String paymentMethod;
+    @NotNull(message = "Payment method is required (ESEWA, KHALTI, CONNECTIPS)")
+    private PaymentMethod paymentMethod;
 }

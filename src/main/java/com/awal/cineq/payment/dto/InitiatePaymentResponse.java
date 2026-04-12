@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @Data
@@ -16,16 +17,17 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class InitiatePaymentResponse {
 
-    private String paymentId;         // Internal reference (e.g. PAY-<uuid>)
-    private String bookingId;
-    private BigDecimal amount;
+    private String paymentId;           // Internal reference: PAY-<uuid>
+    private String bookingReference;    // e.g. "BK1715000000000"
+    private BigDecimal totalAmount;     // Server-calculated total (never trust client)
     private String paymentMethod;
-    private String status;            // INITIATED
+    private String status;              // "INITIATED"
+    private LocalDateTime expiresAt;    // 15 min from now — seats released after this
 
-    // For redirect-based gateways (Khalti)
+    // Khalti: redirect user to this URL
     private String paymentUrl;
 
-    // For form-POST gateways (eSewa) — frontend submits these as form fields
+    // eSewa: render a hidden form and POST to formActionUrl with these fields
     private String formActionUrl;
     private Map<String, String> formFields;
 }

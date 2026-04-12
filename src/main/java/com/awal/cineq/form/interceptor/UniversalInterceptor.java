@@ -701,6 +701,177 @@ public class UniversalInterceptor {
     }
 
     // ==================================================================================
+    // SCREENS MODULE HANDLERS
+    // ==================================================================================
+
+    /**
+     * Handler: validateSeatLayout
+     * Validates the seat layout array before creating/updating a screen.
+     *
+     * Validations:
+     * - seatName: 2-4 characters, no special chars
+     * - row: Only uppercase A-Z (no numbers, supports multiple letters like AA, AAA)
+     * - col: Integer between 1-100
+     * - code: Must exist as active seat type in database
+     * - No duplicate seatNames in the array
+     *
+     * Performance Optimization:
+     * - Uses batch $in query to fetch all seat types once instead of N queries
+     * - Throws exception to stop action on validation failure
+     *
+     * Args:
+     * - collection: seat type collection name (default: "seat_types")
+     * - field: field name to lookup (default: "code")
+     */
+    public void validateSeatLayout(InterceptorContext context) {
+        Map<String, Object> args = context.getArgs() != null ? context.getArgs() : Map.of();
+        Map<String, Object> formData = context.getFormData();
+
+        String collection = (String) args.getOrDefault("collection", "seat_types");
+        String field = (String) args.getOrDefault("field", "code");
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> seatLayout = (List<Map<String, Object>>) formData.get("seatLayout");
+
+        // If seatLayout is null or empty, it's optional (unless marked required in formSchema)
+        if (seatLayout == null || seatLayout.isEmpty()) {
+            log.info("validateSeatLayout: seatLayout is empty, skipping validation");
+            return;
+        }
+
+        log.debug("validateSeatLayout STARTED: collection={}, fieldName={}, seatCount={}",
+                collection, field, seatLayout.size());
+
+        try {
+            // Step 1: Extract all unique seat type codes
+            List<String> codes = new java.util.ArrayList<>();
+            for (Map<String, Object> seat : seatLayout) {
+                Object codeObj = seat.get("code");
+                if (codeObj != null) {
+                    codes.add(codeObj.toString());
+                }
+            }
+
+            // Step 2: Batch query database - fetch all valid codes at once (PERFORMANCE!)
+            Query query = Query.query(
+                Criteria.where(field).in(codes)
+                        .and("isActive").is(true)
+                        .and("deletedAt").is(null)
+            );
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> validSeatTypes = (List<Map<String, Object>>) (List<?>) mongoTemplate.find(query, Map.class, collection);
+
+            // Create set of valid codes for fast lookup
+            java.util.Set<String> validCodes = new java.util.HashSet<>();
+            for (Map<String, Object> seatType : validSeatTypes) {
+                Object codeObj = seatType.get(field);
+                if (codeObj != null) {
+                    validCodes.add(codeObj.toString());
+                }
+            }
+
+            log.debug("validateSeatLayout: Found {} valid seat types", validCodes.size());
+
+            // Step 3: Validate each seat
+            java.util.Set<String> seatNamesSeen = new java.util.HashSet<>();
+            java.util.List<Map<String, Object>> errors = new java.util.ArrayList<>();
+
+            for (int i = 0; i < seatLayout.size(); i++) {
+                Map<String, Object> seat = seatLayout.get(i);
+                Map<String, Object> seatErrors = new java.util.HashMap<>();
+
+                // Get fields
+                String seatName = seat.get("seatName") != null ? seat.get("seatName").toString() : null;
+                String row = seat.get("row") != null ? seat.get("row").toString() : null;
+                Object colObj = seat.get("col");
+                String code = seat.get("code") != null ? seat.get("code").toString() : null;
+
+                // Validate seatName
+                if (seatName == null || seatName.isBlank()) {
+                    seatErrors.put("seatName", "Seat name is required");
+                } else if (seatName.length() < 2 || seatName.length() > 4) {
+                    seatErrors.put("seatName", "Seat name must be 2-4 characters (got " + seatName + ")");
+                }
+
+                // Check duplicate seatName
+                if (seatName != null && !seatName.isBlank()) {
+                    if (seatNamesSeen.contains(seatName)) {
+                        seatErrors.put("seatName", "Duplicate seat name: " + seatName);
+                    } else {
+                        seatNamesSeen.add(seatName);
+                    }
+                }
+
+                // Validate row - only uppercase A-Z
+                if (row == null || row.isBlank()) {
+                    seatErrors.put("row", "Row is required");
+                } else if (!row.matches("^[A-Z]+$")) {
+                    seatErrors.put("row", "Row must contain only uppercase letters A-Z (got " + row + ")");
+                }
+
+                // Validate col - integer 1-100
+                if (colObj == null) {
+                    seatErrors.put("col", "Column is required");
+                } else {
+                    try {
+                        int col = Integer.parseInt(colObj.toString());
+                        if (col < 1 || col > 100) {
+                            seatErrors.put("col", "Column must be 1-100 (got " + col + ")");
+                        }
+                    } catch (NumberFormatException e) {
+                        seatErrors.put("col", "Column must be a number (got " + colObj + ")");
+                    }
+                }
+
+                // Validate code - must exist in seat_types
+                if (code == null || code.isBlank()) {
+                    seatErrors.put("code", "Seat type code is required");
+                } else if (!validCodes.contains(code)) {
+                    seatErrors.put("code", "Seat type code '" + code + "' not found or inactive");
+                }
+
+                // Add errors with seat index for debugging
+                if (!seatErrors.isEmpty()) {
+                    seatErrors.put("__index", String.valueOf(i));
+                    seatErrors.put("__seatName", seatName != null ? seatName : "");
+                    errors.add(seatErrors);
+                }
+            }
+
+            // Step 4: If errors found, throw exception to stop action
+            if (!errors.isEmpty()) {
+                log.error("validateSeatLayout: {} validation errors found", errors.size());
+
+                StringBuilder errorMessage = new StringBuilder("Seat layout validation failed:\n");
+                for (Map<String, Object> error : errors) {
+                    int index = Integer.parseInt(error.get("__index").toString());
+                    String name = (String) error.get("__seatName");
+                    errorMessage.append(String.format("Seat [%d] (%s): ", index, name));
+
+                    error.forEach((key, value) -> {
+                        if (!key.startsWith("__")) {
+                            errorMessage.append(value).append("; ");
+                        }
+                    });
+                    errorMessage.append("\n");
+                }
+
+                throw new IllegalArgumentException(errorMessage.toString());
+            }
+
+            log.info("validateSeatLayout END: Successfully validated {} seats", seatLayout.size());
+
+        } catch (IllegalArgumentException e) {
+            // Re-throw validation errors
+            log.error("validateSeatLayout ERROR: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("validateSeatLayout ERROR: Unexpected error - {}", e.getMessage(), e);
+            throw new IllegalArgumentException("Seat layout validation error: " + e.getMessage(), e);
+        }
+    }
+
+    // ==================================================================================
     // PRIVATE HELPER METHODS
     // ==================================================================================
 

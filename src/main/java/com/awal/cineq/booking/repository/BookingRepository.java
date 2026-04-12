@@ -1,47 +1,37 @@
 package com.awal.cineq.booking.repository;
 
+import com.awal.cineq.booking.model.Booking;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
-
-import com.awal.cineq.booking.model.Booking;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * MongoDB Repository for Booking
- * BookingDetails are embedded in Booking document (no separate repository needed)
- */
 @Repository
 public interface BookingRepository extends MongoRepository<Booking, String> {
 
-    // Find by booking reference
-    @Query("{ 'bookingReference': ?0 }")
+    @Query("{ 'bookingReference': ?0, 'deletedAt': null }")
     Optional<Booking> findByBookingReference(String bookingReference);
 
-    // Find bookings by user ID
-    @Query("{ 'userId': ?0 }")
-    List<Booking> findByUserId(String userId);
-
-    // Find bookings by customer ID
-    @Query("{ 'customerId': ?0 }")
+    @Query("{ 'customerId': ?0, 'deletedAt': null }")
     List<Booking> findByCustomerId(String customerId);
 
-    // Find bookings by showtime ID
-    @Query("{ 'showtimeId': ?0 }")
+    @Query("{ 'showtimeId': ?0, 'deletedAt': null }")
     List<Booking> findByShowtimeId(String showtimeId);
 
-    // Find confirmed bookings by showtime ID (for seat availability)
-    @Query("{ 'showtimeId': ?0, 'bookingStatus': 'CONFIRMED' }")
-    List<Booking> findConfirmedBookingsByShowtimeId(String showtimeId);
+    /**
+     * Seat conflict check: find active bookings for this showtime that already
+     * hold any of the requested seat names in Reserved(3) or Booked(2) state.
+     * Used as the application-level guard before the DB unique index catches races.
+     */
+    @Query("{ 'showtimeId': ?0, 'deletedAt': null, 'seatStatusCode': { $in: [2, 3] }, 'bookingDetails.seatName': { $in: ?1 } }")
+    List<Booking> findConflictingBookings(String showtimeId, List<String> seatNames);
 
-    // Find bookings by status
-    @Query("{ 'bookingStatus': ?0 }")
-    List<Booking> findByBookingStatus(String bookingStatus);
-
-    // Find bookings by date range
-    @Query("{ 'bookingDate': { $gte: ?0, $lte: ?1 } }")
-    List<Booking> findByBookingDateBetween(LocalDateTime startDate, LocalDateTime endDate);
+    /**
+     * Find PENDING (Reserved=3) bookings whose expiry has passed — used by cleanup scheduler.
+     */
+    @Query("{ 'seatStatusCode': 3, 'deletedAt': null, 'expiresAt': { $lt: ?0 } }")
+    List<Booking> findExpiredPendingBookings(LocalDateTime now);
 }

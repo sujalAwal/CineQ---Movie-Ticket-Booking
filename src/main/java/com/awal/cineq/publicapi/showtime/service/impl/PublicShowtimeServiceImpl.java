@@ -3,6 +3,7 @@ package com.awal.cineq.publicapi.showtime.service.impl;
 import com.awal.cineq.booking.model.Booking;
 import com.awal.cineq.booking.model.BookingDetail;
 import com.awal.cineq.booking.repository.BookingRepository;
+import com.awal.cineq.booking.dto.BookingDetailResponse;
 import com.awal.cineq.dto.ApiResponse;
 import com.awal.cineq.dto.PaginationResponse;
 import com.awal.cineq.exception.ResourceNotFoundException;
@@ -14,10 +15,19 @@ import com.awal.cineq.frontend.showtimes.service.FrontendShowtimeService;
 import com.awal.cineq.frontend.theatres.repository.FrontendTheatreRepository;
 import com.awal.cineq.publicapi.showtime.dto.SeatAvailabilityResponse;
 import com.awal.cineq.publicapi.showtime.dto.SeatInfo;
+import com.awal.cineq.publicapi.showtime.dto.ScreenInfo;
+import com.awal.cineq.publicapi.showtime.dto.ShowtimeListDTO;
+import com.awal.cineq.publicapi.showtime.dto.TheaterInfo;
+import com.awal.cineq.publicapi.showtime.dto.BookingPublicRequest;
+import com.awal.cineq.publicapi.showtime.dto.BookingPublicResponse;
 import com.awal.cineq.publicapi.showtime.service.PublicShowtimeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
+import org.bson.types.ObjectId;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -29,44 +39,247 @@ public class PublicShowtimeServiceImpl implements PublicShowtimeService {
 
     private final FrontendShowtimeService frontendShowtimeService;
     private final FrontendShowtimeRepository showtimeRepository;
+    private final MongoTemplate mongoTemplate;
     private final FrontendScreenRepository screenRepository;
     private final FrontendTheatreRepository theatreRepository;
     private final BookingRepository bookingRepository;
 
     @Override
-    public PaginationResponse<ShowtimeDTO> getAllShowtimes(ShowtimePageRequest pageRequest) {
+    public PaginationResponse<ShowtimeListDTO> getAllShowtimes(ShowtimePageRequest pageRequest) {
         log.info("STARTED getAllShowtimes");
         PaginationResponse<ShowtimeDTO> result = frontendShowtimeService.getAllShowtimes(pageRequest);
+        PaginationResponse<ShowtimeListDTO> convertedResult = convertPaginationResponseOld(result);
         log.info("END getAllShowtimes");
-        return result;
+        return convertedResult;
+    }
+
+    /**
+     * Convert PaginationResponse<ShowtimeDTO> to PaginationResponse<ShowtimeListDTO>
+     * Used for methods that still depend on FrontendShowtimeService
+     */
+    private PaginationResponse<ShowtimeListDTO> convertPaginationResponseOld(PaginationResponse<ShowtimeDTO> showtimeDTOResponse) {
+        List<ShowtimeListDTO> convertedData = showtimeDTOResponse.getData().stream()
+                .map(showtimeDTO -> convertToShowtimeListDTOOld(showtimeDTO, showtimeDTO.getTheatreId(), showtimeDTO.getScreenId()))
+                .collect(Collectors.toList());
+
+        PaginationResponse<ShowtimeListDTO> response = new PaginationResponse<>();
+        response.setData(convertedData);
+        response.setPage(showtimeDTOResponse.getPage());
+        response.setSize(showtimeDTOResponse.getSize());
+        response.setTotalElements(showtimeDTOResponse.getTotalElements());
+        response.setTotalPages(showtimeDTOResponse.getTotalPages());
+        response.setHasNext(showtimeDTOResponse.isHasNext());
+        response.setHasPrevious(showtimeDTOResponse.isHasPrevious());
+        return response;
+    }
+
+    /**
+     * Convert ShowtimeDTO to ShowtimeListDTO with theatre and screen details
+     * Used for methods that still depend on FrontendShowtimeService
+     */
+    private ShowtimeListDTO convertToShowtimeListDTOOld(ShowtimeDTO showtimeDTO, String theatreId, String screenId) {
+        // Fetch theatre data
+        TheaterInfo theaterInfo = null;
+        if (theatreId != null) {
+            Map<String, Object> theatreMap = theatreRepository.findByIdAndActive(theatreId);
+            if (theatreMap != null) {
+                theaterInfo = TheaterInfo.builder()
+                        .id(theatreId)
+                        .name((String) theatreMap.get("name"))
+                        .build();
+            }
+        }
+
+        // Fetch screen data
+        ScreenInfo screenInfo = null;
+        if (screenId != null) {
+            Map<String, Object> screenMap = screenRepository.findByIdAndActive(screenId);
+            if (screenMap != null) {
+                screenInfo = ScreenInfo.builder()
+                        .id(screenId)
+                        .title((String) screenMap.get("screenName"))
+                        .build();
+            }
+        }
+
+        return ShowtimeListDTO.builder()
+                .id(showtimeDTO.getId())
+                .showDate(showtimeDTO.getShowDate())
+                .showTime(showtimeDTO.getShowTime())
+                .theater(theaterInfo)
+                .screen(screenInfo)
+                .build();
     }
 
     @Override
-    public ApiResponse<ShowtimeDTO> getShowtimeById(String id) {
+    public ApiResponse<Object> getShowtimeById(String id) {
         log.info("STARTED getShowtimeById: id={}", id);
-        ShowtimeDTO showtime = frontendShowtimeService.getShowtimeById(id);
-        if (showtime == null) {
+        
+        // Use MongoTemplate to query with ObjectId conversion
+        Query query = new Query(Criteria.where("_id").is(new org.bson.types.ObjectId(id))
+                .and("isActive").is(true)
+                .and("deletedAt").is(null));
+        
+        Map<String, Object> showtimeMap = mongoTemplate.findOne(query, Map.class, "showtimes");
+        if (showtimeMap == null) {
             log.error("ERROR getShowtimeById: showtime not found for id={}", id);
             throw new ResourceNotFoundException("Showtime not found: " + id);
         }
-        log.info("END getShowtimeById: id={}", id);
-        return ApiResponse.success("Showtime fetched successfully", showtime);
+        
+        // Remove formManagerId and formStepId from response
+        showtimeMap.remove("formManagerId");
+        showtimeMap.remove("formStepId");
+        
+        // Convert ObjectId to String if needed
+        if (showtimeMap.get("_id") != null) {
+            showtimeMap.put("id", showtimeMap.get("_id").toString());
+            showtimeMap.remove("_id");
+        }
+        
+        log.info("END getShowtimeById: id={}, fields={}", id, showtimeMap.keySet().size());
+        
+        // Return the map as-is from database (all fields except formManagerId and formStepId)
+        return ApiResponse.success("Showtime fetched successfully", showtimeMap);
     }
 
     @Override
-    public PaginationResponse<ShowtimeDTO> getShowtimesByMovieId(String movieId, int page, int size) {
+    public PaginationResponse<ShowtimeListDTO> getShowtimesByMovieId(String movieId, int page, int size) {
         log.info("STARTED getShowtimesByMovieId: movieId={}", movieId);
-        PaginationResponse<ShowtimeDTO> result = frontendShowtimeService.getShowtimesByMovieId(movieId, page, size);
-        log.info("END getShowtimesByMovieId: movieId={}", movieId);
-        return result;
+        
+        // Use MongoTemplate to query with camelCase field names (as stored in MongoDB by form manager)
+        Query query = new Query(Criteria.where("movieId").is(movieId)
+                .and("isActive").is(true)
+                .and("deletedAt").is(null));
+        
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> showtimes = 
+            (List<Map<String, Object>>) (List<?>) mongoTemplate.find(query, Map.class, "showtimes");
+        log.info("Found {} showtimes for movieId={}", showtimes.size(), movieId);
+        
+        // Extract unique theatreIds and screenIds for batch loading
+        Set<String> theatreIds = new HashSet<>();
+        Set<String> screenIds = new HashSet<>();
+        for (Map<String, Object> showtime : showtimes) {
+            String theatreId = (String) showtime.get("theatreId");
+            String screenId = (String) showtime.get("screenId");
+            if (theatreId != null) theatreIds.add(theatreId);
+            if (screenId != null) screenIds.add(screenId);
+        }
+        
+        // Batch load all theatres in one query
+        Map<String, Map<String, Object>> theatreMap = new HashMap<>();
+        if (!theatreIds.isEmpty()) {
+            Query theatreQuery = new Query(Criteria.where("_id").in(
+                    theatreIds.stream().map(ObjectId::new).collect(Collectors.toList()))
+                    .and("isActive").is(true)
+                    .and("deletedAt").is(null));
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> theatres = 
+                (List<Map<String, Object>>) (List<?>) mongoTemplate.find(theatreQuery, Map.class, "theatres");
+            for (Map<String, Object> theatre : theatres) {
+                String id = theatre.get("_id").toString();
+                theatreMap.put(id, theatre);
+            }
+        }
+        
+        // Batch load all screens in one query
+        Map<String, Map<String, Object>> screenMap = new HashMap<>();
+        if (!screenIds.isEmpty()) {
+            Query screenQuery = new Query(Criteria.where("_id").in(
+                    screenIds.stream().map(ObjectId::new).collect(Collectors.toList()))
+                    .and("isActive").is(true)
+                    .and("deletedAt").is(null));
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> screens = 
+                (List<Map<String, Object>>) (List<?>) mongoTemplate.find(screenQuery, Map.class, "screens");
+            for (Map<String, Object> screen : screens) {
+                String id = screen.get("_id").toString();
+                screenMap.put(id, screen);
+            }
+        }
+        
+        // Convert to ShowtimeListDTO using enriched data
+        List<ShowtimeListDTO> convertedData = showtimes.stream()
+                .map(showtime -> convertMapToShowtimeListDTO(showtime, theatreMap, screenMap))
+                .collect(Collectors.toList());
+        
+        // Build pagination response (all data in first page)
+        PaginationResponse<ShowtimeListDTO> response = new PaginationResponse<>();
+        response.setData(convertedData);
+        response.setPage(0);
+        response.setSize(convertedData.size());
+        response.setTotalElements(convertedData.size());
+        response.setTotalPages(1);
+        response.setHasNext(false);
+        response.setHasPrevious(false);
+        
+        log.info("END getShowtimesByMovieId: movieId={}, totalShowtimes={}", movieId, convertedData.size());
+        return response;
+    }
+    
+    /**
+     * Convert raw MongoDB Map to ShowtimeListDTO with theatre and screen details (using pre-loaded maps)
+     */
+    private ShowtimeListDTO convertMapToShowtimeListDTO(Map<String, Object> showtimeMap, 
+            Map<String, Map<String, Object>> theatreMap, Map<String, Map<String, Object>> screenMap) {
+        String theatreId = (String) showtimeMap.get("theatreId");
+        String screenId = (String) showtimeMap.get("screenId");
+        String movieId = (String) showtimeMap.get("movieId");
+        String showDate = (String) showtimeMap.get("showDate");
+        String showTime = (String) showtimeMap.get("showTime");
+        String statusCode = (String) showtimeMap.get("statusCode");
+        String id = showtimeMap.get("_id") != null ? showtimeMap.get("_id").toString() : null;
+        
+        // Get theatre info from pre-loaded map
+        TheaterInfo theaterInfo = null;
+        if (theatreId != null && theatreMap.containsKey(theatreId)) {
+            Map<String, Object> theatre = theatreMap.get(theatreId);
+            theaterInfo = TheaterInfo.builder()
+                    .id(theatreId)
+                    .name((String) theatre.get("name"))
+                    .build();
+        } else if (theatreId != null) {
+            // Fallback if not in map (shouldn't happen with batch load)
+            theaterInfo = TheaterInfo.builder()
+                    .id(theatreId)
+                    .name(null)
+                    .build();
+        }
+        
+        // Get screen info from pre-loaded map
+        ScreenInfo screenInfo = null;
+        if (screenId != null && screenMap.containsKey(screenId)) {
+            Map<String, Object> screen = screenMap.get(screenId);
+            screenInfo = ScreenInfo.builder()
+                    .id(screenId)
+                    .title((String) screen.get("screenName"))
+                    .build();
+        } else if (screenId != null) {
+            // Fallback if not in map (shouldn't happen with batch load)
+            screenInfo = ScreenInfo.builder()
+                    .id(screenId)
+                    .title(null)
+                    .build();
+        }
+        
+        return ShowtimeListDTO.builder()
+                .id(id)
+                .movieId(movieId)
+                .showDate(showDate)
+                .showTime(showTime)
+                .theater(theaterInfo)
+                .screen(screenInfo)
+                .statusCode(statusCode)
+                .build();
     }
 
     @Override
-    public PaginationResponse<ShowtimeDTO> getShowtimesByTheatreId(String theatreId, int page, int size) {
+    public PaginationResponse<ShowtimeListDTO> getShowtimesByTheatreId(String theatreId, int page, int size) {
         log.info("STARTED getShowtimesByTheatreId: theatreId={}", theatreId);
         PaginationResponse<ShowtimeDTO> result = frontendShowtimeService.getShowtimesByTheatreId(theatreId, page, size);
+        PaginationResponse<ShowtimeListDTO> convertedResult = convertPaginationResponseOld(result);
         log.info("END getShowtimesByTheatreId: theatreId={}", theatreId);
-        return result;
+        return convertedResult;
     }
 
     @Override
@@ -114,12 +327,13 @@ public class PublicShowtimeServiceImpl implements PublicShowtimeService {
 
         // 4. Get taken seats (PENDING + CONFIRMED bookings)
         List<Booking> bookings = bookingRepository.findByShowtimeId(showtimeId);
+        // Active bookings: Reserved(3) or Booked(2) — deletedAt=null enforced by repository query
         Set<String> takenSeats = bookings.stream()
-                .filter(b -> b.getBookingStatus() == Booking.BookingStatus.PENDING
-                          || b.getBookingStatus() == Booking.BookingStatus.CONFIRMED)
+                .filter(b -> b.getSeatStatusCode() != null
+                          && (b.getSeatStatusCode() == 3 || b.getSeatStatusCode() == 2))
                 .filter(b -> b.getBookingDetails() != null)
                 .flatMap(b -> b.getBookingDetails().stream())
-                .map(BookingDetail::getSeatNumber)
+                .map(BookingDetail::getSeatName)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
@@ -186,5 +400,51 @@ public class PublicShowtimeServiceImpl implements PublicShowtimeService {
         log.info("END getSeatAvailability: showtimeId={}, totalSeats={}, availableSeats={}",
                 showtimeId, totalSeats, availableCount);
         return ApiResponse.success("Seat availability fetched successfully", response);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // getPublicBookingsByShowtime
+    // ─────────────────────────────────────────────────────────────
+
+    @Override
+    public List<BookingPublicResponse> getPublicBookingsByShowtime(BookingPublicRequest request) {
+        log.info("getPublicBookingsByShowtime — showtimeId={}", request.getShowtimeId());
+
+        // Build query for bookings by showtimeId with paymentStatus COMPLETED or INITIATED
+        Criteria criteria = new Criteria()
+                .and("showtimeId").is(request.getShowtimeId())
+                .and("paymentStatus").in("COMPLETED", "INITIATED")
+                .and("deletedAt").is(null);
+
+        Query query = new Query(criteria);
+        List<Booking> bookings = mongoTemplate.find(query, Booking.class);
+
+        // Map to minimal public response
+        return bookings.stream()
+                .map(booking -> BookingPublicResponse.builder()
+                        .paymentStatus(booking.getPaymentStatus() != null ? booking.getPaymentStatus().name() : null)
+                        .bookingDetails(mapBookingDetails(booking))
+                        .createdAt(booking.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Map booking details from Booking model to BookingDetailResponse DTOs
+     */
+    private List<BookingDetailResponse> mapBookingDetails(Booking booking) {
+        if (booking.getBookingDetails() == null) {
+            return null;
+        }
+        return booking.getBookingDetails().stream()
+                .map(detail -> BookingDetailResponse.builder()
+                        .seatName(detail.getSeatName())
+                        .row(detail.getRow())
+                        .col(detail.getCol())
+                        .seatCode(detail.getSeatCode())
+                        .seatPrice(detail.getSeatPrice() != null ? detail.getSeatPrice().doubleValue() : null)
+                        .seatStatusCode(detail.getSeatStatusCode())
+                        .build())
+                .collect(Collectors.toList());
     }
 }
