@@ -5,7 +5,12 @@ import com.awal.cineq.booking.dto.BookingResponse;
 import com.awal.cineq.booking.model.Booking;
 import com.awal.cineq.booking.model.BookingDetail;
 import com.awal.cineq.booking.repository.BookingRepository;
+import com.awal.cineq.common.util.EmailHelper;
 import com.awal.cineq.config.ApplicationProperties;
+import com.awal.cineq.customer.model.Customer;
+import com.awal.cineq.customer.repository.CustomerRepository;
+import com.awal.cineq.email.model.EmailTemplate;
+import com.awal.cineq.email.repository.EmailTemplateRepository;
 import com.awal.cineq.exception.BusinessException;
 import com.awal.cineq.exception.ResourceNotFoundException;
 import com.awal.cineq.frontend.screens.repository.FrontendScreenRepository;
@@ -36,6 +41,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.Year;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -51,13 +57,19 @@ public class PaymentServiceImpl implements PaymentService {
 
     private static final int BOOKING_EXPIRY_MINUTES = 15;
 
+    private static final String SUCCESS_EMAIL_TEMPLATE_SLUG = "ticket-confirmation";
+    private static final String FAILURE_EMAIL_TEMPLATE_SLUG = "payment-failure";
+
     private final PaymentRepository paymentRepository;
     private final BookingRepository bookingRepository;
     private final FrontendShowtimeRepository showtimeRepository;
     private final FrontendScreenRepository screenRepository;
+    private final CustomerRepository customerRepository;
+    private final EmailTemplateRepository emailTemplateRepository;
     private final MongoTemplate mongoTemplate;
     private final WebClient.Builder webClientBuilder;
     private final ApplicationProperties appProperties;
+    private final EmailHelper emailHelper;
     private final ObjectMapper objectMapper;
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -258,10 +270,289 @@ public class PaymentServiceImpl implements PaymentService {
         if (!"COMPLETE".equalsIgnoreCase(status)) {
             // Payment was not successful — cancel the booking and free seats
             cancelBookingAndPaymentInternal(payment, "eSewa status: " + status);
+            
+            // Send failure notifications to customer and admin
+            sendFailureNotification(payment, "eSewa payment was not completed. Status: " + status);
+            sendAdminFailureNotification(payment, "eSewa status: " + status);
+            
             throw new BusinessException("eSewa payment was not completed. Status: " + status);
         }
 
-        return confirmBookingAndPayment(payment);
+        BookingResponse bookingResponse =  confirmBookingAndPayment(payment);
+        sendSuccessNotification(bookingResponse);
+        return bookingResponse;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Email Notifications
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Send successful payment confirmation email to customer
+     */
+    private void sendSuccessNotification(BookingResponse bookingResponse) {
+        try {
+            log.info("sendSuccessNotification — bookingId={}", bookingResponse.getId());
+
+            // Get customer
+            Customer customer = customerRepository.findById(bookingResponse.getCustomerId())
+                    .orElse(null);
+            if (customer == null) {
+                log.warn("Customer not found for booking: {}", bookingResponse.getId());
+                return;
+            }
+
+            // Get template
+            EmailTemplate template = emailTemplateRepository
+                    .findBySlugAndIsActiveTrueAndDeletedAtNull(SUCCESS_EMAIL_TEMPLATE_SLUG)
+                    .orElse(null);
+            if (template == null) {
+                log.warn("Success email template not found (slug: {})", SUCCESS_EMAIL_TEMPLATE_SLUG);
+                return;
+            }
+
+            // Get showtime, movie, theater details for placeholders
+            Map<String, String> placeholders = buildEmailPlaceholders(bookingResponse, customer, true);
+
+            // Replace placeholders in subject and message
+            String subject = replacePlaceholders(template.getSubject(), placeholders);
+            String message = replacePlaceholders(template.getMessage(), placeholders);
+
+            // Send email to customer
+            boolean sent = emailHelper.sendEmail(customer.getEmail(), subject, message);
+            if (sent) {
+                log.info("Success notification email sent to customer: {}", customer.getEmail());
+            } else {
+                log.warn("Failed to send success notification email to: {}", customer.getEmail());
+            }
+
+            // Also send admin notification
+            if (template.getAdminMessage() != null && template.getAdminSubject() != null) {
+                String adminSubject = replacePlaceholders(template.getAdminSubject(), placeholders);
+                String adminMessage = replacePlaceholders(template.getAdminMessage(), placeholders);
+                List<String> adminEmails = appProperties.getCustomer().getAdminEmailList();
+                if (!adminEmails.isEmpty()) {
+                    boolean adminSent = emailHelper.sendEmail(adminEmails, adminSubject, adminMessage);
+                    if (adminSent) {
+                        log.info("Success notification email sent to admins");
+                    } else {
+                        log.warn("Failed to send success notification to admins");
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error sending success notification for booking: {}", bookingResponse.getId(), e);
+        }
+    }
+
+    /**
+     * Send payment failure notification to customer
+     */
+    private void sendFailureNotification(Payment payment, String failureReason) {
+        try {
+            log.info("sendFailureNotification — paymentId={}, reason={}", payment.getPaymentId(), failureReason);
+
+            // Get customer
+            Customer customer = customerRepository.findById(payment.getCustomerId())
+                    .orElse(null);
+            if (customer == null) {
+                log.warn("Customer not found for payment: {}", payment.getPaymentId());
+                return;
+            }
+
+            // Get template
+            EmailTemplate template = emailTemplateRepository
+                    .findBySlugAndIsActiveTrueAndDeletedAtNull(FAILURE_EMAIL_TEMPLATE_SLUG)
+                    .orElse(null);
+            if (template == null) {
+                log.warn("Failure email template not found (slug: {})", FAILURE_EMAIL_TEMPLATE_SLUG);
+                return;
+            }
+
+            // Get booking to fetch showtime, movie details
+            Booking booking = bookingRepository.findById(payment.getBookingId())
+                    .orElse(null);
+            if (booking == null) {
+                log.warn("Booking not found for payment: {}", payment.getPaymentId());
+                return;
+            }
+
+            // Build response object for placeholder extraction
+            BookingResponse bookingResponse = toBookingResponse(booking);
+
+            // Build placeholders
+            Map<String, String> placeholders = buildEmailPlaceholders(bookingResponse, customer, false);
+            placeholders.put("failureReason", failureReason);
+
+            // Replace placeholders in subject and message
+            String subject = replacePlaceholders(template.getSubject(), placeholders);
+            String message = replacePlaceholders(template.getMessage(), placeholders);
+
+            // Send email to customer
+            boolean sent = emailHelper.sendEmail(customer.getEmail(), subject, message);
+            if (sent) {
+                log.info("Failure notification email sent to customer: {}", customer.getEmail());
+            } else {
+                log.warn("Failed to send failure notification email to: {}", customer.getEmail());
+            }
+        } catch (Exception e) {
+            log.error("Error sending failure notification for payment: {}", payment.getPaymentId(), e);
+        }
+    }
+
+    /**
+     * Send payment failure notification to admin
+     */
+    private void sendAdminFailureNotification(Payment payment, String failureReason) {
+        try {
+            log.info("sendAdminFailureNotification — paymentId={}, reason={}", payment.getPaymentId(), failureReason);
+
+            // Get template
+            EmailTemplate template = emailTemplateRepository
+                    .findBySlugAndIsActiveTrueAndDeletedAtNull(FAILURE_EMAIL_TEMPLATE_SLUG)
+                    .orElse(null);
+            if (template == null || template.getAdminMessage() == null) {
+                log.warn("Failure email template admin message not found");
+                return;
+            }
+
+            // Get customer
+            Customer customer = customerRepository.findById(payment.getCustomerId())
+                    .orElse(null);
+            if (customer == null) {
+                log.warn("Customer not found for payment: {}", payment.getPaymentId());
+                return;
+            }
+
+            // Get booking
+            Booking booking = bookingRepository.findById(payment.getBookingId())
+                    .orElse(null);
+            if (booking == null) {
+                log.warn("Booking not found for payment: {}", payment.getPaymentId());
+                return;
+            }
+
+            // Build response object
+            BookingResponse bookingResponse = toBookingResponse(booking);
+
+            // Build placeholders
+            Map<String, String> placeholders = buildEmailPlaceholders(bookingResponse, customer, false);
+            placeholders.put("failureReason", failureReason);
+            placeholders.put("paymentMethod", payment.getPaymentMethod() != null ? payment.getPaymentMethod().name() : "Unknown");
+            placeholders.put("timestamp", LocalDateTime.now().toString());
+
+            // Replace placeholders
+            String adminSubject = replacePlaceholders(template.getAdminSubject(), placeholders);
+            String adminMessage = replacePlaceholders(template.getAdminMessage(), placeholders);
+
+            // Send email to all admin emails
+            List<String> adminEmails = appProperties.getCustomer().getAdminEmailList();
+            if (!adminEmails.isEmpty()) {
+                boolean sent = emailHelper.sendEmail(adminEmails, adminSubject, adminMessage);
+                if (sent) {
+                    log.info("Failure notification sent to {} admin(s)", adminEmails.size());
+                } else {
+                    log.warn("Failed to send failure notification to admins");
+                }
+            } else {
+                log.warn("No admin emails configured for failure notification");
+            }
+        } catch (Exception e) {
+            log.error("Error sending admin failure notification for payment: {}", payment.getPaymentId(), e);
+        }
+    }
+
+    /**
+     * Build placeholder map for email template replacement
+     */
+    private Map<String, String> buildEmailPlaceholders(BookingResponse booking, Customer customer, boolean isSuccess) {
+        Map<String, String> placeholders = new HashMap<>();
+
+        // Customer info
+        placeholders.put("userName", customer.getFirstName() + " " + (customer.getLastName() != null ? customer.getLastName() : ""));
+        placeholders.put("userEmail", customer.getEmail());
+        placeholders.put("userPhone", customer.getPhone() != null ? customer.getPhone() : "N/A");
+        placeholders.put("customerId", customer.getId());
+
+        // Booking info
+        placeholders.put("bookingId", booking.getBookingReference());
+        placeholders.put("totalAmount", booking.getTotalAmount() != null ? String.format("%.2f", booking.getTotalAmount()) : "0.00");
+        placeholders.put("numberOfSeats", booking.getNumberOfSeats() != null ? booking.getNumberOfSeats().toString() : "0");
+
+        // Seats info
+        if (booking.getBookingDetails() != null && !booking.getBookingDetails().isEmpty()) {
+            String seatNumbers = booking.getBookingDetails().stream()
+                    .map(BookingDetailResponse::getSeatName)
+                    .collect(Collectors.joining(", "));
+            placeholders.put("seatNumbers", seatNumbers);
+        } else {
+            placeholders.put("seatNumbers", "N/A");
+        }
+
+        // Showtime and Movie info — fetch from database
+        if (booking.getShowtimeId() != null) {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> showtime = (Map<String, Object>) (Map<?, ?>) mongoTemplate.findById(
+                        booking.getShowtimeId(), Map.class, "showtimes");
+                if (showtime != null) {
+                    String movieId = str(showtime, "movieId");
+                    Object showDateObj = showtime.get("showDate");
+                    Object showTimeObj = showtime.get("showTime");
+
+                    placeholders.put("showDate", showDateObj != null ? showDateObj.toString() : "N/A");
+                    placeholders.put("showTime", showTimeObj != null ? showTimeObj.toString() : "N/A");
+
+                    // Get movie details
+                    if (movieId != null) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> movie = (Map<String, Object>) (Map<?, ?>) mongoTemplate.findById(
+                                movieId, Map.class, "movies");
+                        if (movie != null) {
+                            placeholders.put("movieName", str(movie, "title"));
+                            placeholders.put("movieId", movieId);
+                        }
+                    }
+
+                    // Get screen/hall details
+                    String screenId = str(showtime, "screenId");
+                    if (screenId != null) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> screen = (Map<String, Object>) (Map<?, ?>) mongoTemplate.findById(
+                                screenId, Map.class, "screens");
+                        if (screen != null) {
+                            placeholders.put("hallName", str(screen, "screenName"));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Error fetching showtime/movie details for email: {}", e.getMessage());
+            }
+        }
+
+        // Default values for missing placeholders
+        placeholders.putIfAbsent("movieName", "N/A");
+        placeholders.putIfAbsent("movieId", "N/A");
+        placeholders.putIfAbsent("hallName", "N/A");
+        placeholders.putIfAbsent("showDate", "N/A");
+        placeholders.putIfAbsent("showTime", "N/A");
+            placeholders.putIfAbsent("year", String.valueOf(Year.now().getValue()));
+            placeholders.putIfAbsent("appUrl", appProperties.getCustomer().getFrontendUrl());
+        placeholders.putIfAbsent("timestamp", LocalDateTime.now().toString());
+        return placeholders;    
+    }
+
+    /**
+     * Replace all placeholders in template text
+     */
+    private String replacePlaceholders(String template, Map<String, String> placeholders) {
+        String result = template;
+        for (Map.Entry<String, String> entry : placeholders.entrySet()) {
+            String placeholder = "{{" + entry.getKey() + "}}";
+            String value = entry.getValue() != null ? entry.getValue() : "";
+            result = result.replace(placeholder, value);
+        }
+        return result;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -308,10 +599,17 @@ public class PaymentServiceImpl implements PaymentService {
 
         if (!"Completed".equalsIgnoreCase(khaltiStatus)) {
             cancelBookingAndPaymentInternal(payment, "Khalti status: " + khaltiStatus);
+            
+            // Send failure notifications to customer and admin
+            sendFailureNotification(payment, "Khalti payment was not completed. Status: " + khaltiStatus);
+            sendAdminFailureNotification(payment, "Khalti status: " + khaltiStatus);
+            
             throw new BusinessException("Khalti payment was not completed. Status: " + khaltiStatus);
         }
 
-        return confirmBookingAndPayment(payment);
+        BookingResponse bookingResponse = confirmBookingAndPayment(payment);
+        sendSuccessNotification(bookingResponse);
+        return bookingResponse;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
