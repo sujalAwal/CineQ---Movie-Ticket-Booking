@@ -8,7 +8,10 @@ import com.awal.cineq.publicapi.showtime.dto.SeatAvailabilityResponse;
 import com.awal.cineq.publicapi.showtime.dto.ShowtimeListDTO;
 import com.awal.cineq.publicapi.showtime.dto.BookingPublicRequest;
 import com.awal.cineq.publicapi.showtime.dto.BookingPublicResponse;
+import com.awal.cineq.publicapi.showtime.dto.SuggestSeatsRequest;
+import com.awal.cineq.publicapi.showtime.dto.SuggestSeatsResponse;
 import com.awal.cineq.publicapi.showtime.service.PublicShowtimeService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -66,8 +69,18 @@ public class PublicShowtimeController {
         return result;
     }
 
-    // CRITICAL: /{id}/seats MUST be declared BEFORE /{id} to prevent Spring
-    // from matching "seats" as a path variable value for the {id} mapping.
+    // CRITICAL: /suggest-seats and /{id}/seats MUST be declared BEFORE /{id} to prevent Spring
+    // from matching "suggest-seats" or "seats" as path variable values for the {id} mapping.
+    @PostMapping("/suggest-seats")
+    public ResponseEntity<ApiResponse<SuggestSeatsResponse>> suggestSeats(
+            @Valid @RequestBody SuggestSeatsRequest request) {
+        log.info("STARTED POST /public/showtimes/suggest-seats with showtimeId={}, seats={}", 
+                request.getShowtimeId(), request.getSeats());
+        ApiResponse<SuggestSeatsResponse> response = publicShowtimeService.suggestSeats(request);
+        log.info("END POST /public/showtimes/suggest-seats");
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{id}/seats")
     public ResponseEntity<ApiResponse<SeatAvailabilityResponse>> getSeatAvailability(
             @PathVariable String id) {

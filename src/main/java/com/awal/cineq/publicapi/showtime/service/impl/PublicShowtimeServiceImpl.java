@@ -20,6 +20,10 @@ import com.awal.cineq.publicapi.showtime.dto.ShowtimeListDTO;
 import com.awal.cineq.publicapi.showtime.dto.TheaterInfo;
 import com.awal.cineq.publicapi.showtime.dto.BookingPublicRequest;
 import com.awal.cineq.publicapi.showtime.dto.BookingPublicResponse;
+import com.awal.cineq.publicapi.showtime.dto.SuggestSeatsRequest;
+import com.awal.cineq.publicapi.showtime.dto.SuggestSeatsResponse;
+import com.awal.cineq.publicapi.showtime.dto.SeatSuggestion;
+import com.awal.cineq.publicapi.showtime.dto.SeatPreference;
 import com.awal.cineq.publicapi.showtime.service.PublicShowtimeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -447,4 +451,258 @@ public class PublicShowtimeServiceImpl implements PublicShowtimeService {
                         .build())
                 .collect(Collectors.toList());
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // suggestSeats — Sliding Window + Greedy Scoring Algorithm
+    // ─────────────────────────────────────────────────────────────
+
+    @Override
+    public ApiResponse<SuggestSeatsResponse> suggestSeats(SuggestSeatsRequest request) {
+        log.info("STARTED suggestSeats: showtimeId={}, seats={}, preference={}",
+                request.getShowtimeId(), request.getSeats(),
+                request.getSeatPreference() != null ? request.getSeatPreference() : SeatPreference.MIDDLE);
+
+        try {
+            // 5a: Fetch Showtime Document
+            Query showtimeQuery = new Query(Criteria.where("_id").is(new ObjectId(request.getShowtimeId()))
+                    .and("isActive").is(true)
+                    .and("deletedAt").is(null));
+            Map<String, Object> showtime = mongoTemplate.findOne(showtimeQuery, Map.class, "showtimes");
+            
+            if (showtime == null) {
+                log.error("ERROR suggestSeats: Showtime not found for id={}", request.getShowtimeId());
+                throw new ResourceNotFoundException("Showtime not found: " + request.getShowtimeId());
+            }
+
+            // Extract seatLayout from showtime
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> seatLayout = 
+                (List<Map<String, Object>>) showtime.get("seatLayout");
+            
+            if (seatLayout == null || seatLayout.isEmpty()) {
+                log.warn("WARN suggestSeats: No seat layout found for showtime={}", request.getShowtimeId());
+                return ApiResponse.success("No contiguous seats available for the requested count",
+                        SuggestSeatsResponse.builder()
+                                .showtimeId(request.getShowtimeId())
+                                .requestedSeats(request.getSeats())
+                                .suggestions(new ArrayList<>())
+                                .build());
+            }
+
+            // 5b: Fetch Taken Seats
+            Criteria criteria = new Criteria()
+                    .and("showtimeId").is(request.getShowtimeId())
+                    .and("paymentStatus").in("COMPLETED", "INITIATED")
+                    .and("deletedAt").is(null);
+            Query bookingQuery = new Query(criteria);
+            List<Booking> bookings = mongoTemplate.find(bookingQuery, Booking.class);
+
+            Set<String> takenSeats = bookings.stream()
+                    .filter(b -> b.getBookingDetails() != null)
+                    .flatMap(b -> b.getBookingDetails().stream())
+                    .map(BookingDetail::getSeatName)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            log.info("Found {} taken seats for showtime={}", takenSeats.size(), request.getShowtimeId());
+
+            // 5c: Build Row-Grouped Data Structure
+            Map<String, List<Map<String, Object>>> rowGroups = new TreeMap<>();
+            int totalCols = 0;
+
+            for (Map<String, Object> seat : seatLayout) {
+                String row = (String) seat.get("row");
+                Object colObj = seat.get("col");
+                Integer col = colObj instanceof Integer ? (Integer) colObj : 
+                             colObj instanceof Number ? ((Number) colObj).intValue() : null;
+
+                if (row != null && col != null) {
+                    rowGroups.computeIfAbsent(row, k -> new ArrayList<>()).add(seat);
+                    if (col > totalCols) {
+                        totalCols = col;
+                    }
+                }
+            }
+
+            // Sort each row by column
+            for (List<Map<String, Object>> rowSeats : rowGroups.values()) {
+                rowSeats.sort((a, b) -> {
+                    Integer colA = getIntValue(a.get("col"));
+                    Integer colB = getIntValue(b.get("col"));
+                    return Integer.compare(colA != null ? colA : 0, colB != null ? colB : 0);
+                });
+            }
+
+            int totalRows = rowGroups.size();
+            List<String> rowList = new ArrayList<>(rowGroups.keySet());
+
+            // 5d: Sliding Window + Greedy Scoring Algorithm
+            List<WindowCandidate> candidates = new ArrayList<>();
+            int requestedSeats = request.getSeats();
+
+            for (int rowIdx = 0; rowIdx < rowList.size(); rowIdx++) {
+                String currentRow = rowList.get(rowIdx);
+                List<Map<String, Object>> rowSeats = rowGroups.get(currentRow);
+
+                // Slide window across the row
+                for (int startIdx = 0; startIdx <= rowSeats.size() - requestedSeats; startIdx++) {
+                    List<Map<String, Object>> windowSeats = rowSeats.subList(startIdx, startIdx + requestedSeats);
+
+                    // Check if all seats in window are free
+                    boolean allFree = windowSeats.stream()
+                            .map(s -> (String) s.get("seatName"))
+                            .allMatch(seatName -> !takenSeats.contains(seatName));
+
+                    if (allFree) {
+                        // Compute score
+                        Integer startCol = getIntValue(windowSeats.get(0).get("col"));
+                        Integer endCol = getIntValue(windowSeats.get(windowSeats.size() - 1).get("col"));
+
+                        if (startCol != null && endCol != null) {
+                            // Calculate row score based on seat preference
+                            double rowScore = calculateRowScore(rowIdx, totalRows, request.getSeatPreference());
+                            double windowCenterCol = startCol + requestedSeats / 2.0;
+                            double colScore = 100 - Math.abs(windowCenterCol - (totalCols / 2.0)) * 15;
+                            double score = rowScore + colScore;
+
+                            // Calculate total price
+                            double totalPrice = windowSeats.stream()
+                                    .map(s -> s.get("price"))
+                                    .mapToDouble(p -> p instanceof Number ? ((Number) p).doubleValue() : 0.0)
+                                    .sum();
+
+                            candidates.add(new WindowCandidate(
+                                    rowIdx, currentRow, startCol, endCol, score, windowSeats, totalPrice
+                            ));
+                        }
+                    }
+                }
+            }
+
+            // 5e: Sort and Pick Top 3
+            candidates.sort((a, b) -> Double.compare(b.score, a.score));
+            
+            List<SeatSuggestion> suggestions = new ArrayList<>();
+            for (int i = 0; i < Math.min(3, candidates.size()); i++) {
+                WindowCandidate candidate = candidates.get(i);
+                List<SeatInfo> seatInfos = candidate.windowSeats.stream()
+                        .map(this::mapSeatToSeatInfo)
+                        .collect(Collectors.toList());
+
+                suggestions.add(SeatSuggestion.builder()
+                        .rank(i + 1)
+                        .row(candidate.row)
+                        .startCol(candidate.startCol)
+                        .endCol(candidate.endCol)
+                        .score(candidate.score)
+                        .seats(seatInfos)
+                        .totalPrice(candidate.totalPrice)
+                        .build());
+            }
+
+            // 5f: Build and Return Response
+            SuggestSeatsResponse response = SuggestSeatsResponse.builder()
+                    .showtimeId(request.getShowtimeId())
+                    .requestedSeats(requestedSeats)
+                    .suggestions(suggestions)
+                    .build();
+
+            String message = suggestions.isEmpty() 
+                    ? "No contiguous seats available for the requested count"
+                    : "Seats suggested successfully";
+            
+            log.info("END suggestSeats: showtimeId={}, suggestions={}, message={}", 
+                    request.getShowtimeId(), suggestions.size(), message);
+            
+            return ApiResponse.success(message, response);
+
+        } catch (ResourceNotFoundException e) {
+            log.error("RESOURCE NOT FOUND in suggestSeats: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("ERROR in suggestSeats: ", e);
+            throw e;
+        }
+    }
+
+    /**
+     * Helper: Convert integer from Map with null safety
+     */
+    private Integer getIntValue(Object obj) {
+        if (obj instanceof Integer) return (Integer) obj;
+        if (obj instanceof Number) return ((Number) obj).intValue();
+        return null;
+    }
+
+    /**
+     * Helper: Calculate row score based on customer's seat preference
+     * FRONT: Favor rows near the front (index 0-2)
+     * BACK: Favor rows near the back (index 7-9)
+     * MIDDLE: Favor rows in the center (default behavior)
+     */
+    private double calculateRowScore(int rowIdx, int totalRows, SeatPreference preference) {
+        if (preference == null) {
+            preference = SeatPreference.MIDDLE;  // default
+        }
+
+        switch (preference) {
+            case FRONT:
+                // Favor front rows (smaller index is better)
+                // Row 0 (A) gets score ~100, Row 1 (B) gets ~85, decreasing towards back
+                return 100 - (rowIdx * 15.0 / totalRows);
+
+            case BACK:
+                // Favor back rows (larger index is better)
+                // Last row gets score ~100, second-last gets ~85, decreasing towards front
+                int distFromBack = totalRows - 1 - rowIdx;
+                return 100 - (distFromBack * 15.0 / totalRows);
+
+            case MIDDLE:
+            default:
+                // Favor middle rows (original behavior)
+                // Center rows get highest score
+                double midRow = (totalRows - 1) / 2.0;
+                return 100 - Math.abs(rowIdx - midRow) * 20;
+        }
+    }
+
+    /**
+     * Helper: Map seat Map to SeatInfo DTO
+     */
+    private SeatInfo mapSeatToSeatInfo(Map<String, Object> seatMap) {
+        return SeatInfo.builder()
+                .seatNumber((String) seatMap.get("seatName"))
+                .row((String) seatMap.get("row"))
+                .column(getIntValue(seatMap.get("col")))
+                .seatType((String) seatMap.get("code"))
+                .price(seatMap.get("price") instanceof Number 
+                        ? ((Number) seatMap.get("price")).doubleValue() 
+                        : 0.0)
+                .build();
+    }
+
+    /**
+     * Inner class: Represents a candidate window for seat suggestion
+     */
+    private static class WindowCandidate {
+        final int rowIdx;
+        final String row;
+        final int startCol;
+        final int endCol;
+        final double score;
+        final List<Map<String, Object>> windowSeats;
+        final double totalPrice;
+
+        WindowCandidate(int rowIdx, String row, int startCol, int endCol, double score,
+                       List<Map<String, Object>> windowSeats, double totalPrice) {
+            this.rowIdx = rowIdx;
+            this.row = row;
+            this.startCol = startCol;
+            this.endCol = endCol;
+            this.score = score;
+            this.windowSeats = windowSeats;
+            this.totalPrice = totalPrice;
+        }
+    }
 }
+

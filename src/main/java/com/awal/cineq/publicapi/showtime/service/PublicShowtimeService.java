@@ -8,6 +8,8 @@ import com.awal.cineq.publicapi.showtime.dto.SeatAvailabilityResponse;
 import com.awal.cineq.publicapi.showtime.dto.ShowtimeListDTO;
 import com.awal.cineq.publicapi.showtime.dto.BookingPublicRequest;
 import com.awal.cineq.publicapi.showtime.dto.BookingPublicResponse;
+import com.awal.cineq.publicapi.showtime.dto.SuggestSeatsRequest;
+import com.awal.cineq.publicapi.showtime.dto.SuggestSeatsResponse;
 
 import java.util.List;
 
@@ -28,4 +30,10 @@ public interface PublicShowtimeService {
      * Returns only paymentStatus, bookingDetails, and createdAt for bookings with COMPLETED or INITIATED payment status
      */
     List<BookingPublicResponse> getPublicBookingsByShowtime(BookingPublicRequest request);
+
+    /**
+     * Suggest best contiguous seats for a showtime using sliding window and greedy scoring algorithm
+     * Returns top 3 seat suggestions based on availability and center positioning
+     */
+    ApiResponse<SuggestSeatsResponse> suggestSeats(SuggestSeatsRequest request);
 }
