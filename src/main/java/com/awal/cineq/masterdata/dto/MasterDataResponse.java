@@ -38,6 +38,8 @@ public class MasterDataResponse {
     private List<CertificationDTO> certifications;                // Certification/Rating data
     private List<LanguageDTO> languages;                          // Language reference data
     private List<FormatDTO> formats;                              // Format reference data
+    private List<ProvinceDTO> provinces;                          // Province reference data (Nepal)
+    private List<DistrictDTO> districts;                          // District reference data (Nepal)
     // Future enums can be added here without breaking API
     // private List<OtherEnumDTO> otherEnums;
     // private List<AnotherEnumDTO> anotherEnums;

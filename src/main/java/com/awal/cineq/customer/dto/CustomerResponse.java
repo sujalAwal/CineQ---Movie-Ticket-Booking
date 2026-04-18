@@ -24,6 +24,8 @@ public class CustomerResponse {
     private String lastName;
     private String email;
     private String phone;
+    private String profilePicture;
+    private String previousProfilePicture;
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate dateOfBirth;
     private Customer.Gender gender;

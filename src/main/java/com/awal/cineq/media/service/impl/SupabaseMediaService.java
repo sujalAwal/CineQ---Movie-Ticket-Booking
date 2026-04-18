@@ -36,6 +36,7 @@ import org.springframework.cache.annotation.CacheEvict;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.function.Function;
@@ -218,11 +219,12 @@ public class SupabaseMediaService implements MediaService {
     }
 
 
-    public Media uploadSingleFile(MultipartFile file, String title, String parentId,String fileDirectory) {  // Changed from UUID to String        try {
+    public Media uploadSingleFile(MultipartFile file, String title, String parentId,String fileDirectory) {  // Changed from UUID to String
         try {
         validateFile(file);
 
-        SupabaseResponse supabaseResponse = uploadToSupabase(file, file.getOriginalFilename(), fileDirectory);
+        String targetFileName = (title == null || title.isBlank()) ? file.getOriginalFilename() : title;
+        SupabaseResponse supabaseResponse = uploadToSupabase(file, targetFileName, fileDirectory);
         String signedUrl = null;
         signedUrl = getSignedUrl(supabaseResponse != null ? supabaseResponse.getKey() : null, supabaseResponse != null ? supabaseResponse.getId() : null);
         MediaType mediaType = determineMediaType(file.getContentType());
@@ -400,8 +402,7 @@ public class SupabaseMediaService implements MediaService {
     private SupabaseResponse uploadToSupabase(MultipartFile file, String fileName,String fileDirectory) {
         try {
 
-
-            String url = storageConfig.getApiUrl()+"/"+ fileDirectory + "/" + fileName;
+            String url = buildSupabaseObjectUrl(fileDirectory, fileName);
        var result = this.webClient.post().uri(url)
                     .header("Authorization", "Bearer " + storageConfig.getApiKey())
                     .header("Content-Type", file.getContentType())
@@ -419,6 +420,36 @@ public class SupabaseMediaService implements MediaService {
             throw new RuntimeException("Supabase upload failed: " + ex.getMessage(), ex);
         }
     }
+
+    private String buildSupabaseObjectUrl(String fileDirectory, String fileName) {
+        String apiUrl = trimTrailingSlash(storageConfig.getApiUrl());
+        String bucket = trimSlashes(storageConfig.getBucket());
+        String directory = trimSlashes(fileDirectory);
+        String safeFileName = trimSlashes(fileName);
+
+        if (directory.isEmpty()) {
+            directory = bucket;
+        } else if (!directory.equals(bucket) && !directory.startsWith(bucket + "/")) {
+            directory = bucket + "/" + directory;
+        }
+
+        return apiUrl + "/" + directory + "/" + safeFileName;
+    }
+
+    private String trimTrailingSlash(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("/+$", "");
+    }
+
+    private String trimSlashes(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replaceAll("^/+|/+$", "");
+    }
+
     private String getSignedUrl(String path, String id) {
         try {
 
@@ -452,7 +483,7 @@ public class SupabaseMediaService implements MediaService {
             candidate = firstNonNull(response.get("signedUrl"), response.get("signed_url"), response.get("signedURL"));
 
             if (candidate != null) {
-                return candidate.toString();
+                return normalizeSignedUrl(candidate.toString());
             }
 
             throw new BusinessException("No signed signURL found in Supabase response: " + response);
@@ -472,6 +503,51 @@ public class SupabaseMediaService implements MediaService {
             if (v != null) return v;
         }
         return null;
+    }
+
+    private String normalizeSignedUrl(String rawSignedUrl) {
+        if (rawSignedUrl == null || rawSignedUrl.isBlank()) {
+            return rawSignedUrl;
+        }
+
+        String candidate = rawSignedUrl.trim();
+        if (candidate.startsWith("http://") || candidate.startsWith("https://")) {
+            return candidate;
+        }
+
+        String objectApiBase = trimTrailingSlash(storageConfig.getApiUrl());
+        String storageV1Base = objectApiBase.replaceFirst("/object$", "");
+        String origin = extractOrigin(objectApiBase);
+
+        if (candidate.startsWith("/object/")) {
+            return storageV1Base + candidate;
+        }
+        if (candidate.startsWith("/storage/v1/")) {
+            return origin + candidate;
+        }
+        if (candidate.startsWith("object/")) {
+            return storageV1Base + "/" + candidate;
+        }
+        if (candidate.startsWith("storage/v1/")) {
+            return origin + "/" + candidate;
+        }
+        if (candidate.startsWith("/")) {
+            return origin + candidate;
+        }
+
+        return objectApiBase + "/" + trimSlashes(candidate);
+    }
+
+    private String extractOrigin(String url) {
+        try {
+            URI uri = URI.create(url);
+            if (uri.getScheme() != null && uri.getAuthority() != null) {
+                return uri.getScheme() + "://" + uri.getAuthority();
+            }
+        } catch (Exception ex) {
+            logger.warn("Could not parse origin from Supabase URL '{}': {}", url, ex.getMessage());
+        }
+        return "";
     }
 
     private void deleteFromSupabase(String fileUrl) {

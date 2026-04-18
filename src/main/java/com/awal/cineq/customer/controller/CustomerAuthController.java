@@ -9,9 +9,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -55,6 +59,35 @@ public class CustomerAuthController {
         customerAuthService.logout(request, response);
         
         return ResponseEntity.ok(ApiResponse.success("Logout successful", "Customer logged out successfully"));
+    }
+
+    @PostMapping(value = "/profile-picture", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<Map<String, String>>> uploadProfilePicture(
+            @RequestParam("file") MultipartFile file) {
+        log.info("Customer profile picture upload attempt");
+
+        String profilePictureUrl = customerAuthService.uploadProfilePicture(file);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Profile picture uploaded successfully",
+                Map.of("profilePicture", profilePictureUrl)
+        ));
+    }
+
+    @DeleteMapping("/profile-picture")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<Map<String, String>>> deleteProfilePicture() {
+        log.info("Customer profile picture delete attempt");
+
+        customerAuthService.deleteProfilePicture();
+
+        Map<String, String> response = new HashMap<>();
+        response.put("profilePicture", null);
+        return ResponseEntity.ok(ApiResponse.success(
+                "Profile picture deleted successfully",
+                response
+        ));
     }
 
     @PostMapping("/verify-email")

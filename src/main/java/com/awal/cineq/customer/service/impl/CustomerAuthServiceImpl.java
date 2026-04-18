@@ -3,12 +3,14 @@ package com.awal.cineq.customer.service.impl;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.Year;
+import java.util.UUID;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.awal.cineq.common.util.EmailHelper;
 import com.awal.cineq.common.util.SecureTokenGenerator;
@@ -25,7 +27,10 @@ import com.awal.cineq.customer.service.TokenBlacklistService;
 import com.awal.cineq.email.model.EmailTemplate;
 import com.awal.cineq.email.repository.EmailTemplateRepository;
 import com.awal.cineq.exception.BadRequestException;
+import com.awal.cineq.exception.BusinessException;
 import com.awal.cineq.exception.ResourceNotFoundException;
+import com.awal.cineq.media.model.Media;
+import com.awal.cineq.media.service.impl.SupabaseMediaService;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,6 +44,8 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional
 public class CustomerAuthServiceImpl implements CustomerAuthService {
 
+    private static final String CUSTOMER_PROFILE_DIRECTORY = "customer/profile";
+
     private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
@@ -47,6 +54,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     private final PasswordHistoryService passwordHistoryService;
     private final EmailTemplateRepository emailTemplateRepository;
     private final EmailHelper emailHelper;
+    private final SupabaseMediaService supabaseMediaService;
 
     @Override
     public CustomerAuthResponse login(CustomerLoginRequest loginRequest, HttpServletResponse response) {
@@ -107,6 +115,8 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
                 .firstName(customer.getFirstName())
                 .middleName(customer.getMiddleName())
                 .lastName(customer.getLastName())
+            .profilePicture(customer.getProfilePicture())
+            .previousProfilePicture(customer.getPreviousProfilePicture())
                 .loyaltyPoints(customer.getLoyaltyPoints())
                 .isEmailVerified(customer.getIsEmailVerified())
                 .role("CUSTOMER")
@@ -192,6 +202,8 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
                     .firstName(savedCustomer.getFirstName())
                     .middleName(savedCustomer.getMiddleName())
                     .lastName(savedCustomer.getLastName())
+                    .profilePicture(savedCustomer.getProfilePicture())
+                    .previousProfilePicture(savedCustomer.getPreviousProfilePicture())
                     .loyaltyPoints(savedCustomer.getLoyaltyPoints())
                     .isEmailVerified(false)
                     .role("CUSTOMER")
@@ -212,6 +224,8 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
                 .firstName(savedCustomer.getFirstName())
                 .middleName(savedCustomer.getMiddleName())
                 .lastName(savedCustomer.getLastName())
+            .profilePicture(savedCustomer.getProfilePicture())
+            .previousProfilePicture(savedCustomer.getPreviousProfilePicture())
                 .loyaltyPoints(savedCustomer.getLoyaltyPoints())
                 .isEmailVerified(savedCustomer.getIsEmailVerified())
                 .role("CUSTOMER")
@@ -368,6 +382,50 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
                 .orElse(false);
     }
 
+    @Override
+    public String uploadProfilePicture(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("Profile picture file is required");
+        }
+
+        Customer customer = getAuthenticatedCustomer();
+        String generatedFileName = buildProfilePictureFileName(customer.getId(), file.getOriginalFilename());
+
+        Media uploadedMedia = supabaseMediaService.uploadSingleFile(
+                file,
+                generatedFileName,
+                null,
+                CUSTOMER_PROFILE_DIRECTORY
+        );
+
+        String uploadedUrl = uploadedMedia.getUrl();
+        if (uploadedUrl == null || uploadedUrl.isBlank()) {
+            throw new BusinessException("Failed to resolve uploaded profile picture URL");
+        }
+
+        customer.setProfilePicture(uploadedUrl);
+        customerRepository.save(customer);
+
+        log.info("Profile picture updated for customer: {}", customer.getEmail());
+        return uploadedUrl;
+    }
+
+    @Override
+    public void deleteProfilePicture() {
+        Customer customer = getAuthenticatedCustomer();
+        String currentProfilePicture = customer.getProfilePicture();
+
+        if (currentProfilePicture == null || currentProfilePicture.isBlank()) {
+            throw new BadRequestException("Profile picture is not set");
+        }
+
+        customer.setPreviousProfilePicture(currentProfilePicture);
+        customer.setProfilePicture(null);
+        customerRepository.save(customer);
+
+        log.info("Profile picture removed for customer: {}", customer.getEmail());
+    }
+
     // UserDetailsService method for Spring Security
     public org.springframework.security.core.userdetails.UserDetails loadUserByUsername(String username) {
         var byEmail = customerRepository.findByEmailAndIsActiveTrue(username);
@@ -447,5 +505,28 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
             return null;
         }
         return email.toLowerCase().trim();
+    }
+
+    private Customer getAuthenticatedCustomer() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new BadRequestException("Customer authentication is required");
+        }
+
+        String email = normalizeEmail(authentication.getName());
+        if (email == null || email.isBlank() || "anonymousUser".equalsIgnoreCase(email)) {
+            throw new BadRequestException("Customer authentication is required");
+        }
+
+        return customerRepository.findByEmailAndIsActiveTrue(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Authenticated customer not found"));
+    }
+
+    private String buildProfilePictureFileName(String customerId, String originalFileName) {
+        String extension = "bin";
+        if (originalFileName != null && originalFileName.contains(".")) {
+            extension = originalFileName.substring(originalFileName.lastIndexOf('.') + 1).toLowerCase();
+        }
+        return "customer-" + customerId + "-" + UUID.randomUUID() + "." + extension;
     }
 }

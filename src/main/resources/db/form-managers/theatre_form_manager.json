@@ -153,6 +153,7 @@
 
         "address": {
           "type": "STRING",
+          "required": true,
           "collectionField": "address",
           "fieldTransformer": "trim",
           "baseValidation": [
@@ -177,49 +178,57 @@
 
         "city": {
           "type": "STRING",
-          "collectionField": "city",
+          "required": true,
+          "collectionField": "district",
           "fieldTransformer": "trim",
           "baseValidation": [
-            "@NotBlank(message='City is required')",
-            "@Size(min=2, max=50, message='City must be 2-50 characters')"
+            "@NotBlank(message='District code is required')",
+            "@Size(min=2, max=100, message='District code must be 2-100 characters')",
+            "@Exists(collection='districts', field='code', message='Selected district code does not exist')"
           ],
           "actionRules": {
             "create": [
-              "@NotBlank(message='City is required')",
-              "@Size(min=2, max=50)"
+              "@NotBlank(message='District code is required')",
+              "@Size(min=2, max=100)",
+              "@Exists(collection='districts', field='code', message='District code must exist in the system')"
             ],
             "update": [
-              "@Size(min=2, max=50)"
+              "@Size(min=2, max=100)",
+              "@Exists(collection='districts', field='code', message='District code must exist in the system')"
             ],
             "delete": []
           },
           "serialization": {
             "select": true,
-            "outputField": "city"
+            "outputField": "district"
           }
         },
 
-        "state": {
+        "province": {
           "type": "STRING",
-          "collectionField": "state",
+          "required": true,
+          "collectionField": "province",
           "fieldTransformer": "trim",
           "baseValidation": [
-            "@NotBlank(message='State is required')",
-            "@Size(min=2, max=50, message='State must be 2-50 characters')"
+            "@NotBlank(message='Province code is required')",
+            "@Size(min=2, max=100, message='Province code must be 2-100 characters')",
+            "@Exists(collection='provinces', field='code', message='Selected province code does not exist')"
           ],
           "actionRules": {
             "create": [
-              "@NotBlank(message='State is required')",
-              "@Size(min=2, max=50)"
+              "@NotBlank(message='Province code is required')",
+              "@Size(min=2, max=100)",
+              "@Exists(collection='provinces', field='code', message='Province code must exist in the system')"
             ],
             "update": [
-              "@Size(min=2, max=50)"
+              "@Size(min=2, max=100)",
+              "@Exists(collection='provinces', field='code', message='Province code must exist in the system')"
             ],
             "delete": []
           },
           "serialization": {
             "select": true,
-            "outputField": "state"
+            "outputField": "province"
           }
         },
 

@@ -112,6 +112,8 @@ public class CustomerServiceImpl implements CustomerService {
                 .lastName(customer.getLastName())
                 .email(customer.getEmail())
                 .phone(customer.getPhone())
+            .profilePicture(customer.getProfilePicture())
+            .previousProfilePicture(customer.getPreviousProfilePicture())
                 .dateOfBirth(customer.getDateOfBirth())
                 .gender(customer.getGender())
                 .loyaltyPoints(customer.getLoyaltyPoints())

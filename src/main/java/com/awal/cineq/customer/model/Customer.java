@@ -48,6 +48,12 @@ public class Customer {
     
     @Field("phone")
     private String phone;
+
+    @Field("profile_picture")
+    private String profilePicture;
+
+    @Field("previous_profile_picture")
+    private String previousProfilePicture;
     
     @Field("date_of_birth")
     private LocalDate dateOfBirth;

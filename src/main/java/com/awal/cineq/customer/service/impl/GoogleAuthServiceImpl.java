@@ -105,6 +105,8 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
                     .firstName(customer.getFirstName())
                     .middleName(customer.getMiddleName())
                     .lastName(customer.getLastName())
+                    .profilePicture(customer.getProfilePicture())
+                    .previousProfilePicture(customer.getPreviousProfilePicture())
                     .loyaltyPoints(customer.getLoyaltyPoints())
                     .isEmailVerified(customer.getIsEmailVerified())
                     .role("CUSTOMER")

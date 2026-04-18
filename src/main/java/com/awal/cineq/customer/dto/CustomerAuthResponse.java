@@ -21,6 +21,8 @@ public class CustomerAuthResponse {
     private String firstName;
     private String middleName;
     private String lastName;
+    private String profilePicture;
+    private String previousProfilePicture;
     private Integer loyaltyPoints;
     private Boolean isEmailVerified;
     private String role;
