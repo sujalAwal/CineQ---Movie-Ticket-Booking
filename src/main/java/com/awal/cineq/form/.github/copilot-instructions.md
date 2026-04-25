@@ -1,3 +1,10 @@
+# NOTE (Project-Wide Instructions)
+
+For repository-wide guidance, use the canonical file at:
+`/.github/copilot-instructions.md`
+
+This current file remains a deeper Universal Form System reference.
+
 # 🚀 Universal Form System - Complete Copilot Guide
 
 **Version**: 2.0 | **Updated**: February 8, 2026 | **Branch**: develop-mongodb
