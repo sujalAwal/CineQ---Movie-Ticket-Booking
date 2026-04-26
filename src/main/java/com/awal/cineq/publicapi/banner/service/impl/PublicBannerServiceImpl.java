@@ -2,6 +2,7 @@ package com.awal.cineq.publicapi.banner.service.impl;
 
 import com.awal.cineq.publicapi.banner.dto.BannerButtonResponse;
 import com.awal.cineq.publicapi.banner.dto.BannerResponse;
+import com.awal.cineq.publicapi.banner.dto.DisplayConfigResponse;
 import com.awal.cineq.publicapi.banner.model.Banner;
 import com.awal.cineq.publicapi.banner.repository.BannerRepository;
 import com.awal.cineq.publicapi.banner.service.PublicBannerService;
@@ -54,6 +55,7 @@ public class PublicBannerServiceImpl implements PublicBannerService {
     /**
      * Maps a {@link Banner} entity to a {@link BannerResponse} DTO.
      * Internal fields (formManagerId, formStepId, audit timestamps) are excluded.
+     * Display configuration defaults to all true if not provided.
      */
     private BannerResponse mapToBannerResponse(Banner banner) {
         return BannerResponse.builder()
@@ -65,6 +67,34 @@ public class PublicBannerServiceImpl implements PublicBannerService {
                 .imageAltText(banner.getImageAltText())
                 .order(banner.getOrder())
                 .buttons(mapButtons(banner.getButtons()))
+                .displayConfig(mapDisplayConfig(banner.getDisplayConfig()))
+                .build();
+    }
+
+    /**
+     * Converts the raw {@code Map<String, Object>} displayConfig stored in MongoDB
+     * into a typed {@link DisplayConfigResponse} DTO.
+     *
+     * If displayConfig is null or missing fields, defaults all boolean values to true.
+     * This ensures backward compatibility with old banners that don't have displayConfig.
+     */
+    private DisplayConfigResponse mapDisplayConfig(Map<String, Object> rawDisplayConfig) {
+        // Default values for new banners or those without displayConfig
+        Boolean showTitle = true;
+        Boolean showDescription = true;
+        Boolean showButtons = true;
+
+        // If displayConfig exists, extract and override defaults
+        if (rawDisplayConfig != null) {
+            showTitle = getBooleanValue(rawDisplayConfig, "showTitle", true);
+            showDescription = getBooleanValue(rawDisplayConfig, "showDescription", true);
+            showButtons = getBooleanValue(rawDisplayConfig, "showButtons", true);
+        }
+
+        return DisplayConfigResponse.builder()
+                .showTitle(showTitle)
+                .showDescription(showDescription)
+                .showButtons(showButtons)
                 .build();
     }
 
@@ -101,6 +131,21 @@ public class PublicBannerServiceImpl implements PublicBannerService {
             return (Boolean) value;
         }
         return value != null ? Boolean.parseBoolean(value.toString()) : null;
+    }
+
+    /**
+     * Overloaded version with a default value for backward compatibility.
+     * Used when the field might not exist in older documents.
+     */
+    private Boolean getBooleanValue(Map<String, Object> map, String key, Boolean defaultValue) {
+        Object value = map.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        return Boolean.parseBoolean(value.toString());
     }
 }
 

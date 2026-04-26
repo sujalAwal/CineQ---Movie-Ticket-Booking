@@ -47,5 +47,8 @@ public class BannerResponse {
 
     /** CTA buttons to render on the banner */
     private List<BannerButtonResponse> buttons;
+
+    /** Display configuration controlling which banner elements are shown */
+    private DisplayConfigResponse displayConfig;
 }
 

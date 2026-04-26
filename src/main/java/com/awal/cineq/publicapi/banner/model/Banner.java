@@ -65,6 +65,13 @@ public class Banner {
      */
     private List<Map<String, Object>> buttons;
 
+    /**
+     * Display configuration for controlling which elements are shown on the banner.
+     * Contains: showTitle, showDescription, showButtons (all boolean).
+     * Stored as a Map to stay flexible with future display settings.
+     */
+    private Map<String, Object> displayConfig;
+
     /** Reference to the FormManager that owns this banner */
     private String formManagerId;
 
