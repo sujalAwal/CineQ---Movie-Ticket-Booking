@@ -442,7 +442,8 @@ public class DashboardServiceImpl implements DashboardService {
                         new Document("$toDouble", "$totalAmount"))
                         .append("date", new Document("$dateToString",
                                 new Document("format", "%Y-%m-%d")
-                                        .append("date", "$createdAt"))));
+                                        .append("date", "$createdAt")
+                                        .append("timezone", "Asia/Kathmandu"))));
     }
 
     private AggregationOperation unwind(String field, boolean preserveNullAndEmptyArrays) {

@@ -18,6 +18,7 @@ import com.awal.cineq.frontend.showtimes.repository.FrontendShowtimeRepository;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.domain.Sort;
 import com.awal.cineq.payment.dto.InitiatePaymentRequest;
 import com.awal.cineq.payment.dto.InitiatePaymentResponse;
 import com.awal.cineq.payment.dto.SeatSelection;
@@ -905,5 +906,158 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (Exception e) {
             throw new BusinessException("Failed to generate payment signature: " + e.getMessage());
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // getPaymentsWithFilters — Admin API for listing payments with filters
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Override
+    public com.awal.cineq.payment.dto.PaymentPageResponse getPaymentsWithFilters(
+            com.awal.cineq.payment.dto.PaymentListFilterRequest filterRequest) {
+        
+        log.info("getPaymentsWithFilters — filters: status={}, method={}, customerId={}, page={}",
+                filterRequest.getStatus(), filterRequest.getPaymentMethod(), 
+                filterRequest.getCustomerId(), filterRequest.getPage());
+
+        // Build MongoDB query with filters
+        Query query = new Query();
+        Criteria criteria = new Criteria();
+
+        // Add status filter
+        if (filterRequest.getStatus() != null) {
+            criteria.and("status").is(filterRequest.getStatus());
+        }
+
+        // Add payment method filter
+        if (filterRequest.getPaymentMethod() != null) {
+            criteria.and("paymentMethod").is(filterRequest.getPaymentMethod());
+        }
+
+        // Add customer ID filter
+        if (filterRequest.getCustomerId() != null) {
+            criteria.and("customerId").is(filterRequest.getCustomerId());
+        }
+
+        // Add booking ID filter
+        if (filterRequest.getBookingId() != null) {
+            criteria.and("bookingId").is(filterRequest.getBookingId());
+        }
+
+        // Add amount range filter
+        if (filterRequest.getAmountMin() != null || filterRequest.getAmountMax() != null) {
+            if (filterRequest.getAmountMin() != null && filterRequest.getAmountMax() != null) {
+                criteria.and("amount").gte(new BigDecimal(filterRequest.getAmountMin()))
+                        .lte(new BigDecimal(filterRequest.getAmountMax()));
+            } else if (filterRequest.getAmountMin() != null) {
+                criteria.and("amount").gte(new BigDecimal(filterRequest.getAmountMin()));
+            } else {
+                criteria.and("amount").lte(new BigDecimal(filterRequest.getAmountMax()));
+            }
+        }
+
+        // Add date range filter on updatedAt
+        if (filterRequest.getStartDate() != null || filterRequest.getEndDate() != null) {
+            if (filterRequest.getStartDate() != null && filterRequest.getEndDate() != null) {
+                criteria.and("updatedAt").gte(filterRequest.getStartDate().atStartOfDay())
+                        .lte(filterRequest.getEndDate().plusDays(1).atStartOfDay());
+            } else if (filterRequest.getStartDate() != null) {
+                criteria.and("updatedAt").gte(filterRequest.getStartDate().atStartOfDay());
+            } else {
+                criteria.and("updatedAt").lte(filterRequest.getEndDate().plusDays(1).atStartOfDay());
+            }
+        }
+
+        // Always exclude deleted payments
+        criteria.and("deletedAt").is(null);
+
+        query.addCriteria(criteria);
+
+        // Get total count before pagination
+        long totalElements = mongoTemplate.count(query, Payment.class);
+
+        // Add sorting
+        String sortDirection = "desc".equalsIgnoreCase(filterRequest.getSortDirection()) ? "desc" : "asc";
+        String sortBy = filterRequest.getSortBy() != null ? filterRequest.getSortBy() : "updatedAt";
+        
+        Sort.Direction direction = 
+                "desc".equalsIgnoreCase(sortDirection) ? 
+                Sort.Direction.DESC : 
+                Sort.Direction.ASC;
+        
+        query.with(Sort.by(direction, sortBy));
+
+        // Add pagination
+        int page = filterRequest.getPage() != null ? filterRequest.getPage() : 0;
+        int size = filterRequest.getSize() != null ? filterRequest.getSize() : 10;
+        query.skip((long) page * size).limit(size);
+
+        // Execute query to get payments
+        List<Payment> payments = mongoTemplate.find(query, Payment.class);
+
+        // Convert to DTOs and enrich with customer details
+        List<com.awal.cineq.payment.dto.PaymentListDTO> paymentDTOs = payments.stream()
+                .map(payment -> {
+                    com.awal.cineq.payment.dto.PaymentListDTO dto = 
+                            com.awal.cineq.payment.dto.PaymentListDTO.builder()
+                            .id(payment.getId())
+                            .paymentId(payment.getPaymentId())
+                            .bookingId(payment.getBookingId())
+                            .customerId(payment.getCustomerId())
+                            .amount(payment.getAmount())
+                            .paymentMethod(payment.getPaymentMethod().toString())
+                            .status(payment.getStatus().toString())
+                            .gatewayTransactionId(payment.getGatewayTransactionId())
+                            .paymentUrl(payment.getPaymentUrl())
+                            .gatewayMetadata(payment.getGatewayMetadata())
+                            .createdAt(payment.getCreatedAt())
+                            .updatedAt(payment.getUpdatedAt())
+                            .deletedAt(payment.getDeletedAt())
+                            .build();
+
+                    // Fetch customer details from customers collection
+                    Customer customer = customerRepository.findById(payment.getCustomerId()).orElse(null);
+                    if (customer != null) {
+                        // Build full customer name
+                        StringBuilder nameBuilder = new StringBuilder();
+                        if (customer.getFirstName() != null) {
+                            nameBuilder.append(customer.getFirstName());
+                        }
+                        if (customer.getMiddleName() != null) {
+                            if (nameBuilder.length() > 0) nameBuilder.append(" ");
+                            nameBuilder.append(customer.getMiddleName());
+                        }
+                        if (customer.getLastName() != null) {
+                            if (nameBuilder.length() > 0) nameBuilder.append(" ");
+                            nameBuilder.append(customer.getLastName());
+                        }
+                        
+                        String fullName = nameBuilder.length() > 0 ? nameBuilder.toString() : customer.getEmail();
+                        
+                        dto.setUserDetails(com.awal.cineq.payment.dto.UserDetailsDTO.builder()
+                                .customerId(customer.getId())
+                                .email(customer.getEmail())
+                                .customerName(fullName)
+                                .build());
+                    }
+
+                    return dto;
+                })
+                .collect(Collectors.toList());
+
+        // Build pagination response
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+        boolean hasNext = page < totalPages - 1;
+        boolean hasPrevious = page > 0;
+
+        return com.awal.cineq.payment.dto.PaymentPageResponse.builder()
+                .payments(paymentDTOs)
+                .page(page)
+                .size(size)
+                .totalElements(totalElements)
+                .totalPages(totalPages)
+                .hasNext(hasNext)
+                .hasPrevious(hasPrevious)
+                .build();
     }
 }

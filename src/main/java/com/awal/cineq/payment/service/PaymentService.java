@@ -3,6 +3,8 @@ package com.awal.cineq.payment.service;
 import com.awal.cineq.booking.dto.BookingResponse;
 import com.awal.cineq.payment.dto.InitiatePaymentRequest;
 import com.awal.cineq.payment.dto.InitiatePaymentResponse;
+import com.awal.cineq.payment.dto.PaymentListFilterRequest;
+import com.awal.cineq.payment.dto.PaymentPageResponse;
 
 public interface PaymentService {
 
@@ -24,4 +26,11 @@ public interface PaymentService {
      * Calls the Khalti lookup API to confirm the payment, then confirms the booking.
      */
     BookingResponse verifyKhaltiPayment(String customerId, String pidx);
+
+    /**
+     * List payments with optional filters and pagination
+     * Returns all payment fields with enriched user/customer details from customers collection
+     * Admin only endpoint
+     */
+    PaymentPageResponse getPaymentsWithFilters(PaymentListFilterRequest filterRequest);
 }
