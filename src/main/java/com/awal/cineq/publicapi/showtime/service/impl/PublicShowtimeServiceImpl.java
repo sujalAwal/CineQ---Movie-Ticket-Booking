@@ -32,6 +32,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.bson.types.ObjectId;
+import java.time.LocalDate;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -150,8 +151,12 @@ public class PublicShowtimeServiceImpl implements PublicShowtimeService {
     public PaginationResponse<ShowtimeListDTO> getShowtimesByMovieId(String movieId, int page, int size) {
         log.info("STARTED getShowtimesByMovieId: movieId={}", movieId);
         
+        // Get today's date in YYYY-MM-DD format
+        String todayAsString = LocalDate.now().toString(); // e.g., "2026-04-29"
+
         // Use MongoTemplate to query with camelCase field names (as stored in MongoDB by form manager)
         Query query = new Query(Criteria.where("movieId").is(movieId)
+                .and("showDate").gte(todayAsString) // String comparison works here!
                 .and("isActive").is(true)
                 .and("deletedAt").is(null));
         
