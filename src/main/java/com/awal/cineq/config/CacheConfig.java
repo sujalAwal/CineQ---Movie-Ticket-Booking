@@ -12,7 +12,12 @@ public class CacheConfig {
 
     @Bean
     public CacheManager cacheManager() {
-        ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager("sidebarFolders");
+        ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager(
+                "sidebarFolders",      // Existing cache
+                "formManager",          // FormConfigCacheService - FormManager by slug/id
+                "formStep",             // FormConfigCacheService - FormStep by id/managerId+slug
+                "formStepList"          // FormConfigCacheService - List of FormSteps by managerId
+        );
         return cacheManager;
     }
 }

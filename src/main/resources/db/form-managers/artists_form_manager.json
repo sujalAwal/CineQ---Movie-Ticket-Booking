@@ -1,0 +1,583 @@
+{
+  "formManager": {
+    "_id": "fm_artists_001",
+    "title": "Artists Management",
+    "slug": "artists",
+    "description": "Manage artists including actors, directors, producers, and other film talent",
+    "modelName": "Artist",
+    "isActive": true,
+    "metadata": {
+      "category": "content-management",
+      "version": "1.0",
+      "icon": "users",
+      "order": 7
+    },
+    "createdAt": "2026-04-05T00:00:00.000Z",
+    "updatedAt": "2026-04-05T00:00:00.000Z",
+    "deletedAt": null
+  },
+
+  "formSteps": [
+    {
+      "_id": "fs_artists_v1",
+      "formManagerId": "fm_artists_001",
+      "stepTitle": "v1",
+      "stepSlug": "v1",
+      "stepOrder": 1,
+      "isActive": true,
+
+      "validationRules": {
+        "fullName": {
+          "type": "STRING",
+          "collectionField": "full_name",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Artist name is required')",
+            "@Size(min=2, max=100, message='Artist name must be 2-100 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Artist name is required')",
+              "@Size(min=2, max=100)",
+              "@Unique(collection='artists', field='full_name', message='Artist name already exists')"
+            ],
+            "update": [
+              "@Size(min=2, max=100)",
+              "@UniqueExcludingSelf(collection='artists', field='full_name', idField='_id', message='Artist name already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "full_name"
+          }
+        },
+        "email": {
+          "type": "STRING",
+          "collectionField": "email",
+          "fieldTransformer": "lowercase_trim",
+          "baseValidation": [
+            "@Email(message='Invalid email address')",
+            "@Size(max=100, message='Email cannot exceed 100 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Email(message='Invalid email address')",
+              "@Size(max=100)"
+            ],
+            "update": [
+              "@Email(message='Invalid email address')",
+              "@Size(max=100)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "email"
+          }
+        },
+        "avatar": {
+          "type": "STRING",
+          "collectionField": "avatar",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@Size(max=500, message='Avatar URL cannot exceed 500 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(max=500)"
+            ],
+            "update": [
+              "@Size(max=500)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "avatar"
+          }
+        },
+        "artistTypeId": {
+          "type": "STRING",
+          "collectionField": "artist_type_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [
+              "@Exists(collection='artist_types', field='_id', message='Artist type not found')"
+            ],
+            "update": [
+              "@Exists(collection='artist_types', field='_id', message='Artist type not found')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "artist_type_id"
+          }
+        },
+        "bio": {
+          "type": "STRING",
+          "collectionField": "bio",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@Size(max=500, message='Biography cannot exceed 500 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(max=500)"
+            ],
+            "update": [
+              "@Size(max=500)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "bio"
+          }
+        },
+        "birthDate": {
+          "type": "DATE",
+          "collectionField": "birth_date",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@Past(message='Birth date must be in the past')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Past(message='Birth date must be in the past')"
+            ],
+            "update": [
+              "@Past(message='Birth date must be in the past')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "birth_date"
+          }
+        },
+        "nationality": {
+          "type": "STRING",
+          "collectionField": "nationality",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@Size(max=50, message='Nationality cannot exceed 50 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(max=50)"
+            ],
+            "update": [
+              "@Size(max=50)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "nationality"
+          }
+        },
+        "moviesCount": {
+          "type": "INTEGER",
+          "collectionField": "movies_count",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@Min(value=0, message='Movies count cannot be negative')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Min(value=0)"
+            ],
+            "update": [
+              "@Min(value=0)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "movies_count"
+          }
+        },
+        "rating": {
+          "type": "DECIMAL",
+          "collectionField": "rating",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@DecimalMin(value='0.0', message='Rating cannot be less than 0')",
+            "@DecimalMax(value='10.0', message='Rating cannot exceed 10')"
+          ],
+          "actionRules": {
+            "create": [
+              "@DecimalMin(value='0.0')",
+              "@DecimalMax(value='10.0')"
+            ],
+            "update": [
+              "@DecimalMin(value='0.0')",
+              "@DecimalMax(value='10.0')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "rating"
+          }
+        },
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "is_active"
+          }
+        },
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='artists', field='_id', message='Artist not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='artists', field='_id', message='Artist not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "formSchema": {
+        "type": "object",
+        "title": "Artist Form",
+        "properties": {
+          "fullName": {
+            "type": "STRING",
+            "title": "Artist Name",
+            "placeholder": "Enter artist full name",
+            "description": "Full name of the artist (must be unique)",
+            "required": true,
+            "order": 1
+          },
+          "email": {
+            "type": "STRING",
+            "title": "Email",
+            "placeholder": "Enter email address",
+            "description": "Contact email for the artist",
+            "required": false,
+            "order": 2,
+            "ui": {
+              "widget": "email"
+            }
+          },
+          "avatar": {
+            "type": "STRING",
+            "title": "Avatar URL",
+            "placeholder": "e.g., /uploads/artist.jpg",
+            "description": "Profile image URL or file path",
+            "required": false,
+            "order": 3
+          },
+          "artistTypeId": {
+            "type": "STRING",
+            "title": "Artist Type",
+            "placeholder": "Select artist type",
+            "description": "Category this artist belongs to (e.g., Actor, Director)",
+            "required": false,
+            "order": 4,
+            "ui": {
+              "widget": "select",
+              "dataSource": {
+                "collection": "artist_types",
+                "labelField": "name",
+                "valueField": "_id",
+                "filter": { "isActive": true, "deletedAt": null }
+              }
+            }
+          },
+          "birthDate": {
+            "type": "DATE",
+            "title": "Birth Date",
+            "placeholder": "",
+            "description": "Date of birth of the artist",
+            "required": false,
+            "order": 5
+          },
+          "nationality": {
+            "type": "STRING",
+            "title": "Nationality",
+            "placeholder": "e.g., American, British, Indian",
+            "description": "Country of origin or citizenship",
+            "required": false,
+            "order": 6
+          },
+          "bio": {
+            "type": "STRING",
+            "title": "Biography",
+            "placeholder": "Enter artist biography...",
+            "description": "Brief biography of the artist",
+            "required": false,
+            "order": 7,
+            "ui": {
+              "widget": "textarea",
+              "rows": 3
+            }
+          },
+          "moviesCount": {
+            "type": "INTEGER",
+            "title": "Movies Count",
+            "placeholder": "0",
+            "description": "Number of movies this artist has appeared in (nullable)",
+            "required": false,
+            "order": 8
+          },
+          "rating": {
+            "type": "DECIMAL",
+            "title": "Rating",
+            "placeholder": "e.g., 8.5",
+            "description": "Overall rating from 0.0 to 10.0 (nullable)",
+            "required": false,
+            "order": 9
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this artist is active and visible on the platform",
+            "default": true,
+            "order": 10
+          }
+        },
+        "required": ["fullName"]
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "artists",
+
+        "fieldMapping": {
+          "fullName": "full_name",
+          "email": "email",
+          "avatar": "avatar",
+          "artistTypeId": "artist_type_id",
+          "bio": "bio",
+          "birthDate": "birth_date",
+          "nationality": "nationality",
+          "moviesCount": "movies_count",
+          "rating": "rating",
+          "isActive": "isActive"
+        },
+
+        "fieldTransformers": {
+          "fullName": "trim",
+          "email": "lowercase_trim",
+          "nationality": "trim",
+          "bio": "trim"
+        },
+
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating new artist",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["artists"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "Artist",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Artist creation failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Artist created successfully",
+              "error": "Failed to create artist",
+              "validation": "Please check the form for errors"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Updating artist",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["artists"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "Artist",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Artist update failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Artist updated successfully",
+              "error": "Failed to update artist",
+              "notFound": "Artist not found or has been deleted"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["artists"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "DELETE",
+                    "entity": "Artist"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Artist deleted successfully",
+              "error": "Failed to delete artist",
+              "notFound": "Artist not found"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN", "MANAGER"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "two-column",
+        "sections": [
+          {
+            "title": "Basic Information",
+            "fields": ["fullName", "email", "artistTypeId", "isActive"]
+          },
+          {
+            "title": "Personal Details",
+            "fields": ["birthDate", "nationality", "avatar"]
+          },
+          {
+            "title": "Biography & Stats",
+            "fields": ["bio", "moviesCount", "rating"]
+          }
+        ],
+        "submitButton": {
+          "label": "Save Artist",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "content-management",
+        "version": "1.0",
+        "lastUpdated": "2026-04-05T00:00:00.000Z",
+        "fieldCount": 10,
+        "author": "system"
+      },
+
+      "createdAt": "2026-04-05T00:00:00.000Z",
+      "updatedAt": "2026-04-05T00:00:00.000Z",
+      "deletedAt": null
+    }
+  ]
+}

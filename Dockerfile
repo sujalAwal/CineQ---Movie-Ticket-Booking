@@ -36,9 +36,21 @@ USER appuser
 # Expose port
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8080/api/actuator/health || exit 1
+# Health check - uses /api/health (no actuator dependency)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD curl -f http://localhost:8080/api/health || exit 1
 
-# Run the application
-ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
+# Run the application with container-optimized JVM flags
+# -XX:+TieredCompilation -XX:TieredStopAtLevel=1 = faster startup (skip C2 compiler)
+# -XX:+UseSerialGC = lower memory footprint for small containers
+# -Xss256k = smaller thread stacks
+# -Djava.security.egd = faster random number generation
+ENTRYPOINT ["java", \
+    "-XX:+UseContainerSupport", \
+    "-XX:MaxRAMPercentage=75.0", \
+    "-XX:+TieredCompilation", \
+    "-XX:TieredStopAtLevel=1", \
+    "-Xss256k", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-Dspring.jmx.enabled=false", \
+    "-jar", "app.jar"]

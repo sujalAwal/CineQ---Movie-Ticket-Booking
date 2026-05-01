@@ -7,15 +7,18 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 import java.util.Optional;
 
-@Configuration
+// @Configuration // Disabled for MongoDB-first development
 @EnableJpaAuditing(auditorAwareRef = "auditorProvider")
 public class JpaConfig {
 
-    @Bean
-    public AuditorAware<String> auditorProvider() {
-        return new AuditorAwareImpl();
-    }
+    // This bean is now provided by MongoConfig
+    // @Bean
+    // public AuditorAware<String> auditorProvider() {
+    //     return new AuditorAwareImpl();
+    // }
 
+    // AuditorAwareImpl is also not needed here anymore as it's in MongoConfig
+    /*
     public static class AuditorAwareImpl implements AuditorAware<String> {
         @Override
         public Optional<String> getCurrentAuditor() {
@@ -24,4 +27,5 @@ public class JpaConfig {
             return Optional.of("system");
         }
     }
+    */
 }

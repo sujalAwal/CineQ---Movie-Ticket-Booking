@@ -1,39 +1,58 @@
 package com.awal.cineq.media.model;
 
-import jakarta.persistence.*;
-    import lombok.Data;
-    import lombok.NoArgsConstructor;
-    import org.hibernate.annotations.Filter;
-    import org.hibernate.annotations.FilterDef;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
-@Entity
-@Table(name = "medias")
+/**
+ * MongoDB Document for Media
+ * Uses soft-delete pattern: deletedAt = null means active, not null means deleted
+ */
+@Document(collection = "medias")
 @Data
 @NoArgsConstructor
 public class Media {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", updatable = false, nullable = false)
-    private UUID id;
+    private String id;  // MongoDB ObjectId stored as String
+
+    @Field("file_name")
     private String fileName;
+
+    @Field("url")
     private String url;
-    @Enumerated(EnumType.STRING)
+
+    @Field("type")
     private MediaType type; // e.g., image, video
-    private boolean isActive;
-    @Column(name = "parent_id", nullable = true)
-    private UUID parentId; // e.g., movie or series ID
-    @Column(name = "file_path", nullable = false)
-    private  String filePath;
-    @Column(name = "file_id", nullable = true)
-    private  String fileUuid;
+
+    @Field("is_active")
+    private boolean isActive = true;
+
+    @Field("parent_id")
+    private String parentId; // e.g., movie or series ID (String for MongoDB reference)
+
+    @Field("file_path")
+    private String filePath;
+
+    @Field("file_id")
+    private String fileUuid;
+
+    @Field("created_at")
+    @CreatedDate
     private LocalDateTime createdAt;
+
+    @Field("updated_at")
+    @LastModifiedDate
     private LocalDateTime updatedAt;
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt;
+
+    @Field("deleted_at")
+    private LocalDateTime deletedAt;  // Soft-delete marker: null = active
 
 }
 

@@ -1,39 +1,71 @@
 package com.awal.cineq.customer.repository;
 
 import com.awal.cineq.customer.model.Customer;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
+/**
+ * MongoDB Repository for Customer
+ * Includes soft-delete queries (deletedAt = null)
+ */
 @Repository
-public interface CustomerRepository extends JpaRepository<Customer, UUID> {
-    
+public interface CustomerRepository extends MongoRepository<Customer, String> {
+
+    // Find by email (no soft-delete filter - for authentication)
     Optional<Customer> findByEmail(String email);
     
+    // Find active customer by email
+    @Query("{ 'email': ?0, 'isActive': true, 'deletedAt': null }")
     Optional<Customer> findByEmailAndIsActiveTrue(String email);
     
+    // Find by email verification token
+    @Query("{ 'emailVerificationToken': ?0, 'deletedAt': null }")
     Optional<Customer> findByEmailVerificationToken(String token);
     
+    // Find all active customers
+    @Query("{ 'isActive': true, 'deletedAt': null }")
     List<Customer> findByIsActiveTrue();
     
+    // Find all email verified customers
+    @Query("{ 'isEmailVerified': true, 'deletedAt': null }")
     List<Customer> findByIsEmailVerifiedTrue();
     
-    @Query("SELECT c FROM Customer c WHERE (c.firstName LIKE %:keyword% OR c.lastName LIKE %:keyword% OR c.email LIKE %:keyword%) AND c.isActive = true")
-    List<Customer> searchCustomers(@Param("keyword") String keyword);
-    
+    // Search customers by keyword (firstName, lastName, email)
+    @Query("{ $and: [ " +
+           "  { $or: [ " +
+           "    { 'firstName': { $regex: ?0, $options: 'i' } }, " +
+           "    { 'lastName': { $regex: ?0, $options: 'i' } }, " +
+           "    { 'email': { $regex: ?0, $options: 'i' } } " +
+           "  ] }, " +
+           "  { 'isActive': true }, " +
+           "  { 'deletedAt': null } " +
+           "] }")
+    List<Customer> searchCustomers(String keyword);
+
+    // Check if email exists
     boolean existsByEmail(String email);
     
-    @Query("SELECT COUNT(c) FROM Customer c WHERE c.isActive = true")
+    // Check if email exists (case-insensitive, only active customers)
+    @Query(value = "{ 'email': { $regex: ?0, $options: 'i' }, 'deletedAt': null }", exists = true)
+    boolean existsByEmailIgnoreCaseAndDeletedAtIsNull(String email);
+    
+    // Count active customers
+    @Query(value = "{ 'isActive': true, 'deletedAt': null }", count = true)
     Long countActiveCustomers();
     
-    @Query("SELECT COUNT(c) FROM Customer c WHERE c.isEmailVerified = true AND c.isActive = true")
+    // Count verified customers
+    @Query(value = "{ 'isEmailVerified': true, 'isActive': true, 'deletedAt': null }", count = true)
     Long countVerifiedCustomers();
     
-    @Query("SELECT SUM(c.loyaltyPoints) FROM Customer c WHERE c.isActive = true")
-    Long getTotalLoyaltyPoints();
+    // Get total loyalty points (aggregation - implement in service layer)
+    @Query("{ 'isActive': true, 'deletedAt': null }")
+    List<Customer> findAllActiveCustomers();
+    
+    // Find by password reset token
+    @Query("{ 'passwordResetToken': ?0, 'deletedAt': null }")
+    Optional<Customer> findByPasswordResetToken(String token);
 }

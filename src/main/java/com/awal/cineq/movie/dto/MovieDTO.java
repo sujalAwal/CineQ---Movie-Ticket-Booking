@@ -1,5 +1,6 @@
 package com.awal.cineq.movie.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,11 +12,15 @@ import java.util.List;
 
 import com.awal.cineq.genre.dto.GenreDTO;
 
+/**
+ * Movie DTO for API responses
+ * ID is MongoDB ObjectId stored as String
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class MovieDTO {
-    private Long id;
+    private String id;
     
     @NotBlank(message = "Movie title is required")
     @Size(max = 200, message = "Title must not exceed 200 characters")
@@ -28,6 +33,7 @@ public class MovieDTO {
     @Positive(message = "Duration must be positive")
     private Integer durationMinutes;
     
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate releaseDate;
     
     @Size(max = 10, message = "Rating must not exceed 10 characters")

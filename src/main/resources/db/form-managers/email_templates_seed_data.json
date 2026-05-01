@@ -1,0 +1,217 @@
+{
+  "_documentation": "Email Template Seed Data - Insert via POST /v1/submit/email-templates",
+  "_instructions": "Use these templates as seed data. Insert each template using the Universal Form API.",
+  
+  "templates": [
+    {
+      "_comment": "1. CUSTOMER WELCOME EMAIL - Sent to customer after successful registration",
+      "apiCall": {
+        "method": "POST",
+        "url": "/v1/submit/email-templates",
+        "body": {
+          "stepSlug": "v1",
+          "action": "CREATE",
+          "formData": {
+            "name": "Customer Welcome Email",
+            "slug": "customer-welcome",
+            "subject": "Welcome to CineQ, {{firstName}}! 🎬",
+            "message": "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px}h1{color:#e50914}a.button{display:inline-block;background:#e50914;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;margin:20px 0}.footer{margin-top:30px;padding-top:20px;border-top:1px solid #eee;font-size:12px;color:#666}</style></head><body><h1>Welcome to CineQ! 🎬</h1><p>Hi {{firstName}},</p><p>Thank you for joining CineQ - your premier destination for movie ticket booking!</p><p>Your account has been created successfully with the following details:</p><ul><li><strong>Email:</strong> {{email}}</li><li><strong>Account ID:</strong> {{customerId}}</li></ul><p>Here's what you can do now:</p><ul><li>🎥 Browse the latest movies</li><li>🎟️ Book tickets for your favorite shows</li><li>⭐ Earn loyalty points with every purchase</li><li>🎁 Get exclusive member offers</li></ul>{{#if emailVerificationRequired}}<p><strong>Important:</strong> Please verify your email to activate your account:</p><a href='{{verificationLink}}' class='button'>Verify Email Address</a><p style='font-size:12px;color:#666'>Or copy this link: {{verificationLink}}</p><p style='font-size:12px;color:#666'>This link expires in 24 hours.</p>{{/if}}<p>Start exploring movies now!</p><a href='{{appUrl}}' class='button'>Browse Movies</a><div class='footer'><p>If you didn't create this account, please ignore this email or contact support.</p><p>© {{year}} CineQ. All rights reserved.</p></div></body></html>",
+            "adminSubject": "[CineQ Admin] New Customer Registration: {{email}}",
+            "adminMessage": "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px}h1{color:#2c3e50}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{padding:10px;border:1px solid #ddd;text-align:left}th{background:#f5f5f5}.footer{margin-top:30px;font-size:12px;color:#666}</style></head><body><h1>🎉 New Customer Registration</h1><p>A new customer has registered on CineQ:</p><table><tr><th>Field</th><th>Value</th></tr><tr><td>Name</td><td>{{firstName}} {{lastName}}</td></tr><tr><td>Email</td><td>{{email}}</td></tr><tr><td>Phone</td><td>{{phone}}</td></tr><tr><td>Customer ID</td><td>{{customerId}}</td></tr><tr><td>Registered At</td><td>{{registeredAt}}</td></tr><tr><td>Email Verified</td><td>{{isEmailVerified}}</td></tr></table><p>View customer in admin panel: <a href='{{adminUrl}}/customers/{{customerId}}'>{{adminUrl}}/customers/{{customerId}}</a></p><div class='footer'><p>This is an automated notification from CineQ.</p></div></body></html>",
+            "isActive": true
+          }
+        }
+      },
+      "placeholders": {
+        "{{firstName}}": "Customer's first name",
+        "{{lastName}}": "Customer's last name",
+        "{{email}}": "Customer's email address",
+        "{{customerId}}": "Customer's unique ID",
+        "{{phone}}": "Customer's phone (if provided)",
+        "{{registeredAt}}": "Registration timestamp",
+        "{{isEmailVerified}}": "Email verification status",
+        "{{emailVerificationRequired}}": "Boolean - if email verification is enabled",
+        "{{verificationLink}}": "Email verification URL",
+        "{{appUrl}}": "Application frontend URL",
+        "{{adminUrl}}": "Admin panel URL",
+        "{{year}}": "Current year"
+      }
+    },
+
+    {
+      "_comment": "2. EMAIL VERIFICATION - Sent when customer needs to verify email",
+      "apiCall": {
+        "method": "POST",
+        "url": "/v1/submit/email-templates",
+        "body": {
+          "stepSlug": "v1",
+          "action": "CREATE",
+          "formData": {
+            "name": "Email Verification",
+            "slug": "email-verification",
+            "subject": "Verify Your Email - CineQ",
+            "message": "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px}h1{color:#e50914}a.button{display:inline-block;background:#e50914;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;margin:20px 0}.warning{background:#fff3cd;border:1px solid #ffc107;padding:15px;border-radius:4px;margin:20px 0}.footer{margin-top:30px;padding-top:20px;border-top:1px solid #eee;font-size:12px;color:#666}</style></head><body><h1>Verify Your Email Address</h1><p>Hi {{firstName}},</p><p>Please verify your email address to complete your CineQ registration and start booking movie tickets.</p><a href='{{verificationLink}}' class='button'>Verify Email Address</a><div class='warning'><strong>⏰ This link expires in 24 hours.</strong><p>If you can't click the button, copy and paste this link into your browser:</p><p style='word-break:break-all;font-size:12px'>{{verificationLink}}</p></div><p>Once verified, you'll be able to:</p><ul><li>Book movie tickets</li><li>Earn loyalty points</li><li>Access exclusive offers</li></ul><div class='footer'><p>If you didn't create a CineQ account, please ignore this email.</p><p>© {{year}} CineQ. All rights reserved.</p></div></body></html>",
+            "adminSubject": null,
+            "adminMessage": null,
+            "isActive": true
+          }
+        }
+      },
+      "placeholders": {
+        "{{firstName}}": "Customer's first name",
+        "{{verificationLink}}": "Full verification URL with token",
+        "{{year}}": "Current year"
+      }
+    },
+
+    {
+      "_comment": "3. FORGOT PASSWORD - Sent when customer requests password reset",
+      "apiCall": {
+        "method": "POST",
+        "url": "/v1/submit/email-templates",
+        "body": {
+          "stepSlug": "v1",
+          "action": "CREATE",
+          "formData": {
+            "name": "Password Reset Request",
+            "slug": "password-reset",
+            "subject": "Reset Your Password - CineQ",
+            "message": "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px}h1{color:#e50914}a.button{display:inline-block;background:#e50914;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;margin:20px 0}.warning{background:#fff3cd;border:1px solid #ffc107;padding:15px;border-radius:4px;margin:20px 0}.security{background:#f8d7da;border:1px solid #f5c6cb;padding:15px;border-radius:4px;margin:20px 0}.footer{margin-top:30px;padding-top:20px;border-top:1px solid #eee;font-size:12px;color:#666}</style></head><body><h1>Reset Your Password</h1><p>Hi {{firstName}},</p><p>We received a request to reset your password for your CineQ account associated with <strong>{{email}}</strong>.</p><a href='{{resetLink}}' class='button'>Reset Password</a><div class='warning'><strong>⏰ This link expires in {{expiryHours}} hours.</strong><p>If you can't click the button, copy and paste this link into your browser:</p><p style='word-break:break-all;font-size:12px'>{{resetLink}}</p></div><div class='security'><strong>🔒 Security Notice</strong><p>If you didn't request this password reset, please ignore this email. Your password will remain unchanged.</p><p>For security, this request was received from:</p><ul><li>IP Address: {{ipAddress}}</li><li>Time: {{requestTime}}</li></ul></div><div class='footer'><p>Need help? Contact our support team.</p><p>© {{year}} CineQ. All rights reserved.</p></div></body></html>",
+            "adminSubject": null,
+            "adminMessage": null,
+            "isActive": true
+          }
+        }
+      },
+      "placeholders": {
+        "{{firstName}}": "Customer's first name",
+        "{{email}}": "Customer's email address",
+        "{{resetLink}}": "Password reset URL with token",
+        "{{expiryHours}}": "Token expiry hours (from config)",
+        "{{ipAddress}}": "Request IP address (for security)",
+        "{{requestTime}}": "Request timestamp",
+        "{{year}}": "Current year"
+      }
+    },
+
+    {
+      "_comment": "4. PASSWORD CHANGED CONFIRMATION - Sent after successful password reset",
+      "apiCall": {
+        "method": "POST",
+        "url": "/v1/submit/email-templates",
+        "body": {
+          "stepSlug": "v1",
+          "action": "CREATE",
+          "formData": {
+            "name": "Password Changed Confirmation",
+            "slug": "password-changed",
+            "subject": "Your Password Has Been Changed - CineQ",
+            "message": "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px}h1{color:#e50914}.success{background:#d4edda;border:1px solid #c3e6cb;padding:15px;border-radius:4px;margin:20px 0}.security{background:#f8d7da;border:1px solid #f5c6cb;padding:15px;border-radius:4px;margin:20px 0}.footer{margin-top:30px;padding-top:20px;border-top:1px solid #eee;font-size:12px;color:#666}</style></head><body><h1>Password Changed Successfully</h1><p>Hi {{firstName}},</p><div class='success'><strong>✅ Your password has been changed successfully.</strong></div><p>Your CineQ account password was changed on <strong>{{changedAt}}</strong>.</p><p>You can now log in with your new password.</p><div class='security'><strong>🔒 Wasn't you?</strong><p>If you didn't make this change, your account may be compromised. Please:</p><ol><li>Reset your password immediately</li><li>Contact our support team</li><li>Review your recent account activity</li></ol></div><div class='footer'><p>This is an automated security notification.</p><p>© {{year}} CineQ. All rights reserved.</p></div></body></html>",
+            "adminSubject": null,
+            "adminMessage": null,
+            "isActive": true
+          }
+        }
+      },
+      "placeholders": {
+        "{{firstName}}": "Customer's first name",
+        "{{changedAt}}": "Password change timestamp",
+        "{{year}}": "Current year"
+      }
+    },
+
+    {
+      "_comment": "5. ACCOUNT LOCKED - Sent when account is locked due to failed attempts",
+      "apiCall": {
+        "method": "POST",
+        "url": "/v1/submit/email-templates",
+        "body": {
+          "stepSlug": "v1",
+          "action": "CREATE",
+          "formData": {
+            "name": "Account Locked Notification",
+            "slug": "account-locked",
+            "subject": "🔒 Your CineQ Account Has Been Locked",
+            "message": "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px}h1{color:#e50914}.alert{background:#f8d7da;border:1px solid #f5c6cb;padding:15px;border-radius:4px;margin:20px 0}a.button{display:inline-block;background:#e50914;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;margin:20px 0}.footer{margin-top:30px;padding-top:20px;border-top:1px solid #eee;font-size:12px;color:#666}</style></head><body><h1>Account Locked</h1><p>Hi {{firstName}},</p><div class='alert'><strong>⚠️ Your account has been temporarily locked.</strong><p>Due to {{failedAttempts}} failed login attempts, your account has been locked for security reasons.</p></div><p><strong>Lock expires:</strong> {{lockExpiresAt}}</p><p><strong>Lockout duration:</strong> {{lockoutMinutes}} minutes</p><p>If this was you, simply wait for the lockout period to expire and try again with the correct password.</p><p>If you've forgotten your password, you can reset it:</p><a href='{{resetPasswordLink}}' class='button'>Reset Password</a><div class='alert'><strong>🛡️ Not you?</strong><p>If you didn't attempt to log in, someone may be trying to access your account. We recommend:</p><ol><li>Reset your password immediately</li><li>Enable two-factor authentication (if available)</li><li>Contact support if suspicious activity continues</li></ol></div><div class='footer'><p>This is an automated security notification.</p><p>© {{year}} CineQ. All rights reserved.</p></div></body></html>",
+            "adminSubject": "[CineQ Security] Account Locked: {{email}}",
+            "adminMessage": "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px}h1{color:#dc3545}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{padding:10px;border:1px solid #ddd;text-align:left}th{background:#f5f5f5}.footer{margin-top:30px;font-size:12px;color:#666}</style></head><body><h1>🔒 Account Locked Alert</h1><p>A customer account has been locked due to multiple failed login attempts:</p><table><tr><th>Field</th><th>Value</th></tr><tr><td>Customer</td><td>{{firstName}} {{lastName}}</td></tr><tr><td>Email</td><td>{{email}}</td></tr><tr><td>Customer ID</td><td>{{customerId}}</td></tr><tr><td>Failed Attempts</td><td>{{failedAttempts}}</td></tr><tr><td>Locked At</td><td>{{lockedAt}}</td></tr><tr><td>Lock Expires</td><td>{{lockExpiresAt}}</td></tr><tr><td>Last Failed IP</td><td>{{ipAddress}}</td></tr></table><p>This may indicate a brute-force attack. Monitor for repeated lockouts.</p><div class='footer'><p>CineQ Security System</p></div></body></html>",
+            "isActive": true
+          }
+        }
+      },
+      "placeholders": {
+        "{{firstName}}": "Customer's first name",
+        "{{lastName}}": "Customer's last name",
+        "{{email}}": "Customer's email",
+        "{{customerId}}": "Customer ID",
+        "{{failedAttempts}}": "Number of failed attempts",
+        "{{lockedAt}}": "Lock timestamp",
+        "{{lockExpiresAt}}": "Lock expiry timestamp",
+        "{{lockoutMinutes}}": "Lockout duration in minutes",
+        "{{resetPasswordLink}}": "Password reset URL",
+        "{{ipAddress}}": "IP address of failed attempts",
+        "{{year}}": "Current year"
+      }
+    },
+
+    {
+      "_comment": "6. EMAIL VERIFIED SUCCESS - Sent after email verification",
+      "apiCall": {
+        "method": "POST",
+        "url": "/v1/submit/email-templates",
+        "body": {
+          "stepSlug": "v1",
+          "action": "CREATE",
+          "formData": {
+            "name": "Email Verified Success",
+            "slug": "email-verified",
+            "subject": "✅ Email Verified - Welcome to CineQ!",
+            "message": "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px}h1{color:#e50914}.success{background:#d4edda;border:1px solid #c3e6cb;padding:15px;border-radius:4px;margin:20px 0}a.button{display:inline-block;background:#e50914;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;margin:20px 0}.footer{margin-top:30px;padding-top:20px;border-top:1px solid #eee;font-size:12px;color:#666}</style></head><body><h1>Email Verified! 🎉</h1><p>Hi {{firstName}},</p><div class='success'><strong>✅ Your email has been verified successfully!</strong></div><p>Your CineQ account is now fully activated. You can now:</p><ul><li>🎥 Browse and book movie tickets</li><li>⭐ Earn loyalty points on every purchase</li><li>🎁 Access exclusive member offers</li><li>📱 Manage your bookings easily</li></ul><a href='{{appUrl}}' class='button'>Start Exploring Movies</a><div class='footer'><p>Thank you for choosing CineQ!</p><p>© {{year}} CineQ. All rights reserved.</p></div></body></html>",
+            "adminSubject": null,
+            "adminMessage": null,
+            "isActive": true
+          }
+        }
+      },
+      "placeholders": {
+        "{{firstName}}": "Customer's first name",
+        "{{appUrl}}": "Application frontend URL",
+        "{{year}}": "Current year"
+      }
+    }
+  ],
+
+  "placeholderReference": {
+    "_note": "Common placeholders used across templates",
+    "customer": {
+      "{{firstName}}": "Customer's first name",
+      "{{lastName}}": "Customer's last name",
+      "{{email}}": "Customer's email address",
+      "{{customerId}}": "Customer's unique ID",
+      "{{phone}}": "Customer's phone number"
+    },
+    "verification": {
+      "{{verificationLink}}": "Full email verification URL",
+      "{{verificationToken}}": "Raw verification token"
+    },
+    "passwordReset": {
+      "{{resetLink}}": "Full password reset URL",
+      "{{resetToken}}": "Raw reset token",
+      "{{expiryHours}}": "Token expiry in hours"
+    },
+    "security": {
+      "{{ipAddress}}": "Request IP address",
+      "{{requestTime}}": "Request timestamp",
+      "{{failedAttempts}}": "Number of failed login attempts",
+      "{{lockedAt}}": "Account lock timestamp",
+      "{{lockExpiresAt}}": "Lock expiry timestamp",
+      "{{lockoutMinutes}}": "Lockout duration"
+    },
+    "app": {
+      "{{appUrl}}": "Frontend application URL",
+      "{{adminUrl}}": "Admin panel URL",
+      "{{appName}}": "Application name (CineQ)",
+      "{{year}}": "Current year"
+    }
+  }
+}

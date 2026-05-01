@@ -1,0 +1,598 @@
+    {
+    "slug": "backend-settings",
+    "title": "Backend Settings",
+    "description": "System-level backend settings – maintenance mode, email configuration, pagination defaults, API rate limits, and feature flags",
+    "modelName": "BackendSetting",
+    "isActive": true,
+
+    "formSteps": [
+        {
+        "stepSlug": "v1",
+        "stepTitle": "Backend Setting Configuration",
+        "stepOrder": 1,
+        "isActive": true,
+        "description": "Create, update, or delete backend system settings",
+
+        "formSchema": {
+            "type": "object",
+            "title": "Backend Setting Form",
+            "properties": {
+            "title": {
+                "type": "STRING",
+                "title": "Setting Title",
+                "placeholder": "e.g., Maintenance Mode, Default Page Size, SMTP Host, Rate Limit",
+                "description": "Human-readable name for this setting",
+                "required": true,
+                "order": 1
+            },
+            "slug": {
+                "type": "STRING",
+                "title": "Setting Slug",
+                "placeholder": "e.g., maintenance-mode, default-page-size, smtp-host",
+                "description": "URL-friendly unique identifier (auto-lowercased)",
+                "required": true,
+                "order": 2
+            },
+            "type": {
+                "type": "STRING",
+                "title": "Setting Type",
+                "description": "Determines how the value field is rendered and validated",
+                "required": true,
+                "order": 3,
+                "enum": ["text", "textarea", "checkbox", "color", "media", "number", "select", "json", "rich_text", "date", "url", "email"]
+            },
+            "value": {
+                "type": "STRING",
+                "title": "Value",
+                "description": "The setting value. Interpreted based on the type field.",
+                "required": false,
+                "order": 4
+            },
+            "group": {
+                "type": "STRING",
+                "title": "Group",
+                "placeholder": "e.g., system, email, security, performance, features, cache",
+                "description": "Reference to a settings group slug (must exist in settings_groups)",
+                "required": true,
+                "order": 5
+            },
+            "description": {
+                "type": "STRING",
+                "title": "Description",
+                "placeholder": "What does this setting control?",
+                "description": "Help text shown alongside the setting input",
+                "required": false,
+                "order": 6
+            },
+            "sortOrder": {
+                "type": "INTEGER",
+                "title": "Sort Order",
+                "description": "Display order within its group (lower = first)",
+                "default": 0,
+                "required": false,
+                "order": 7
+            },
+            "icon": {
+                "type": "STRING",
+                "title": "Icon",
+                "placeholder": "e.g., server, lock, zap, database",
+                "description": "Icon identifier for UI display",
+                "required": false,
+                "order": 8
+            },
+            "options": {
+                "type": "ARRAY",
+                "title": "Options",
+                "description": "Available choices for 'select' type settings (JSON array of {label, value})",
+                "required": false,
+                "order": 9
+            },
+            "isActive": {
+                "type": "BOOLEAN",
+                "title": "Active",
+                "description": "Whether this setting is currently active",
+                "default": true,
+                "order": 10
+            }
+            },
+            "required": ["title", "slug", "type", "group"]
+        },
+
+        "validationRules": {
+            "title": {
+            "type": "STRING",
+            "collectionField": "title",
+            "fieldTransformer": "trim",
+            "baseValidation": [
+                "@NotBlank(message='Title is required')",
+                "@Size(min=2, max=200, message='Title must be 2-200 characters')"
+            ],
+            "actionRules": {
+                "create": [
+                "@NotBlank(message='Title is required')",
+                "@Size(min=2, max=200)"
+                ],
+                "update": [
+                "@Size(min=2, max=200)"
+                ],
+                "delete": []
+            },
+            "serialization": {
+                "select": true,
+                "outputField": "title"
+            }
+            },
+
+            "slug": {
+            "type": "STRING",
+            "collectionField": "slug",
+            "fieldTransformer": "lowercase",
+            "baseValidation": [
+                "@NotBlank(message='Slug is required')",
+                "@Size(max=200, message='Slug too long')",
+                "@Pattern(regexp='^[a-z0-9_-]+$', message='Only lowercase letters, numbers, hyphens and underscores allowed')"
+            ],
+            "actionRules": {
+                "create": [
+                "@NotBlank(message='Slug is required')",
+                "@Size(max=200)",
+                "@Pattern(regexp='^[a-z0-9_-]+$')",
+                "@Unique(collection='backend_settings', field='slug', message='Setting with this slug already exists')"
+                ],
+                "update": [
+                "@Size(max=200)",
+                "@Pattern(regexp='^[a-z0-9_-]+$')",
+                "@UniqueExcludingSelf(collection='backend_settings', field='slug', idField='_id', message='Slug already taken')"
+                ],
+                "delete": []
+            },
+            "serialization": {
+                "select": true,
+                "outputField": "slug"
+            }
+            },
+
+            "type": {
+            "type": "STRING",
+            "collectionField": "type",
+            "fieldTransformer": "lowercase",
+            "baseValidation": [
+                "@NotBlank(message='Type is required')",
+                "@Pattern(regexp='^(text|textarea|checkbox|color|media|number|select|json|rich_text|date|url|email)$', message='Invalid setting type. Allowed: text, textarea, checkbox, color, media, number, select, json, rich_text, date, url, email')"
+            ],
+            "actionRules": {
+                "create": [
+                "@NotBlank(message='Type is required')",
+                "@Pattern(regexp='^(text|textarea|checkbox|color|media|number|select|json|rich_text|date|url|email)$', message='Invalid setting type')"
+                ],
+                "update": [
+                "@Pattern(regexp='^(text|textarea|checkbox|color|media|number|select|json|rich_text|date|url|email)$', message='Invalid setting type')"
+                ],
+                "delete": []
+            },
+            "serialization": {
+                "select": true,
+                "outputField": "type"
+            }
+            },
+
+            "value": {
+            "collectionField": "value",
+            "fieldTransformer": null,
+            "baseValidation": [],
+            "actionRules": {
+                "create": [],
+                "update": [],
+                "delete": []
+            },
+            "serialization": {
+                "select": true,
+                "outputField": "value"
+            }
+            },
+
+            "group": {
+            "type": "STRING",
+            "collectionField": "group",
+            "fieldTransformer": "lowercase",
+            "baseValidation": [
+                "@NotBlank(message='Group is required')",
+                "@Size(max=100, message='Group name too long')"
+            ],
+            "actionRules": {
+                "create": [
+                "@NotBlank(message='Group is required')",
+                "@Size(max=100)",
+                "@Exists(collection='settings_groups', field='slug', message='Settings group not found')"
+                ],
+                "update": [
+                "@Size(max=100)",
+                "@Exists(collection='settings_groups', field='slug', message='Settings group not found')"
+                ],
+                "delete": []
+            },
+            "serialization": {
+                "select": true,
+                "outputField": "group"
+            }
+            },
+
+            "description": {
+            "type": "STRING",
+            "collectionField": "description",
+            "fieldTransformer": "trim",
+            "baseValidation": [
+                "@Size(max=500, message='Description cannot exceed 500 characters')"
+            ],
+            "actionRules": {
+                "create": [
+                "@Size(max=500)"
+                ],
+                "update": [
+                "@Size(max=500)"
+                ],
+                "delete": []
+            },
+            "serialization": {
+                "select": true,
+                "outputField": "description"
+            }
+            },
+
+            "sortOrder": {
+            "type": "INTEGER",
+            "collectionField": "sortOrder",
+            "fieldTransformer": null,
+            "baseValidation": [
+                "@Min(value=0, message='Sort order must be >= 0')",
+                "@Max(value=9999, message='Sort order must be <= 9999')"
+            ],
+            "actionRules": {
+                "create": [
+                "@Min(value=0)",
+                "@Max(value=9999)"
+                ],
+                "update": [
+                "@Min(value=0)",
+                "@Max(value=9999)"
+                ],
+                "delete": []
+            },
+            "serialization": {
+                "select": true,
+                "outputField": "sortOrder"
+            }
+            },
+
+            "icon": {
+            "type": "STRING",
+            "collectionField": "icon",
+            "fieldTransformer": "trim",
+            "baseValidation": [
+                "@Size(max=100, message='Icon identifier too long')"
+            ],
+            "actionRules": {
+                "create": [
+                "@Size(max=100)"
+                ],
+                "update": [
+                "@Size(max=100)"
+                ],
+                "delete": []
+            },
+            "serialization": {
+                "select": true,
+                "outputField": "icon"
+            }
+            },
+
+            "options": {
+            "type": "ARRAY",
+            "collectionField": "options",
+            "fieldTransformer": null,
+            "baseValidation": [],
+            "actionRules": {
+                "create": [],
+                "update": [],
+                "delete": []
+            },
+            "conditionalRules": [
+                {
+                "condition": {
+                    "field": "type",
+                    "operator": "equals",
+                    "value": "select"
+                },
+                "validation": [
+                    "@NotEmpty(message='Options are required for select type settings')"
+                ]
+                }
+            ],
+            "serialization": {
+                "select": true,
+                "outputField": "options"
+            }
+            },
+
+            "isActive": {
+            "type": "BOOLEAN",
+            "collectionField": "isActive",
+            "fieldTransformer": null,
+            "baseValidation": [],
+            "actionRules": {
+                "create": [],
+                "update": [],
+                "delete": []
+            },
+            "serialization": {
+                "select": true,
+                "outputField": "isActive"
+            }
+            },
+
+            "id": {
+            "type": "STRING",
+            "collectionField": "_id",
+            "fieldTransformer": null,
+            "baseValidation": [],
+            "actionRules": {
+                "create": [],
+                "update": [
+                "@NotBlank(message='ID is required for update')",
+                "@Exists(collection='backend_settings', field='_id', message='Backend setting not found')"
+                ],
+                "delete": [
+                "@NotBlank(message='ID is required for delete')",
+                "@Exists(collection='backend_settings', field='_id', message='Backend setting not found')"
+                ]
+            },
+            "serialization": {
+                "select": true,
+                "outputField": "id"
+            }
+            }
+        },
+
+        "workflowRules": {
+            "persistToCollection": true,
+            "targetCollection": "backend_settings",
+            "fieldMapping": {
+            "title": "title",
+            "slug": "slug",
+            "type": "type",
+            "value": "value",
+            "group": "group",
+            "description": "description",
+            "sortOrder": "sortOrder",
+            "icon": "icon",
+            "options": "options",
+            "isActive": "isActive"
+            },
+            "autoFields": {
+            "createdAt": "{{now}}",
+            "updatedAt": "{{now}}",
+            "deletedAt": null,
+            "createdBy": "{{currentUser}}",
+            "updatedBy": "{{currentUser}}"
+            },
+            "actions": {
+            "create": {
+                "enabled": true,
+                "autoApprove": true,
+                "autoFields": {
+                "createdAt": "{{now}}",
+                "updatedAt": "{{now}}",
+                "deletedAt": null,
+                "createdBy": "{{currentUser}}",
+                "updatedBy": "{{currentUser}}"
+                },
+                "interceptors": {
+                "before": [
+                    {
+                    "handler": "logAction",
+                    "args": {
+                        "message": "Creating backend setting",
+                        "level": "INFO",
+                        "includeFormData": true
+                    },
+                    "when": null
+                    }
+                ],
+                "afterReturning": [
+                    {
+                    "handler": "invalidateCache",
+                    "args": {
+                        "cacheNames": ["backendSettings"]
+                    },
+                    "when": null
+                    },
+                    {
+                    "handler": "auditLog",
+                    "args": {
+                        "action": "CREATE",
+                        "entity": "BackendSetting",
+                        "includeData": true
+                    },
+                    "when": null
+                    }
+                ],
+                "afterThrowing": [
+                    {
+                    "handler": "logAction",
+                    "args": {
+                        "message": "Backend setting creation failed",
+                        "level": "ERROR"
+                    },
+                    "when": null
+                    }
+                ]
+                },
+                "messages": {
+                "success": "Backend setting created successfully",
+                "error": "Failed to create backend setting",
+                "validation": "Please check the form for errors"
+                }
+            },
+
+            "update": {
+                "enabled": true,
+                "autoApprove": true,
+                "autoFields": {
+                "updatedAt": "{{now}}",
+                "updatedBy": "{{currentUser}}"
+                },
+                "interceptors": {
+                "before": [
+                    {
+                    "handler": "logAction",
+                    "args": {
+                        "message": "Updating backend setting",
+                        "level": "INFO"
+                    },
+                    "when": null
+                    }
+                ],
+                "afterReturning": [
+                    {
+                    "handler": "invalidateCache",
+                    "args": {
+                        "cacheNames": ["backendSettings"]
+                    },
+                    "when": null
+                    },
+                    {
+                    "handler": "auditLog",
+                    "args": {
+                        "action": "UPDATE",
+                        "entity": "BackendSetting",
+                        "includeData": true
+                    },
+                    "when": null
+                    }
+                ],
+                "afterThrowing": [
+                    {
+                    "handler": "logAction",
+                    "args": {
+                        "message": "Backend setting update failed",
+                        "level": "ERROR"
+                    },
+                    "when": null
+                    }
+                ]
+                },
+                "messages": {
+                "success": "Backend setting updated successfully",
+                "error": "Failed to update backend setting",
+                "notFound": "Backend setting not found or has been deleted"
+                }
+            },
+
+            "delete": {
+                "enabled": true,
+                "autoApprove": true,
+                "softDelete": true,
+                "autoFields": {
+                "deletedAt": "{{now}}",
+                "deletedBy": "{{currentUser}}"
+                },
+                "interceptors": {
+                "before": [
+                    {
+                    "handler": "logAction",
+                    "args": {
+                        "message": "Deleting backend setting",
+                        "level": "INFO"
+                    },
+                    "when": null
+                    }
+                ],
+                "afterReturning": [
+                    {
+                    "handler": "invalidateCache",
+                    "args": {
+                        "cacheNames": ["backendSettings"]
+                    },
+                    "when": null
+                    },
+                    {
+                    "handler": "auditLog",
+                    "args": {
+                        "action": "DELETE",
+                        "entity": "BackendSetting"
+                    },
+                    "when": null
+                    }
+                ]
+                },
+                "messages": {
+                "success": "Backend setting deleted successfully",
+                "error": "Failed to delete backend setting",
+                "notFound": "Backend setting not found"
+                }
+            }
+            },
+
+            "permissions": {
+            "view": ["ADMIN", "SUPERADMIN"],
+            "create": ["SUPERADMIN"],
+            "update": ["SUPERADMIN"],
+            "delete": ["SUPERADMIN"]
+            }
+        },
+
+        "uiSchema": {
+            "layout": "single-column",
+            "sections": [
+            {
+                "title": "Setting Identity",
+                "fields": ["title", "slug", "type"]
+            },
+            {
+                "title": "Setting Value",
+                "fields": ["value", "options"]
+            },
+            {
+                "title": "Organization",
+                "fields": ["group", "description", "icon", "sortOrder"]
+            },
+            {
+                "title": "Status",
+                "fields": ["isActive"]
+            }
+            ],
+            "fieldWidgets": {
+            "title": { "ui:widget": "text", "ui:placeholder": "Enter setting title" },
+            "slug": { "ui:widget": "text", "ui:placeholder": "Enter unique slug" },
+            "type": { "ui:widget": "select", "ui:placeholder": "Select setting type" },
+            "value": { "ui:widget": "dynamic", "ui:description": "Rendered dynamically based on the 'type' field" },
+            "group": { "ui:widget": "text", "ui:placeholder": "e.g., system" },
+            "description": { "ui:widget": "textarea", "ui:placeholder": "Describe what this setting controls" },
+            "sortOrder": { "ui:widget": "number" },
+            "icon": { "ui:widget": "text", "ui:placeholder": "Icon name" },
+            "options": { "ui:widget": "json", "ui:description": "JSON array of {label, value} objects" },
+            "isActive": { "ui:widget": "checkbox" }
+            },
+            "submitButton": {
+            "label": "Save Setting",
+            "loadingLabel": "Saving..."
+            }
+        },
+
+        "metadata": {
+            "category": "settings",
+            "portal": "backend",
+            "version": "1.0",
+            "lastUpdated": "2026-02-22T00:00:00Z",
+            "fieldCount": 10,
+            "author": "system"
+        }
+        }
+    ],
+
+    "metadata": {
+        "module": "settings",
+        "version": "1.0",
+        "documentCount": "backend_settings"
+    }
+    }

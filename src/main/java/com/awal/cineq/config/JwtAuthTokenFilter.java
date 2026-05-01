@@ -1,7 +1,9 @@
 package com.awal.cineq.config;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,7 +16,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @RequiredArgsConstructor
@@ -23,31 +26,91 @@ public class JwtAuthTokenFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final CompositeUserDetailsService compositeUserDetailsService;
+    private final com.awal.cineq.customer.service.TokenBlacklistService tokenBlacklistService;
+
+    // Public endpoints that should skip JWT authentication
+    // This prevents slow database queries from blocking health checks, docs, etc.
+    // NOTE: Paths must match getServletPath() (relative to context-path, NOT full URI)
+    private static final List<String> PUBLIC_PATHS = Arrays.asList(
+        "/auth/login",                  // User login/register
+        "/frontend/customer/auth/", // Customer auth
+        "/frontend/",              // All frontend public routes
+        "/health",                 // Health check
+        "/actuator",               // Actuator metrics
+        "/swagger-ui",             // API docs
+        "/v3/api-docs",            // OpenAPI docs
+        "/login"             // Login page
+    );
+
+    /**
+     * Skip JWT filter for public endpoints to prevent database queries
+     * from blocking health checks and metrics.
+     * 
+     * Uses getServletPath() instead of getRequestURI() because
+     * getRequestURI() includes the context-path (/api), causing
+     * path matching to fail (e.g., "/api/health" doesn't startWith "/health").
+     */
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        // Use getServletPath() which is relative to context-path
+        String requestPath = request.getServletPath();
+        log.debug("Checking if path should skip JWT filter: {}", requestPath);
+
+        return PUBLIC_PATHS.stream()
+            .anyMatch(requestPath::startsWith);
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                   FilterChain filterChain) throws ServletException, IOException {
-        
+
         try {
             String jwt = parseJwt(request);
-            
+
+            // Check if token is blacklisted (logged out)
+            if (jwt != null && tokenBlacklistService.isBlacklisted(jwt)) {
+                log.debug("Token is blacklisted, rejecting authentication");
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             if (jwt != null && jwtUtil.validateToken(jwt)) {
                 String username = jwtUtil.extractUsername(jwt);
-                
-                UserDetails userDetails = compositeUserDetailsService.loadUserByUsername(username);
-                
-                if (jwtUtil.validateToken(jwt, userDetails)) {
-                    UsernamePasswordAuthenticationToken authentication = 
+
+                // Load user details with timeout protection
+                // If user lookup takes > 5 seconds, log warning and continue without authentication
+                long startTime = System.currentTimeMillis();
+                UserDetails userDetails = null;
+
+                try {
+                    userDetails = compositeUserDetailsService.loadUserByUsername(username);
+                    long loadTime = System.currentTimeMillis() - startTime;
+
+                    if (loadTime > 1000) {
+                        log.warn("Slow user details lookup ({}ms) for username: {}", loadTime, username);
+                    }
+                } catch (Exception e) {
+                    long loadTime = System.currentTimeMillis() - startTime;
+                    log.warn("Failed to load user details ({}ms) for username: {}. Error: {}",
+                        loadTime, username, e.getMessage());
+                    // Continue without authentication rather than blocking request
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                if (userDetails != null && jwtUtil.validateToken(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    
+
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
             }
         } catch (Exception e) {
-            log.error("Cannot set user authentication: {}", e.getMessage());
+            log.error("JWT authentication filter error: {}", e.getMessage());
+            // Continue filter chain even if JWT processing fails
         }
-        
+
         filterChain.doFilter(request, response);
     }
 
@@ -61,7 +124,7 @@ public class JwtAuthTokenFilter extends OncePerRequestFilter {
         // Then try httpOnly cookie (for web clients)
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
-                if ("jwt-auth-token".equals(cookie.getName())) {
+                if ("auth_token".equals(cookie.getName())) {
                     return cookie.getValue();
                 }
             }

@@ -1,0 +1,99 @@
+{
+  "info": {
+    "name": "Master Data API",
+    "description": "Endpoints for fetching enum and reference data",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get All Master Data",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/master-data",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "master-data"]
+        },
+        "description": "Fetch all master data including all enum values\nCalls this once on page load and cache the result"
+      },
+      "response": [
+        {
+          "name": "Success - All Master Data",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/master-data",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "master-data"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"success\": true,\n  \"message\": \"Master data fetched successfully\",\n  \"data\": {\n    \"formActions\": [\n      {\n        \"code\": 1,\n        \"charCode\": \"C\",\n        \"actionName\": \"create\",\n        \"description\": \"Create new document\",\n        \"readOnly\": false,\n        \"writeAction\": true,\n        \"requiresId\": false,\n        \"allCodes\": \"1 (C)\"\n      },\n      {\n        \"code\": 2,\n        \"charCode\": \"R\",\n        \"actionName\": \"read\",\n        \"description\": \"View document\",\n        \"readOnly\": true,\n        \"writeAction\": false,\n        \"requiresId\": true,\n        \"allCodes\": \"2 (R)\"\n      },\n      {\n        \"code\": 3,\n        \"charCode\": \"U\",\n        \"actionName\": \"update\",\n        \"description\": \"Update existing document\",\n        \"readOnly\": false,\n        \"writeAction\": true,\n        \"requiresId\": true,\n        \"allCodes\": \"3 (U)\"\n      },\n      {\n        \"code\": 4,\n        \"charCode\": \"D\",\n        \"actionName\": \"delete\",\n        \"description\": \"Delete document\",\n        \"readOnly\": false,\n        \"writeAction\": true,\n        \"requiresId\": true,\n        \"allCodes\": \"4 (D)\"\n      }\n    ]\n  },\n  \"timestamp\": \"2025-01-10T10:30:00\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get Form Actions Only",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/master-data/form-actions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "master-data", "form-actions"]
+        },
+        "description": "Lightweight endpoint to fetch only FormAction enum\nUse this if you only need form actions"
+      },
+      "response": [
+        {
+          "name": "Success - Form Actions Only",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/master-data/form-actions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "master-data", "form-actions"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"success\": true,\n  \"message\": \"Form actions fetched successfully\",\n  \"data\": {\n    \"formActions\": [\n      {\n        \"code\": 1,\n        \"charCode\": \"C\",\n        \"actionName\": \"create\",\n        \"description\": \"Create new document\",\n        \"readOnly\": false,\n        \"writeAction\": true,\n        \"requiresId\": false,\n        \"allCodes\": \"1 (C)\"\n      },\n      {\n        \"code\": 2,\n        \"charCode\": \"R\",\n        \"actionName\": \"read\",\n        \"description\": \"View document\",\n        \"readOnly\": true,\n        \"writeAction\": false,\n        \"requiresId\": true,\n        \"allCodes\": \"2 (R)\"\n      },\n      {\n        \"code\": 3,\n        \"charCode\": \"U\",\n        \"actionName\": \"update\",\n        \"description\": \"Update existing document\",\n        \"readOnly\": false,\n        \"writeAction\": true,\n        \"requiresId\": true,\n        \"allCodes\": \"3 (U)\"\n      },\n      {\n        \"code\": 4,\n        \"charCode\": \"D\",\n        \"actionName\": \"delete\",\n        \"description\": \"Delete document\",\n        \"readOnly\": false,\n        \"writeAction\": true,\n        \"requiresId\": true,\n        \"allCodes\": \"4 (D)\"\n      }\n    ]\n  },\n  \"timestamp\": \"2025-01-10T10:30:00\"\n}"
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ]
+}
+

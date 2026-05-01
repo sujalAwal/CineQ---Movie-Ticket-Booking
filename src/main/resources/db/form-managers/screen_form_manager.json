@@ -1,0 +1,526 @@
+{
+  "slug": "screens",
+  "title": "Screen Management",
+  "description": "Manage cinema screens with layout configuration (rows and columns)",
+  "modelName": "Screen",
+  "isActive": true,
+
+  "formSteps": [
+    {
+      "stepSlug": "v1",
+      "stepTitle": "Screen Configuration",
+      "stepOrder": 1,
+      "isActive": true,
+      "description": "Create, update, or delete screens with seat layout",
+
+      "formSchema": {
+        "type": "object",
+        "title": "Screen Form",
+        "properties": {
+          "screenName": {
+            "type": "STRING",
+            "title": "Screen Name",
+            "placeholder": "e.g., Screen 1, Audi 2, Gold Class",
+            "description": "Name/identifier for this screen",
+            "required": true,
+            "order": 1
+          },
+          "theatreId": {
+            "type": "STRING",
+            "title": "Theatre",
+            "placeholder": "Select theatre",
+            "description": "Theatre this screen belongs to",
+            "required": true,
+            "order": 2
+          },
+          "rows": {
+            "type": "INTEGER",
+            "title": "Number of Rows",
+            "placeholder": "e.g., 10",
+            "description": "Total number of rows in this screen",
+            "required": true,
+            "order": 3
+          },
+          "columns": {
+            "type": "INTEGER",
+            "title": "Seats Per Row",
+            "placeholder": "e.g., 20",
+            "description": "Number of seats in each row",
+            "required": true,
+            "order": 4
+          },
+          "screenType": {
+            "type": "STRING",
+            "title": "Screen Type",
+            "placeholder": "e.g., Regular, Premium, IMAX",
+            "description": "Type of screen (technology/quality)",
+            "required": true,
+            "order": 5
+          },
+          "soundSystem": {
+            "type": "STRING",
+            "title": "Sound System",
+            "placeholder": "e.g., Dolby Atmos, DTS",
+            "description": "Sound system technology",
+            "required": false,
+            "order": 6
+          },
+          "breakTime": {
+            "type": "INTEGER",
+            "title": "Break Time (minutes)",
+            "placeholder": "e.g., 10",
+            "description": "Break time between shows in minutes (default: 10)",
+            "required": false,
+            "order": 7
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this screen is operational",
+            "default": true,
+            "order": 8
+          }
+        },
+        "required": ["screenName", "theatreId", "rows", "columns", "screenType"]
+      },
+
+      "validationRules": {
+        "screenName": {
+          "type": "STRING",
+          "collectionField": "screenName",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Screen name is required')",
+            "@Size(min=2, max=100, message='Screen name must be 2-100 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Screen name is required')",
+              "@Size(min=2, max=100)"
+            ],
+            "update": [
+              "@Size(min=2, max=100)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "screenName"
+          }
+        },
+
+        "theatreId": {
+          "type": "STRING",
+          "collectionField": "theatreId",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotBlank(message='Theatre is required')",
+            "@Exists(collection='theatres', field='_id', message='Theatre not found')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Theatre is required')",
+              "@Exists(collection='theatres', field='_id', message='Theatre not found')"
+            ],
+            "update": [
+              "@Exists(collection='theatres', field='_id', message='Theatre not found')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "theatreId"
+          }
+        },
+
+        "rows": {
+          "type": "INTEGER",
+          "collectionField": "rows",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotNull(message='Number of rows is required')",
+            "@Min(value=1, message='Rows must be at least 1')",
+            "@Max(value=26, message='Rows cannot exceed 26 (A-Z)')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotNull(message='Number of rows is required')",
+              "@Min(value=1)",
+              "@Max(value=26)"
+            ],
+            "update": [
+              "@Min(value=1)",
+              "@Max(value=26)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "rows"
+          }
+        },
+
+        "columns": {
+          "type": "INTEGER",
+          "collectionField": "columns",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotNull(message='Seats per row is required')",
+            "@Min(value=1, message='Seats per row must be at least 1')",
+            "@Max(value=100, message='Seats per row cannot exceed 100')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotNull(message='Seats per row is required')",
+              "@Min(value=1)",
+              "@Max(value=100)"
+            ],
+            "update": [
+              "@Min(value=1)",
+              "@Max(value=100)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "columns"
+          }
+        },
+
+        "screenType": {
+          "type": "STRING",
+          "collectionField": "screenType",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Screen type is required')",
+            "@Size(min=2, max=50, message='Screen type must be 2-50 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Screen type is required')",
+              "@Size(min=2, max=50)"
+            ],
+            "update": [
+              "@Size(min=2, max=50)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "screenType"
+          }
+        },
+
+        "soundSystem": {
+          "type": "STRING",
+          "collectionField": "soundSystem",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@Size(min=0, max=100, message='Sound system cannot exceed 100 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(min=0, max=100)"
+            ],
+            "update": [
+              "@Size(min=0, max=100)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "soundSystem"
+          }
+        },
+
+        "breakTime": {
+          "type": "INTEGER",
+          "collectionField": "breakTime",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@Min(value=0, message='Break time cannot be negative')",
+            "@Max(value=60, message='Break time cannot exceed 60 minutes')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Min(value=0)",
+              "@Max(value=60)"
+            ],
+            "update": [
+              "@Min(value=0)",
+              "@Max(value=60)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "breakTime"
+          }
+        },
+
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isActive"
+          }
+        },
+
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='screens', field='_id', message='Screen not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='screens', field='_id', message='Screen not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "screens",
+        "fieldMapping": {
+          "screenName": "screenName",
+          "theatreId": "theatreId",
+          "rows": "rows",
+          "columns": "columns",
+          "screenType": "screenType",
+          "soundSystem": "soundSystem",
+          "isActive": "isActive"
+        },
+        "autoFields": {
+          "createdAt": "{{now}}",
+          "updatedAt": "{{now}}",
+          "deletedAt": null,
+          "createdBy": "{{currentUser}}",
+          "updatedBy": "{{currentUser}}"
+        },
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating new screen",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["screens"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "Screen",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Screen creation failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Screen created successfully",
+              "error": "Failed to create screen",
+              "validation": "Please check the form for errors"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Updating screen",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["screens"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "Screen",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Screen update failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Screen updated successfully",
+              "error": "Failed to update screen",
+              "notFound": "Screen not found or has been deleted"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Deleting screen",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["screens"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "DELETE",
+                    "entity": "Screen"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Screen deleted successfully",
+              "error": "Failed to delete screen",
+              "notFound": "Screen not found"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "two-column",
+        "sections": [
+          {
+            "title": "Screen Details",
+            "fields": ["screenName", "theatreId"]
+          },
+          {
+            "title": "Seat Layout",
+            "fields": ["rows", "columns"]
+          },
+          {
+            "title": "Technical Specifications",
+            "fields": ["screenType", "soundSystem"]
+          },
+          {
+            "title": "Status",
+            "fields": ["isActive"]
+          }
+        ],
+        "submitButton": {
+          "label": "Save Screen",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "cinema-configuration",
+        "version": "1.0",
+        "lastUpdated": "2026-02-12T00:00:00Z",
+        "fieldCount": 7,
+        "author": "system"
+      }
+    }
+  ],
+
+  "metadata": {
+    "module": "cinema-configuration",
+    "version": "1.0",
+    "documentCount": "screens"
+  }
+}

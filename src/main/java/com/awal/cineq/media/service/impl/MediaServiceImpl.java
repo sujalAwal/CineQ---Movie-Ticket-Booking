@@ -1,8 +1,10 @@
 package com.awal.cineq.media.service.impl;
 
+import com.awal.cineq.exception.BadRequestException;
 import com.awal.cineq.exception.BusinessException;
 import com.awal.cineq.exception.ResourceNotFoundException;
 import com.awal.cineq.media.dto.response.*;
+import com.awal.cineq.media.dto.MediaDTO;  // Add this import
 import com.awal.cineq.media.model.MediaType;
 import com.awal.cineq.media.dto.request.MediaDeleteRequestDto;
 import com.awal.cineq.media.dto.request.FolderCreateRequest;
@@ -32,7 +34,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@RequiredArgsConstructor
+@Slf4j
 @Service("localMediaService")
 public class MediaServiceImpl implements MediaService {
     private static final Logger logger = LoggerFactory.getLogger(MediaServiceImpl.class);
@@ -44,7 +50,7 @@ public class MediaServiceImpl implements MediaService {
     private String uploadDir;
 
     @CacheEvict(value = "sidebarFolders", allEntries = true)
-    public MediaResponse uploadMultipleFiles(List<MultipartFile> files, UUID parentId) {
+    public MediaResponse uploadMultipleFiles(List<MultipartFile> files, String parentId) {  // Changed from UUID to String
         logger.info("Start: uploadMultipleFiles, parentId={}, filesCount={}", parentId, files.size());
         List<Map<String, Object>> uploadedFiles = new ArrayList<>();
 
@@ -86,7 +92,7 @@ public class MediaServiceImpl implements MediaService {
     @CacheEvict(value = "sidebarFolders", allEntries = true)
     public MediaResponse uploadMultipleFiles(MediaUploadRequestDto requestDto) {
         List<MultipartFile> files = requestDto.getFiles();
-        UUID parentId = requestDto.getParentId();
+        String parentId = requestDto.getParentId();  // Changed from UUID to String
         logger.info("Start: uploadMultipleFiles, parentId={}, filesCount={}", parentId, files != null ? files.size() : 0);
         List<Map<String, Object>> uploadedFiles = new ArrayList<>();
         if (files == null || files.isEmpty()) {
@@ -115,7 +121,7 @@ public class MediaServiceImpl implements MediaService {
         return new MediaResponse(uploadedFiles);
     }
 
-    private Media uploadSingleFile(MultipartFile file, String title, UUID parentId) throws IOException {
+    private Media uploadSingleFile(MultipartFile file, String title, String parentId) throws IOException {  // Changed from UUID to String
         logger.info("Start: uploadSingleFile, title={}, parentId={}, originalFileName={}", title, parentId, file.getOriginalFilename());
 
         // Validate file
@@ -215,7 +221,7 @@ public class MediaServiceImpl implements MediaService {
 
         List<Map<String, Object>> results = new ArrayList<>();
 
-        for (UUID id : mediaDeleteRequestDto.mediaIds) {
+        for (String id : mediaDeleteRequestDto.mediaIds) {  // Changed from UUID to String
             MediaDeleteRequestDto singleDto = new MediaDeleteRequestDto();
             singleDto.mediaIds = java.util.Collections.singletonList(id);
             results.add(deleteSingleFile(singleDto));
@@ -237,7 +243,7 @@ public class MediaServiceImpl implements MediaService {
             return outcome;
         }
 
-        UUID mediaId = mediaDeleteRequestDto.mediaIds.get(0);
+        String mediaId = mediaDeleteRequestDto.mediaIds.get(0);  // Changed from UUID to String
         outcome.put("id", mediaId);
 
         if (mediaId == null) {
@@ -372,8 +378,8 @@ public class MediaServiceImpl implements MediaService {
     }
 
     @Override
-    @Cacheable(value = "mediaListCache", key = "#parentId != null ? #parentId.toString() : 'root'")
-    public MediaListResponse getMediaByParentId(UUID parentId) {
+    @Cacheable(value = "mediaListCache", key = "#parentId != null ? #parentId : 'root'")
+    public MediaListResponse getMediaByParentId(String parentId) {  // Changed from UUID to String
         logger.info("Fetching media by parentId={}", parentId);
         try {
             List<Media> mediaList = mediaRepository.findActiveMediaByParentIdExcludingFolders(parentId);
@@ -423,8 +429,8 @@ public class MediaServiceImpl implements MediaService {
             }
 
             // Pre-allocate collections with known size for better performance
-            Map<UUID, MediaDetailDto> dtoMap = new HashMap<>(folders.size());
-            Map<UUID, List<MediaDetailDto>> childrenMap = new HashMap<>();
+            Map<String, MediaDetailDto> dtoMap = new HashMap<>(folders.size());
+            Map<String, List<MediaDetailDto>> childrenMap = new HashMap<>();
 
             // First pass: Create DTOs and initialize maps
             for (Media media : folders) {
@@ -462,7 +468,7 @@ public class MediaServiceImpl implements MediaService {
         }
     }
 
-    private void populateChildren(MediaDetailDto parent, Map<UUID, List<MediaDetailDto>> childrenMap) {
+    private void populateChildren(MediaDetailDto parent, Map<String, List<MediaDetailDto>> childrenMap) {
         List<MediaDetailDto> children = childrenMap.get(parent.getId());
         if (children != null) {
             parent.setChildren(children);
@@ -484,6 +490,34 @@ public class MediaServiceImpl implements MediaService {
             if (item.getChildren() != null) {
                 sortHierarchically(item.getChildren());
             }
+        }
+    }
+
+    // MongoDB compatible method - uses String ID directly
+    public MediaDTO getMediaById(String id) {  // Changed MediaDto to MediaDTO
+        logger.info("getMediaById STARTED: id={}", id);
+        try {
+            Media media = mediaRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Media not found with id: " + id));
+
+            // Convert Media entity to MediaDTO
+            MediaDTO dto = MediaDTO.builder()
+                    .id(media.getId())  // Already String in MongoDB
+                    .fileName(media.getFileName())
+                    .fileUrl(media.getUrl())
+                    .fileType(media.getType() != null ? media.getType().toString() : null)
+                    .fileSize(null) // Add if you have size field in Media entity
+                    .storageType("LOCAL") // or determine from your storage logic
+                    .uploadedBy(null) // Add if you have uploadedBy field in Media entity
+                    .createdAt(media.getCreatedAt())
+                    .updatedAt(media.getUpdatedAt())
+                    .build();
+
+            logger.info("getMediaById END: found media with id={}", id);
+            return dto;
+        } catch (IllegalArgumentException ex) {
+            logger.error("getMediaById ERROR: Invalid ID format for id={}", id);
+            throw new BadRequestException("Invalid ID format for id: " + id);
         }
     }
 }

@@ -1,0 +1,631 @@
+{
+  "formManager": {
+    "_id": "fm_seat_layouts_001",
+    "title": "Seat Layout Management",
+    "slug": "seat-layouts",
+    "description": "Manage seat layouts for cinema screens. Define default reusable templates or custom layouts per screen with per-seat type and pricing configuration.",
+    "modelName": "SeatLayout",
+    "isActive": true,
+    "metadata": {
+      "category": "cinema-configuration",
+      "version": "1.0",
+      "icon": "layout",
+      "order": 5
+    },
+    "createdAt": "2026-03-31T00:00:00.000Z",
+    "updatedAt": "2026-03-31T00:00:00.000Z",
+    "deletedAt": null
+  },
+
+  "formSteps": [
+    {
+      "_id": "fs_seat_layouts_v1",
+      "formManagerId": "fm_seat_layouts_001",
+      "stepTitle": "v1",
+      "stepSlug": "v1",
+      "stepOrder": 1,
+      "isActive": true,
+      "description": "Create, update, or delete seat layouts with per-seat configuration",
+
+      "validationRules": {
+
+        "name": {
+          "type": "STRING",
+          "collectionField": "name",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Layout name is required')",
+            "@Size(min=2, max=100, message='Layout name must be 2-100 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Layout name is required')",
+              "@Size(min=2, max=100)"
+            ],
+            "update": [
+              "@Size(min=2, max=100)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "name"
+          }
+        },
+
+        "screenId": {
+          "type": "STRING",
+          "collectionField": "screenId",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@ConditionalExists(condition='isDefault == false', collection='screens', field='_id', message='Screen not found')",
+            "@ConditionalNotBlank(condition='isDefault == false', message='Screen is required for custom (non-default) layouts')"
+          ],
+          "actionRules": {
+            "create": [
+              "@ConditionalNotBlank(condition='isDefault == false', message='Screen is required for custom layouts')",
+              "@ConditionalExists(condition='isDefault == false', collection='screens', field='_id', message='Screen not found')"
+            ],
+            "update": [
+              "@ConditionalExists(condition='isDefault == false', collection='screens', field='_id', message='Screen not found')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "screenId"
+          }
+        },
+
+        "isDefault": {
+          "type": "BOOLEAN",
+          "collectionField": "isDefault",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotNull(message='isDefault flag is required')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotNull(message='isDefault flag is required')"
+            ],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isDefault"
+          }
+        },
+
+        "rows": {
+          "type": "ARRAY",
+          "collectionField": "rows",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotNull(message='Seat rows are required')",
+            "@Size(min=1, max=26, message='Rows must be between 1 and 26')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotNull(message='Seat rows are required')",
+              "@Size(min=1, max=26, message='Rows must be between 1 and 26')"
+            ],
+            "update": [
+              "@Size(min=1, max=26)"
+            ],
+            "delete": []
+          },
+          "items": {
+            "type": "OBJECT",
+            "properties": {
+              "rowLabel": {
+                "type": "STRING",
+                "baseValidation": [
+                  "@NotBlank(message='Row label is required')",
+                  "@Pattern(regexp='^[A-Z]$', message='Row label must be a single uppercase letter (A-Z)')"
+                ]
+              },
+              "seats": {
+                "type": "ARRAY",
+                "baseValidation": [
+                  "@NotNull(message='Seats array is required per row')",
+                  "@Size(min=1, max=100, message='Each row must have 1-100 seats')"
+                ],
+                "items": {
+                  "type": "OBJECT",
+                  "properties": {
+                    "seatNumber": {
+                      "type": "INTEGER",
+                      "baseValidation": [
+                        "@NotNull(message='Seat number is required')",
+                        "@Min(value=1, message='Seat number must be at least 1')",
+                        "@Max(value=100, message='Seat number cannot exceed 100')"
+                      ]
+                    },
+                    "seatCode": {
+                      "type": "STRING",
+                      "baseValidation": [
+                        "@NotBlank(message='Seat code is required')",
+                        "@Pattern(regexp='^[A-Z][0-9]{1,3}$', message='Seat code must be in format A1, B12, C100')"
+                      ]
+                    },
+                    "seatTypeCode": {
+                      "type": "STRING",
+                      "baseValidation": [
+                        "@ConditionalNotBlank(condition='isAisle == false', message='Seat type code is required for non-aisle seats')",
+                        "@ConditionalExists(condition='isAisle == false', collection='seat_types', field='code', message='Seat type not found')"
+                      ]
+                    },
+                    "price": {
+                      "type": "DOUBLE",
+                      "baseValidation": [
+                        "@ConditionalNotNull(condition='isAisle == false', message='Price is required for non-aisle seats')",
+                        "@Min(value=0, message='Price cannot be negative')",
+                        "@Max(value=99999.99, message='Price cannot exceed 99999.99')"
+                      ]
+                    },
+                    "isAisle": {
+                      "type": "BOOLEAN",
+                      "baseValidation": []
+                    },
+                    "isActive": {
+                      "type": "BOOLEAN",
+                      "baseValidation": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "rows"
+          }
+        },
+
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isActive"
+          }
+        },
+
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='seat_layouts', field='_id', message='Seat layout not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='seat_layouts', field='_id', message='Seat layout not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "formSchema": {
+        "type": "object",
+        "title": "Seat Layout Form",
+        "properties": {
+          "name": {
+            "type": "STRING",
+            "title": "Layout Name",
+            "placeholder": "e.g., Standard 10x20, IMAX Premium Layout",
+            "description": "Descriptive name for this seat layout",
+            "required": true,
+            "order": 1
+          },
+          "isDefault": {
+            "type": "BOOLEAN",
+            "title": "Default Template",
+            "description": "Mark as a reusable default template (not tied to a specific screen). When false, a screen must be selected.",
+            "default": false,
+            "order": 2
+          },
+          "screenId": {
+            "type": "STRING",
+            "title": "Screen",
+            "placeholder": "Select screen (required for custom layouts)",
+            "description": "The screen this layout belongs to. Leave empty if this is a default template.",
+            "required": false,
+            "order": 3,
+            "ui": {
+              "widget": "dropdown",
+              "dataSource": {
+                "collection": "screens",
+                "labelField": "screenName",
+                "valueField": "_id",
+                "filter": { "isActive": true, "deletedAt": null },
+                "dependsOn": null
+              },
+              "visibilityCondition": "isDefault == false"
+            }
+          },
+          "rows": {
+            "type": "ARRAY",
+            "title": "Seat Rows",
+            "description": "Define each row with its seats. Each seat has a type, price, and optional aisle flag.",
+            "required": true,
+            "order": 4,
+            "ui": {
+              "widget": "seat-layout-builder",
+              "addLabel": "Add Row",
+              "removeLabel": "Remove Row"
+            },
+            "items": {
+              "type": "OBJECT",
+              "properties": {
+                "rowLabel": {
+                  "type": "STRING",
+                  "title": "Row Label",
+                  "placeholder": "e.g., A",
+                  "description": "Single uppercase letter (A-Z)",
+                  "required": true
+                },
+                "seats": {
+                  "type": "ARRAY",
+                  "title": "Seats",
+                  "description": "Seats in this row",
+                  "required": true,
+                  "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                      "seatNumber": {
+                        "type": "INTEGER",
+                        "title": "Seat Number",
+                        "description": "Position number in the row (1-100)",
+                        "required": true
+                      },
+                      "seatCode": {
+                        "type": "STRING",
+                        "title": "Seat Code",
+                        "description": "Unique seat identifier (e.g., A1, B12). Auto-generated as rowLabel + seatNumber.",
+                        "required": true
+                      },
+                      "seatTypeCode": {
+                        "type": "STRING",
+                        "title": "Seat Type",
+                        "placeholder": "Select seat type",
+                        "description": "Type of seat (Regular, Premium, Recliner, etc.)",
+                        "required": false,
+                        "ui": {
+                          "widget": "dropdown",
+                          "dataSource": {
+                            "collection": "seat_types",
+                            "labelField": "name",
+                            "valueField": "code",
+                            "filter": { "isActive": true, "deletedAt": null }
+                          },
+                          "disabledCondition": "isAisle == true"
+                        }
+                      },
+                      "price": {
+                        "type": "DOUBLE",
+                        "title": "Price",
+                        "placeholder": "e.g., 150.00",
+                        "description": "Ticket price for this seat",
+                        "required": false,
+                        "ui": {
+                          "disabledCondition": "isAisle == true"
+                        }
+                      },
+                      "isAisle": {
+                        "type": "BOOLEAN",
+                        "title": "Aisle (Gap)",
+                        "description": "Mark as aisle/gap — no physical seat at this position",
+                        "default": false
+                      },
+                      "isActive": {
+                        "type": "BOOLEAN",
+                        "title": "Active",
+                        "description": "Uncheck to block/disable this seat",
+                        "default": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this layout is available for use",
+            "default": true,
+            "order": 5
+          }
+        },
+        "required": ["name", "isDefault", "rows"]
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "seat_layouts",
+
+        "fieldMapping": {
+          "name": "name",
+          "screenId": "screenId",
+          "isDefault": "isDefault",
+          "rows": "rows",
+          "isActive": "isActive"
+        },
+
+        "fieldTransformers": {
+          "name": "trim"
+        },
+
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "validateSeatLayoutConsistency",
+                  "args": {
+                    "message": "Validating seat layout structure and counts against screen dimensions"
+                  },
+                  "when": "isDefault == false"
+                },
+                {
+                  "handler": "validateNoDuplicateSeatCodes",
+                  "args": {
+                    "message": "Ensuring no duplicate seat codes within the layout"
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating new seat layout",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["seatLayouts"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "SeatLayout",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Seat layout creation failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Seat layout created successfully",
+              "error": "Failed to create seat layout",
+              "validation": "Please check the layout configuration for errors"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "validateSeatLayoutConsistency",
+                  "args": {
+                    "message": "Validating updated seat layout against screen dimensions"
+                  },
+                  "when": "isDefault == false"
+                },
+                {
+                  "handler": "validateNoDuplicateSeatCodes",
+                  "args": {
+                    "message": "Ensuring no duplicate seat codes within the layout"
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "checkLayoutInUseByShowtime",
+                  "args": {
+                    "message": "Warn if this layout is currently referenced by active showtimes",
+                    "level": "WARN"
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Updating seat layout",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["seatLayouts"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "SeatLayout",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Seat layout update failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Seat layout updated successfully",
+              "error": "Failed to update seat layout",
+              "notFound": "Seat layout not found or has been deleted"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "checkLayoutInUseByShowtime",
+                  "args": {
+                    "message": "Cannot delete a seat layout that is currently referenced by active or upcoming showtimes",
+                    "level": "ERROR",
+                    "blockIfActive": true
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Deleting seat layout",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["seatLayouts"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "DELETE",
+                    "entity": "SeatLayout"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Seat layout deleted successfully",
+              "error": "Failed to delete seat layout",
+              "notFound": "Seat layout not found"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN", "MANAGER"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "single-column",
+        "sections": [
+          {
+            "title": "Layout Identity",
+            "fields": ["name", "isDefault", "screenId"]
+          },
+          {
+            "title": "Seat Configuration",
+            "description": "Define rows and individual seats. Set seat type and price per seat. Mark positions as aisle to represent gaps.",
+            "fields": ["rows"]
+          },
+          {
+            "title": "Status",
+            "fields": ["isActive"]
+          }
+        ],
+        "submitButton": {
+          "label": "Save Seat Layout",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "cinema-configuration",
+        "version": "1.0",
+        "lastUpdated": "2026-03-31T00:00:00.000Z",
+        "fieldCount": 5,
+        "author": "system",
+        "notes": [
+          "screenId is required only when isDefault=false",
+          "seatTypeCode and price are required for non-aisle seats",
+          "seatCode is auto-derivable as rowLabel + seatNumber (e.g. A1, B12)",
+          "validateSeatLayoutConsistency interceptor checks rows/columns count matches screen.rows and screen.columns",
+          "validateNoDuplicateSeatCodes ensures no two seats share the same seatCode within a layout",
+          "checkLayoutInUseByShowtime blocks delete and warns on update if referenced by showtimes"
+        ]
+      },
+
+      "createdAt": "2026-03-31T00:00:00.000Z",
+      "updatedAt": "2026-03-31T00:00:00.000Z",
+      "deletedAt": null
+    }
+  ]
+}

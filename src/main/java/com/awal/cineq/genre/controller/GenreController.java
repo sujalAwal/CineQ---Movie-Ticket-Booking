@@ -9,40 +9,28 @@ import com.awal.cineq.genre.service.GenreService;
 import com.awal.cineq.genre.dto.request.BulkGenreStatusUpdateRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+/**
+ * REST Controller for Genre endpoints
+ * Provides CRUD operations for genres
+ */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("genre")
+@Slf4j
 public class GenreController {
 
     private final GenreService genreService;
-    private static final Logger log = LoggerFactory.getLogger(GenreController.class);
-
-    // Default pagination and sorting parameters
-    private static final String DEFAULT_PAGE = "0";
-    private static final String DEFAULT_SIZE = "15";
-    private static final String DEFAULT_SORT_BY = "name";
-    private static final String DEFAULT_SORT_DIRECTION = "asc";
-    private static final String MAX_SIZE = "1000";
 
     @GetMapping(path = {"", "/"})
     public PaginationResponse<GenreDTO> getAllGenres(@Valid GenrePageRequest genreRequest) {
         log.info("getAllGenres STARTED");
         try {
             PaginationResponse<GenreDTO> response = genreService.getGenre(genreRequest);
-            log.debug("getAllGenres response: {}", response);
             log.info("getAllGenres END");
             return response;
         } catch (Exception e) {
@@ -52,13 +40,14 @@ public class GenreController {
     }
 
     @PostMapping(path = {"", "/"})
-    public ResponseEntity<ApiResponse<GenreDTO>> createGenre(@RequestBody GenreRequestDto genreRequestDto, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse<GenreDTO>> createGenre(
+            @RequestBody GenreRequestDto genreRequestDto,
+            HttpServletRequest request) {
         log.info("createGenre STARTED");
-        log.debug("createGenre input: {}", genreRequestDto);
         try {
-            ApiResponse<GenreDTO> response = ApiResponse.success("Genre created successfully", genreService.createGenre(genreRequestDto));
+            GenreDTO created = genreService.createGenre(genreRequestDto);
+            ApiResponse<GenreDTO> response = ApiResponse.success("Genre created successfully", created);
             response.setPath(request.getRequestURI());
-            log.debug("createGenre response: {}", response);
             log.info("createGenre END");
             return ResponseEntity.status(201).body(response);
         } catch (Exception e) {
@@ -68,13 +57,14 @@ public class GenreController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<GenreDTO>> getGenreById(@PathVariable UUID id, HttpServletRequest request) {
-        log.info("getGenreById STARTED");
-        log.debug("getGenreById input: {}", id);
+    public ResponseEntity<ApiResponse<GenreDTO>> getGenreById(
+            @PathVariable String id,
+            HttpServletRequest request) {
+        log.info("getGenreById STARTED: id={}", id);
         try {
-            ApiResponse<GenreDTO> response = ApiResponse.success("Genre fetched successfully", genreService.getGenreById(id));
+            GenreDTO genre = genreService.getGenreById(id);
+            ApiResponse<GenreDTO> response = ApiResponse.success("Genre fetched successfully", genre);
             response.setPath(request.getRequestURI());
-            log.debug("getGenreById response: {}", response);
             log.info("getGenreById END");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -84,13 +74,15 @@ public class GenreController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<GenreDTO>> updateGenre(@PathVariable UUID id, @RequestBody GenreRequestDto genreRequestDto, HttpServletRequest request) {
-        log.info("updateGenre STARTED");
-        log.debug("updateGenre input: id={}, genreRequestDto={}", id, genreRequestDto);
+    public ResponseEntity<ApiResponse<GenreDTO>> updateGenre(
+            @PathVariable String id,
+            @RequestBody GenreRequestDto genreRequestDto,
+            HttpServletRequest request) {
+        log.info("updateGenre STARTED: id={}", id);
         try {
-            ApiResponse<GenreDTO> response = ApiResponse.success("Genre updated successfully", genreService.updateGenre(id, genreRequestDto));
+            GenreDTO updated = genreService.updateGenre(id, genreRequestDto);
+            ApiResponse<GenreDTO> response = ApiResponse.success("Genre updated successfully", updated);
             response.setPath(request.getRequestURI());
-            log.debug("updateGenre response: {}", response);
             log.info("updateGenre END");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -100,14 +92,14 @@ public class GenreController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteGenre(@PathVariable UUID id, HttpServletRequest request) {
-        log.info("deleteGenre STARTED");
-        log.debug("deleteGenre input: {}", id);
+    public ResponseEntity<ApiResponse<Void>> deleteGenre(
+            @PathVariable String id,
+            HttpServletRequest request) {
+        log.info("deleteGenre STARTED: id={}", id);
         try {
             genreService.deleteGenre(id);
             ApiResponse<Void> response = ApiResponse.success("Genre deleted successfully", null);
             response.setPath(request.getRequestURI());
-            log.debug("deleteGenre response: {}", response);
             log.info("deleteGenre END");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -117,14 +109,14 @@ public class GenreController {
     }
 
     @PostMapping("/bulk-enable")
-    public ResponseEntity<ApiResponse<Void>> bulkEnableGenres(@RequestBody BulkGenreStatusUpdateRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<ApiResponse<Void>> bulkEnableGenres(
+            @RequestBody BulkGenreStatusUpdateRequest bulkRequest,
+            HttpServletRequest request) {
         log.info("bulkEnableGenres STARTED");
-        log.debug("bulkEnableGenres input: {}", request);
         try {
-            genreService.bulkEnableGenres(request.getIds(), true);
+            genreService.bulkEnableGenres(bulkRequest.getIds(), true);
             ApiResponse<Void> response = ApiResponse.success("Genres enabled successfully", null);
-            response.setPath(httpRequest.getRequestURI());
-            log.debug("bulkEnableGenres response: {}", response);
+            response.setPath(request.getRequestURI());
             log.info("bulkEnableGenres END");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -134,14 +126,14 @@ public class GenreController {
     }
 
     @PostMapping("/bulk-disable")
-    public ResponseEntity<ApiResponse<Void>> bulkDisableGenres(@RequestBody BulkGenreStatusUpdateRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<ApiResponse<Void>> bulkDisableGenres(
+            @RequestBody BulkGenreStatusUpdateRequest bulkRequest,
+            HttpServletRequest request) {
         log.info("bulkDisableGenres STARTED");
-        log.debug("bulkDisableGenres input: {}", request);
         try {
-            genreService.bulkEnableGenres(request.getIds(), false);
+            genreService.bulkEnableGenres(bulkRequest.getIds(), false);
             ApiResponse<Void> response = ApiResponse.success("Genres disabled successfully", null);
-            response.setPath(httpRequest.getRequestURI());
-            log.debug("bulkDisableGenres response: {}", response);
+            response.setPath(request.getRequestURI());
             log.info("bulkDisableGenres END");
             return ResponseEntity.ok(response);
         } catch (Exception e) {

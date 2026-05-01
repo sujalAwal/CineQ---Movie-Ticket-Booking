@@ -1,0 +1,598 @@
+{
+  "slug": "customer-portal-settings",
+  "title": "Customer Portal Settings",
+  "description": "Settings that control the customer-facing portal – theming, feature toggles, promotional content, and UI preferences",
+  "modelName": "CustomerPortalSetting",
+  "isActive": true,
+
+  "formSteps": [
+    {
+      "stepSlug": "v1",
+      "stepTitle": "Customer Portal Setting Configuration",
+      "stepOrder": 1,
+      "isActive": true,
+      "description": "Create, update, or delete customer portal settings",
+
+      "formSchema": {
+        "type": "object",
+        "title": "Customer Portal Setting Form",
+        "properties": {
+          "title": {
+            "type": "STRING",
+            "title": "Setting Title",
+            "placeholder": "e.g., Brand Name, Primary Color, Enable Reviews, Hero Banner",
+            "description": "Human-readable name for this setting",
+            "required": true,
+            "order": 1
+          },
+          "slug": {
+            "type": "STRING",
+            "title": "Setting Slug",
+            "placeholder": "e.g., brand-name, primary-color, enable-reviews",
+            "description": "URL-friendly unique identifier (auto-lowercased)",
+            "required": true,
+            "order": 2
+          },
+          "type": {
+            "type": "STRING",
+            "title": "Setting Type",
+            "description": "Determines how the value field is rendered and validated",
+            "required": true,
+            "order": 3,
+            "enum": ["text", "textarea", "checkbox", "color", "media", "number", "select", "json", "rich_text", "date", "url", "email"]
+          },
+          "value": {
+            "type": "STRING",
+            "title": "Value",
+            "description": "The setting value. Interpreted based on the type field.",
+            "required": false,
+            "order": 4
+          },
+          "group": {
+            "type": "STRING",
+            "title": "Group",
+            "placeholder": "e.g., branding, theme, features, content, seo, social",
+            "description": "Reference to a settings group slug (must exist in settings_groups)",
+            "required": true,
+            "order": 5
+          },
+          "description": {
+            "type": "STRING",
+            "title": "Description",
+            "placeholder": "What does this setting control?",
+            "description": "Help text shown alongside the setting input",
+            "required": false,
+            "order": 6
+          },
+          "sortOrder": {
+            "type": "INTEGER",
+            "title": "Sort Order",
+            "description": "Display order within its group (lower = first)",
+            "default": 0,
+            "required": false,
+            "order": 7
+          },
+          "icon": {
+            "type": "STRING",
+            "title": "Icon",
+            "placeholder": "e.g., palette, eye, image, star",
+            "description": "Icon identifier for UI display",
+            "required": false,
+            "order": 8
+          },
+          "options": {
+            "type": "ARRAY",
+            "title": "Options",
+            "description": "Available choices for 'select' type settings (JSON array of {label, value})",
+            "required": false,
+            "order": 9
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this setting is currently active",
+            "default": true,
+            "order": 10
+          }
+        },
+        "required": ["title", "slug", "type", "group"]
+      },
+
+      "validationRules": {
+        "title": {
+          "type": "STRING",
+          "collectionField": "title",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Title is required')",
+            "@Size(min=2, max=200, message='Title must be 2-200 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Title is required')",
+              "@Size(min=2, max=200)"
+            ],
+            "update": [
+              "@Size(min=2, max=200)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "title"
+          }
+        },
+
+        "slug": {
+          "type": "STRING",
+          "collectionField": "slug",
+          "fieldTransformer": "lowercase",
+          "baseValidation": [
+            "@NotBlank(message='Slug is required')",
+            "@Size(max=200, message='Slug too long')",
+            "@Pattern(regexp='^[a-z0-9_-]+$', message='Only lowercase letters, numbers, hyphens and underscores allowed')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Slug is required')",
+              "@Size(max=200)",
+              "@Pattern(regexp='^[a-z0-9_-]+$')",
+              "@Unique(collection='customer_portal_settings', field='slug', message='Setting with this slug already exists')"
+            ],
+            "update": [
+              "@Size(max=200)",
+              "@Pattern(regexp='^[a-z0-9_-]+$')",
+              "@UniqueExcludingSelf(collection='customer_portal_settings', field='slug', idField='_id', message='Slug already taken')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "slug"
+          }
+        },
+
+        "type": {
+          "type": "STRING",
+          "collectionField": "type",
+          "fieldTransformer": "lowercase",
+          "baseValidation": [
+            "@NotBlank(message='Type is required')",
+            "@Pattern(regexp='^(text|textarea|checkbox|color|media|number|select|json|rich_text|date|url|email)$', message='Invalid setting type. Allowed: text, textarea, checkbox, color, media, number, select, json, rich_text, date, url, email')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Type is required')",
+              "@Pattern(regexp='^(text|textarea|checkbox|color|media|number|select|json|rich_text|date|url|email)$', message='Invalid setting type')"
+            ],
+            "update": [
+              "@Pattern(regexp='^(text|textarea|checkbox|color|media|number|select|json|rich_text|date|url|email)$', message='Invalid setting type')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "type"
+          }
+        },
+
+        "value": {
+          "collectionField": "value",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "value"
+          }
+        },
+
+        "group": {
+          "type": "STRING",
+          "collectionField": "group",
+          "fieldTransformer": "lowercase",
+          "baseValidation": [
+            "@NotBlank(message='Group is required')",
+            "@Size(max=100, message='Group name too long')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Group is required')",
+              "@Size(max=100)",
+              "@Exists(collection='settings_groups', field='slug', message='Settings group not found')"
+            ],
+            "update": [
+              "@Size(max=100)",
+              "@Exists(collection='settings_groups', field='slug', message='Settings group not found')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "group"
+          }
+        },
+
+        "description": {
+          "type": "STRING",
+          "collectionField": "description",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@Size(max=500, message='Description cannot exceed 500 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(max=500)"
+            ],
+            "update": [
+              "@Size(max=500)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "description"
+          }
+        },
+
+        "sortOrder": {
+          "type": "INTEGER",
+          "collectionField": "sortOrder",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@Min(value=0, message='Sort order must be >= 0')",
+            "@Max(value=9999, message='Sort order must be <= 9999')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Min(value=0)",
+              "@Max(value=9999)"
+            ],
+            "update": [
+              "@Min(value=0)",
+              "@Max(value=9999)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "sortOrder"
+          }
+        },
+
+        "icon": {
+          "type": "STRING",
+          "collectionField": "icon",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@Size(max=100, message='Icon identifier too long')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(max=100)"
+            ],
+            "update": [
+              "@Size(max=100)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "icon"
+          }
+        },
+
+        "options": {
+          "type": "ARRAY",
+          "collectionField": "options",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "conditionalRules": [
+            {
+              "condition": {
+                "field": "type",
+                "operator": "equals",
+                "value": "select"
+              },
+              "validation": [
+                "@NotEmpty(message='Options are required for select type settings')"
+              ]
+            }
+          ],
+          "serialization": {
+            "select": true,
+            "outputField": "options"
+          }
+        },
+
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isActive"
+          }
+        },
+
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='customer_portal_settings', field='_id', message='Customer portal setting not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='customer_portal_settings', field='_id', message='Customer portal setting not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "customer_portal_settings",
+        "fieldMapping": {
+          "title": "title",
+          "slug": "slug",
+          "type": "type",
+          "value": "value",
+          "group": "group",
+          "description": "description",
+          "sortOrder": "sortOrder",
+          "icon": "icon",
+          "options": "options",
+          "isActive": "isActive"
+        },
+        "autoFields": {
+          "createdAt": "{{now}}",
+          "updatedAt": "{{now}}",
+          "deletedAt": null,
+          "createdBy": "{{currentUser}}",
+          "updatedBy": "{{currentUser}}"
+        },
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating customer portal setting",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["customerPortalSettings"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "CustomerPortalSetting",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Customer portal setting creation failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Customer portal setting created successfully",
+              "error": "Failed to create customer portal setting",
+              "validation": "Please check the form for errors"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Updating customer portal setting",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["customerPortalSettings"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "CustomerPortalSetting",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Customer portal setting update failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Customer portal setting updated successfully",
+              "error": "Failed to update customer portal setting",
+              "notFound": "Customer portal setting not found or has been deleted"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Deleting customer portal setting",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["customerPortalSettings"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "DELETE",
+                    "entity": "CustomerPortalSetting"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Customer portal setting deleted successfully",
+              "error": "Failed to delete customer portal setting",
+              "notFound": "Customer portal setting not found"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN", "MANAGER", "USER"],
+          "create": ["ADMIN", "SUPERADMIN", "MANAGER"],
+          "update": ["ADMIN", "SUPERADMIN", "MANAGER"],
+          "delete": ["ADMIN", "SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "single-column",
+        "sections": [
+          {
+            "title": "Setting Identity",
+            "fields": ["title", "slug", "type"]
+          },
+          {
+            "title": "Setting Value",
+            "fields": ["value", "options"]
+          },
+          {
+            "title": "Organization",
+            "fields": ["group", "description", "icon", "sortOrder"]
+          },
+          {
+            "title": "Status",
+            "fields": ["isActive"]
+          }
+        ],
+        "fieldWidgets": {
+          "title": { "ui:widget": "text", "ui:placeholder": "Enter setting title" },
+          "slug": { "ui:widget": "text", "ui:placeholder": "Enter unique slug" },
+          "type": { "ui:widget": "select", "ui:placeholder": "Select setting type" },
+          "value": { "ui:widget": "dynamic", "ui:description": "Rendered dynamically based on the 'type' field" },
+          "group": { "ui:widget": "text", "ui:placeholder": "e.g., branding" },
+          "description": { "ui:widget": "textarea", "ui:placeholder": "Describe what this setting controls" },
+          "sortOrder": { "ui:widget": "number" },
+          "icon": { "ui:widget": "text", "ui:placeholder": "Icon name" },
+          "options": { "ui:widget": "json", "ui:description": "JSON array of {label, value} objects" },
+          "isActive": { "ui:widget": "checkbox" }
+        },
+        "submitButton": {
+          "label": "Save Setting",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "settings",
+        "portal": "customer",
+        "version": "1.0",
+        "lastUpdated": "2026-02-22T00:00:00Z",
+        "fieldCount": 10,
+        "author": "system"
+      }
+    }
+  ],
+
+  "metadata": {
+    "module": "settings",
+    "version": "1.0",
+    "documentCount": "customer_portal_settings"
+  }
+}

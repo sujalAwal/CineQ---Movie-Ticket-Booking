@@ -2,14 +2,17 @@ package com.awal.cineq.artist.dto;
 
 import lombok.*;
 import java.util.List;
-import java.util.UUID;
 
+/**
+ * Bulk Artist Status Update Request for MongoDB
+ * Uses String IDs (MongoDB ObjectId) instead of UUID
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class BulkArtistStatusUpdateRequest {
-    private List<UUID> ids;
+    private List<String> ids;  // MongoDB ObjectId as String
     private Boolean isActive;
 }
 

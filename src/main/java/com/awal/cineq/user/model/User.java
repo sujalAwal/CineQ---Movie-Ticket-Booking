@@ -1,75 +1,75 @@
 package com.awal.cineq.user.model;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.GenericGenerator;
-import org.hibernate.annotations.Where;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
 
-import com.awal.cineq.booking.model.Booking;
-
-@Entity
-@Table(name = "users")
+@Document(collection = "users")
+@CompoundIndexes({
+    @CompoundIndex(name = "email_active_idx", def = "{'email': 1, 'deletedAt': 1}", unique = true)
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Where(clause = "deleted_at IS NULL")
 public class User {
     
     @Id
-    @GeneratedValue(generator = "UUID")
-    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
-    private UUID id;
-    
-    @Column(name = "email", nullable = false, unique = true, length = 200)
-    private String email;
-    
-    @Column(name = "password", nullable = false, length = 255)
+    private String id;  // MongoDB uses String for ObjectId
+
+    @Field("email")
+    private String email;  // Uniqueness enforced by compound index (email, deletedAt)
+
+    @Field("password")
     private String password;
     
-    @Column(name = "phone_number", length = 15)
+    @Field("phone_number")
     private String phoneNumber;
     
-    @Column(name = "user_name", nullable = false, length = 100)
+    @Field("name")
     private String name;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false)
-    private UserRole role = UserRole.ADMIN;
-    
-    @Column(name = "is_active", nullable = false)
+    /**
+     * Role name - Denormalized for quick access (e.g., "SUPERADMIN", "ADMIN", "USER")
+     * Also stored in role_id as reference to roles collection
+     */
+    @Field("role")
+    private String role;
+
+    /**
+     * Reference to the roles collection document ID.
+     * Stores the ObjectId of the role document (e.g., "69765bae092751d1429dcbf0").
+     * This is a MongoDB-style reference instead of embedding the role data.
+     */
+    @Field("role_id")
+    @Indexed
+    private String roleId;
+
+    @Field("is_active")
     private Boolean isActive = true;
     
-    @Column(name = "created_at", nullable = false)
+    @Field("created_at")
+    @CreatedDate  // Spring Data MongoDB auto-populates on insert
     private LocalDateTime createdAt;
     
-    @Column(name = "updated_at")
+    @Field("updated_at")
+    @LastModifiedDate  // Spring Data MongoDB auto-populates on update
     private LocalDateTime updatedAt;
     
-    @Column(name = "deleted_at")
+    @Field("deleted_at")
     private LocalDateTime deletedAt;
-    
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
-    
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
     
     public void softDelete() {
         this.deletedAt = LocalDateTime.now();
         this.isActive = false;
-    }
-    
-    public enum UserRole {
-        USER, ADMIN, MANAGER
     }
 }

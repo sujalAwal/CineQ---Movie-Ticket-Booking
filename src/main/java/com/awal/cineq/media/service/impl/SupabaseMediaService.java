@@ -36,11 +36,12 @@ import org.springframework.cache.annotation.CacheEvict;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.function.Function;
 
-@Service("supabaseMediaService")
+@Service("SupabaseMediaService")
 @AllArgsConstructor
 public class SupabaseMediaService implements MediaService {
 
@@ -52,7 +53,7 @@ public class SupabaseMediaService implements MediaService {
     private final ModelMapper modelMapper;
 
     @Override
-    public MediaListResponse getMediaByParentId(UUID parentId) {
+    public MediaListResponse getMediaByParentId(String parentId) {  // Changed from UUID to String
         logger.info("Fetching media by parentId={}", parentId);
         List<Media> mediaList = mediaRepository.findActiveMediaByParentId(parentId);
 
@@ -94,7 +95,7 @@ public class SupabaseMediaService implements MediaService {
             throw new BusinessException("No media delete requests provided for deletion");
         }
 
-        for (UUID id : mediaRequestDto.mediaIds) {
+        for (String id : mediaRequestDto.mediaIds) {  // Changed from UUID to String
             MediaDeleteRequestDto singleDto = new MediaDeleteRequestDto();
             singleDto.mediaIds = java.util.Collections.singletonList(id);
             results.add(deleteSingleFile(singleDto));
@@ -114,7 +115,7 @@ public class SupabaseMediaService implements MediaService {
             return MediaOperationResultDto.failed(null, "No mediaId provided in request").toMap();
         }
 
-        UUID mediaId = mediaDeleteRequestDto.mediaIds.get(0);
+        String mediaId = mediaDeleteRequestDto.mediaIds.get(0);  // Changed from UUID to String
         logger.info("Processing delete for mediaId={}", mediaId);
 
         if (mediaId == null) {
@@ -167,7 +168,7 @@ public class SupabaseMediaService implements MediaService {
     @CacheEvict(value = "sidebarFolders", allEntries = true)
      public MediaResponse uploadMultipleFiles(MediaUploadRequestDto requestDto) {
          List<MultipartFile> files = requestDto.getFiles();
-         UUID parentId = requestDto.getParentId();
+         String parentId = requestDto.getParentId();  // Changed from UUID to String
          logger.info("Start: uploadMultipleFiles, parentId={}, filesCount={}", parentId, files != null ? files.size() : 0);
          List<Map<String, Object>> uploadedFiles = new ArrayList<>();
          if (files == null || files.isEmpty()) {
@@ -182,7 +183,8 @@ public class SupabaseMediaService implements MediaService {
                  if (!mediaRepository.findByFilePath(filePath).isEmpty()) {
                      throw new BusinessException("File with the same name already exists: " + fileTitle);
                  }
-                 Media media = uploadSingleFile(file, fileTitle, parentId);
+                 String fileDirectory = (parentId == null) ?  storageConfig.getBucket() : getParentPath(parentId);
+                 Media media = uploadSingleFile(file, fileTitle, parentId,fileDirectory);
                  MediaItemDto fileInfo = MediaItemDto.builder()
                          .id(media.getId())
                          .title(media.getFileName())
@@ -206,7 +208,7 @@ public class SupabaseMediaService implements MediaService {
          return new MediaResponse(uploadedFiles);
      }
 
-    private String getParentPath(UUID parentId) {
+    private String getParentPath(String parentId) {  // Changed from UUID to String
         Optional<Media> parentMediaOpt = mediaRepository.findById(parentId);
         if (parentMediaOpt.isPresent()) {
             Media parentMedia = parentMediaOpt.get();
@@ -217,11 +219,12 @@ public class SupabaseMediaService implements MediaService {
     }
 
 
-    public Media uploadSingleFile(MultipartFile file, String title, UUID parentId) {
+    public Media uploadSingleFile(MultipartFile file, String title, String parentId,String fileDirectory) {  // Changed from UUID to String
         try {
         validateFile(file);
 
-        SupabaseResponse supabaseResponse = uploadToSupabase(file, file.getOriginalFilename());
+        String targetFileName = (title == null || title.isBlank()) ? file.getOriginalFilename() : title;
+        SupabaseResponse supabaseResponse = uploadToSupabase(file, targetFileName, fileDirectory);
         String signedUrl = null;
         signedUrl = getSignedUrl(supabaseResponse != null ? supabaseResponse.getKey() : null, supabaseResponse != null ? supabaseResponse.getId() : null);
         MediaType mediaType = determineMediaType(file.getContentType());
@@ -235,7 +238,7 @@ public class SupabaseMediaService implements MediaService {
         }
     }
 
-    public void deleteFile(UUID mediaId) {
+    public void deleteFile(String mediaId) {  // Changed from UUID to String
         Media media = mediaRepository.findById(mediaId)
                 .orElseThrow(() -> new RuntimeException("Media not found with id: " + mediaId));
 
@@ -337,9 +340,9 @@ public class SupabaseMediaService implements MediaService {
         return StorageType.SUPABASE;
     }
     // ✅ ADD THIS NEW METHOD
-    private List<MediaDetailDto> buildHierarchicalMedia(List<Media> allMedia, UUID parentId) {
+    private List<MediaDetailDto> buildHierarchicalMedia(List<Media> allMedia, String parentId) {  // Changed from UUID to String
         // Convert all media to DTOs and store in map for quick access
-        Map<UUID, MediaDetailDto> dtoMap = allMedia.stream()
+        Map<String, MediaDetailDto> dtoMap = allMedia.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toMap(MediaDetailDto::getId, Function.identity()));
 
@@ -396,11 +399,10 @@ public class SupabaseMediaService implements MediaService {
         }
     }
 
-    private SupabaseResponse uploadToSupabase(MultipartFile file, String fileName) {
+    private SupabaseResponse uploadToSupabase(MultipartFile file, String fileName,String fileDirectory) {
         try {
 
-
-            String url = storageConfig.getApiUrl()+storageConfig.getBucket()+"/"+fileName;
+            String url = buildSupabaseObjectUrl(fileDirectory, fileName);
        var result = this.webClient.post().uri(url)
                     .header("Authorization", "Bearer " + storageConfig.getApiKey())
                     .header("Content-Type", file.getContentType())
@@ -418,6 +420,36 @@ public class SupabaseMediaService implements MediaService {
             throw new RuntimeException("Supabase upload failed: " + ex.getMessage(), ex);
         }
     }
+
+    private String buildSupabaseObjectUrl(String fileDirectory, String fileName) {
+        String apiUrl = trimTrailingSlash(storageConfig.getApiUrl());
+        String bucket = trimSlashes(storageConfig.getBucket());
+        String directory = trimSlashes(fileDirectory);
+        String safeFileName = trimSlashes(fileName);
+
+        if (directory.isEmpty()) {
+            directory = bucket;
+        } else if (!directory.equals(bucket) && !directory.startsWith(bucket + "/")) {
+            directory = bucket + "/" + directory;
+        }
+
+        return apiUrl + "/" + directory + "/" + safeFileName;
+    }
+
+    private String trimTrailingSlash(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("/+$", "");
+    }
+
+    private String trimSlashes(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replaceAll("^/+|/+$", "");
+    }
+
     private String getSignedUrl(String path, String id) {
         try {
 
@@ -451,7 +483,7 @@ public class SupabaseMediaService implements MediaService {
             candidate = firstNonNull(response.get("signedUrl"), response.get("signed_url"), response.get("signedURL"));
 
             if (candidate != null) {
-                return candidate.toString();
+                return normalizeSignedUrl(candidate.toString());
             }
 
             throw new BusinessException("No signed signURL found in Supabase response: " + response);
@@ -471,6 +503,51 @@ public class SupabaseMediaService implements MediaService {
             if (v != null) return v;
         }
         return null;
+    }
+
+    private String normalizeSignedUrl(String rawSignedUrl) {
+        if (rawSignedUrl == null || rawSignedUrl.isBlank()) {
+            return rawSignedUrl;
+        }
+
+        String candidate = rawSignedUrl.trim();
+        if (candidate.startsWith("http://") || candidate.startsWith("https://")) {
+            return candidate;
+        }
+
+        String objectApiBase = trimTrailingSlash(storageConfig.getApiUrl());
+        String storageV1Base = objectApiBase.replaceFirst("/object$", "");
+        String origin = extractOrigin(objectApiBase);
+
+        if (candidate.startsWith("/object/")) {
+            return storageV1Base + candidate;
+        }
+        if (candidate.startsWith("/storage/v1/")) {
+            return origin + candidate;
+        }
+        if (candidate.startsWith("object/")) {
+            return storageV1Base + "/" + candidate;
+        }
+        if (candidate.startsWith("storage/v1/")) {
+            return origin + "/" + candidate;
+        }
+        if (candidate.startsWith("/")) {
+            return origin + candidate;
+        }
+
+        return objectApiBase + "/" + trimSlashes(candidate);
+    }
+
+    private String extractOrigin(String url) {
+        try {
+            URI uri = URI.create(url);
+            if (uri.getScheme() != null && uri.getAuthority() != null) {
+                return uri.getScheme() + "://" + uri.getAuthority();
+            }
+        } catch (Exception ex) {
+            logger.warn("Could not parse origin from Supabase URL '{}': {}", url, ex.getMessage());
+        }
+        return "";
     }
 
     private void deleteFromSupabase(String fileUrl) {
@@ -512,7 +589,7 @@ public class SupabaseMediaService implements MediaService {
         }
     }
 
-    private String generateFileName(MultipartFile file, UUID mediaId) {
+    private String generateFileName(MultipartFile file, String mediaId) {  // Changed from UUID to String
         String originalFileName = file.getOriginalFilename();
         String fileExtension = getFileExtension(originalFileName);
         return mediaId + "." + fileExtension;
@@ -537,7 +614,7 @@ public class SupabaseMediaService implements MediaService {
         return MediaType.DOCUMENT;
     }
 
-    private Media createMediaEntity(String title, MediaType type, UUID parentId, SupabaseResponse response, String signedUrl) {
+    private Media createMediaEntity(String title, MediaType type, String parentId, SupabaseResponse response, String signedUrl) {  // Changed from UUID to String
         Media media = new Media();
         media.setFileName(title);
 

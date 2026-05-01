@@ -1,87 +1,109 @@
 package com.awal.cineq.customer.model;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.GenericGenerator;
-import org.hibernate.annotations.Where;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
-@Entity
-@Table(name = "customers")
+/**
+ * MongoDB Document for Customer
+ * Uses soft-delete pattern: deletedAt = null means active, not null means deleted
+ */
+@Document(collection = "customers")
+@CompoundIndexes({
+    @CompoundIndex(name = "email_active_idx", def = "{'email': 1, 'deletedAt': 1}", unique = true)
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Where(clause = "deleted_at IS NULL")
 public class Customer {
     
     @Id
-    @GeneratedValue(generator = "UUID")
-    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
-    @Column(columnDefinition = "BINARY(16)")
-    private UUID id;
-    
-    @Column(name = "first_name", nullable = false, length = 100)
+    private String id;  // MongoDB ObjectId stored as String
+
+    @Field("first_name")
     private String firstName;
     
-    @Column(name = "last_name", nullable = false, length = 100)
+    @Field("middle_name")
+    private String middleName;
+    
+    @Field("last_name")
     private String lastName;
     
-    @Column(name = "email", nullable = false, unique = true, length = 200)
-    private String email;
-    
-    @Column(name = "password", nullable = false, length = 255)
+    @Field("email")
+    private String email;  // Uniqueness enforced by compound index (email, deletedAt)
+
+    @Field("password")
     private String password;
     
-    @Column(name = "phone", length = 20)
+    @Field("phone")
     private String phone;
+
+    @Field("profile_picture")
+    private String profilePicture;
+
+    @Field("previous_profile_picture")
+    private String previousProfilePicture;
     
-    @Column(name = "date_of_birth")
+    @Field("date_of_birth")
     private LocalDate dateOfBirth;
     
-    @Enumerated(EnumType.STRING)
-    @Column(name = "gender")
+    @Field("gender")
     private Gender gender;
     
-    @Column(name = "loyalty_points", nullable = false)
+    @Field("loyalty_points")
     private Integer loyaltyPoints = 0;
     
-    @Column(name = "is_email_verified", nullable = false)
+    @Field("is_email_verified")
     private Boolean isEmailVerified = false;
     
-    @Column(name = "email_verification_token")
+    @Field("email_verification_token")
     private String emailVerificationToken;
     
-    @Column(name = "email_verification_expires_at")
+    @Field("email_verification_expires_at")
     private LocalDateTime emailVerificationExpiresAt;
     
-    @Column(name = "is_active", nullable = false)
+    // Login attempt tracking (for lockout)
+    @Field("failed_login_attempts")
+    private Integer failedLoginAttempts = 0;
+    
+    @Field("locked_until")
+    private LocalDateTime lockedUntil;
+    
+    @Field("last_failed_login_at")
+    private LocalDateTime lastFailedLoginAt;
+    
+    // Password reset
+    @Field("password_reset_token")
+    private String passwordResetToken;
+    
+    @Field("password_reset_token_expires_at")
+    private LocalDateTime passwordResetTokenExpiresAt;
+    
+    @Field("is_active")
     private Boolean isActive = true;
     
-    @Column(name = "created_at", nullable = false)
+    @Field("created_at")
+    @CreatedDate
     private LocalDateTime createdAt;
     
-    @Column(name = "updated_at")
+    @Field("updated_at")
+    @LastModifiedDate
     private LocalDateTime updatedAt;
     
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt;
-    
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-    
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
-    
+    @Field("deleted_at")
+    private LocalDateTime deletedAt;  // Soft-delete marker: null = active
+
     public void softDelete() {
         this.deletedAt = LocalDateTime.now();
         this.isActive = false;
@@ -93,6 +115,25 @@ public class Customer {
     
     public void deductLoyaltyPoints(Integer points) {
         this.loyaltyPoints = Math.max(0, this.loyaltyPoints - points);
+    }
+    
+    public void incrementFailedLoginAttempts() {
+        this.failedLoginAttempts = (this.failedLoginAttempts == null ? 0 : this.failedLoginAttempts) + 1;
+        this.lastFailedLoginAt = LocalDateTime.now();
+    }
+    
+    public void resetFailedLoginAttempts() {
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
+        this.lastFailedLoginAt = null;
+    }
+    
+    public boolean isLocked() {
+        return this.lockedUntil != null && LocalDateTime.now().isBefore(this.lockedUntil);
+    }
+    
+    public void lockAccount(int durationMinutes) {
+        this.lockedUntil = LocalDateTime.now().plusMinutes(durationMinutes);
     }
     
     public enum Gender {

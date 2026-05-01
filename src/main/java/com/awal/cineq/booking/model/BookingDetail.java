@@ -1,42 +1,27 @@
 package com.awal.cineq.booking.model;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
-import com.awal.cineq.theater.model.Seat;
-
-@Entity
-@Table(name = "booking_details")
+/**
+ * Embedded document for each seat within a Booking.
+ * Field names mirror showtime.seatLayout[] exactly so queries are consistent.
+ *
+ * seatStatusCode references seat_statuses collection:
+ *   3 = Reserved, 2 = Booked, 1 = Available
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class BookingDetail {
-    
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "booking_id", nullable = false)
-    private Booking booking;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "seat_id", nullable = false)
-    private Seat seat;
-    
-    @Column(name = "seat_price", precision = 10, scale = 2, nullable = false)
-    private BigDecimal seatPrice;
-    
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
-    
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
+
+    private String seatName;        // e.g. "G3"
+    private String row;             // e.g. "G"
+    private Integer col;            // e.g. 3
+    private String seatCode;        // e.g. "P" — type code from seat_types collection
+    private BigDecimal seatPrice;   // from showtime.seatLayout[].price (server-side)
+    private Integer seatStatusCode; // from seat_statuses: 3=Reserved, 2=Booked, 1=Available
 }

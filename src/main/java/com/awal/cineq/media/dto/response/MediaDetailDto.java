@@ -10,11 +10,11 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * DTO for media detail responses in GET operations.
  * Contains all media information except isActive and deletedAt fields.
+ * MongoDB compatible: uses String ID instead of UUID
  */
 @Data
 @Builder
@@ -22,11 +22,11 @@ import java.util.UUID;
 @AllArgsConstructor
 public class MediaDetailDto {
 
-    private UUID id;
+    private String id;  // MongoDB ObjectId as String
     private String fileName;
     private String url;
     private MediaType type;
-    private UUID parentId;
+    private String parentId;  // MongoDB ObjectId as String
     private String filePath;
     private String fileUuid;
 

@@ -1,41 +1,71 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- Console appender with simple pattern -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
+    <!-- 
+         Read APP_LOG_LEVEL directly from OS environment variable (not Spring property).
+         This ensures it works at logback init time, before Spring context is fully loaded.
+    -->
+    <variable name="LOG_LEVEL" value="${APP_LOG_LEVEL:-INFO}"/>
 
-    <!-- File appender -->
-    <property name="LOG_PATH" value="logs"/>
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_PATH}/application.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_PATH}/application.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>10MB</maxFileSize>
-            <maxHistory>2</maxHistory>
-            <totalSizeCap>1GB</totalSizeCap>
-        </rollingPolicy>
+    <!-- ============================================================
+         GLOBAL CONSOLE APPENDER (always active, regardless of profile)
+         This ensures logs are ALWAYS written to stdout/stderr.
+         ============================================================ -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- Logger configurations -->
-    <logger name="com.awal.cineq" level="DEBUG"/>
-    <logger name="org.springframework.web" level="DEBUG"/>
-    <logger name="org.springframework.security" level="DEBUG"/>
-    <logger name="org.hibernate.SQL" level="DEBUG"/>
-    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
-    <logger name="org.springframework.boot.autoconfigure" level="DEBUG"/>
-    <logger name="org.hibernate.tool.schema" level="DEBUG"/>
-    <logger name="org.springframework.data.jpa" level="DEBUG"/>
-    <logger name="org.springframework.transaction" level="DEBUG"/>
-
-    <!-- Root logger - sends to BOTH console and file -->
-    <root level="INFO">
+    <!-- Global root logger — ALWAYS outputs to CONSOLE -->
+    <root level="${LOG_LEVEL}">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
     </root>
+
+    <!-- Application loggers (always active) -->
+    <logger name="com.awal.cineq" level="${LOG_LEVEL}"/>
+    <logger name="org.springframework.web" level="${LOG_LEVEL}"/>
+    <logger name="org.springframework.security" level="${LOG_LEVEL}"/>
+    <logger name="org.springframework.boot" level="${LOG_LEVEL}"/>
+    <logger name="org.springframework.data" level="${LOG_LEVEL}"/>
+
+    <!-- 
+         Cap noisy Spring internals at WARN even if APP_LOG_LEVEL=DEBUG.
+         These produce thousands of lines (bean scanning, factory creation) and 
+         cause significant I/O overhead that slows down startup and request handling.
+    -->
+    <logger name="org.springframework.beans" level="WARN"/>
+    <logger name="org.springframework.context.annotation" level="WARN"/>
+    <logger name="org.springframework.core" level="WARN"/>
+    <logger name="org.springframework.aop" level="WARN"/>
+    <logger name="org.springframework.cache" level="WARN"/>
+    <logger name="org.mongodb.driver" level="WARN"/>
+    <logger name="org.springframework.boot.web.servlet" level="INFO"/>
+    <logger name="org.apache" level="WARN"/>
+    <logger name="io.netty" level="WARN"/>
+
+    <!-- LOCAL PROFILE: Additionally log to FILE with DEBUG -->
+    <springProfile name="local">
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>application.log</file>
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>application.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+                <maxFileSize>10MB</maxFileSize>
+                <maxHistory>7</maxHistory>
+                <totalSizeCap>100MB</totalSizeCap>
+            </rollingPolicy>
+        </appender>
+
+        <root level="DEBUG">
+            <appender-ref ref="FILE"/>
+        </root>
+
+        <logger name="com.awal.cineq" level="DEBUG"/>
+        <logger name="org.springframework.web" level="DEBUG"/>
+        <logger name="org.springframework.security" level="DEBUG"/>
+        <logger name="org.hibernate.SQL" level="DEBUG"/>
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+    </springProfile>
 </configuration>

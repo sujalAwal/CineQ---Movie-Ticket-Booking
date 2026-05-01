@@ -1,0 +1,719 @@
+{
+  "slug": "theatres",
+  "title": "Theatre Management",
+  "description": "Manage cinema theatres with location, facilities, contact info, and chain details",
+  "modelName": "Theatre",
+  "isActive": true,
+
+  "formSteps": [
+    {
+      "stepSlug": "v1",
+      "stepTitle": "Theatre Information",
+      "stepOrder": 1,
+      "isActive": true,
+      "description": "Create, update, or delete theatre details",
+
+      "formSchema": {
+        "type": "object",
+        "title": "Theatre Form",
+        "properties": {
+          "name": {
+            "type": "STRING",
+            "title": "Theatre Name",
+            "placeholder": "e.g., PVR Mumbai Central",
+            "description": "Name of the theatre",
+            "required": true,
+            "order": 1
+          },
+          "address": {
+            "type": "STRING",
+            "title": "Address",
+            "placeholder": "e.g., 123 Main Street",
+            "description": "Complete address",
+            "required": true,
+            "order": 2
+          },
+          "city": {
+            "type": "STRING",
+            "title": "City",
+            "placeholder": "e.g., Mumbai",
+            "description": "City name",
+            "required": true,
+            "order": 3
+          },
+          "state": {
+            "type": "STRING",
+            "title": "State",
+            "placeholder": "e.g., Maharashtra",
+            "description": "State/Province",
+            "required": true,
+            "order": 4
+          },
+          "pincode": {
+            "type": "STRING",
+            "title": "Pincode",
+            "placeholder": "e.g., 400001",
+            "description": "Postal code",
+            "required": true,
+            "order": 5
+          },
+          "latitude": {
+            "type": "DOUBLE",
+            "title": "Latitude",
+            "placeholder": "e.g., 19.0760",
+            "description": "Geographic latitude",
+            "required": true,
+            "order": 6
+          },
+          "longitude": {
+            "type": "DOUBLE",
+            "title": "Longitude",
+            "placeholder": "e.g., 72.8777",
+            "description": "Geographic longitude",
+            "required": true,
+            "order": 7
+          },
+          "phone": {
+            "type": "STRING",
+            "title": "Contact Phone",
+            "placeholder": "e.g., +91-22-1234567890",
+            "description": "Theatre contact number",
+            "required": true,
+            "order": 8
+          },
+          "email": {
+            "type": "STRING",
+            "title": "Email",
+            "placeholder": "e.g., info@theatre.com",
+            "description": "Theatre email address",
+            "required": true,
+            "order": 9
+          },
+          "chain": {
+            "type": "STRING",
+            "title": "Theatre Chain/Brand",
+            "placeholder": "e.g., PVR, INOX, Cinepolis",
+            "description": "Theatre chain or independent",
+            "required": true,
+            "order": 10
+          },
+          "facilities": {
+            "type": "ARRAY",
+            "title": "Facilities",
+            "placeholder": "Select available facilities",
+            "description": "Available facilities in the theatre",
+            "required": true,
+            "order": 11
+          },
+          "images": {
+            "type": "ARRAY",
+            "title": "Images",
+            "placeholder": "Add theatre images",
+            "description": "Theatre images/photos URLs",
+            "required": false,
+            "order": 12
+          },
+          "isActive": {
+            "type": "BOOLEAN",
+            "title": "Active",
+            "description": "Whether this theatre is active",
+            "default": true,
+            "order": 13
+          }
+        },
+        "required": ["name", "address", "city", "state", "pincode", "latitude", "longitude", "phone", "email", "chain", "facilities"]
+      },
+
+      "validationRules": {
+        "name": {
+          "type": "STRING",
+          "collectionField": "name",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Theatre name is required')",
+            "@Size(min=2, max=100, message='Theatre name must be 2-100 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Theatre name is required')",
+              "@Size(min=2, max=100)",
+              "@Unique(collection='theatres', field='name', message='Theatre with this name already exists')"
+            ],
+            "update": [
+              "@Size(min=2, max=100)",
+              "@UniqueExcludingSelf(collection='theatres', field='name', idField='_id', message='Theatre with this name already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "name"
+          }
+        },
+
+        "address": {
+          "type": "STRING",
+          "required": true,
+          "collectionField": "address",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Address is required')",
+            "@Size(min=5, max=200, message='Address must be 5-200 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Address is required')",
+              "@Size(min=5, max=200)"
+            ],
+            "update": [
+              "@Size(min=5, max=200)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "address"
+          }
+        },
+
+        "city": {
+          "type": "STRING",
+          "required": true,
+          "collectionField": "district",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='District code is required')",
+            "@Size(min=2, max=100, message='District code must be 2-100 characters')",
+            "@Exists(collection='districts', field='code', message='Selected district code does not exist')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='District code is required')",
+              "@Size(min=2, max=100)",
+              "@Exists(collection='districts', field='code', message='District code must exist in the system')"
+            ],
+            "update": [
+              "@Size(min=2, max=100)",
+              "@Exists(collection='districts', field='code', message='District code must exist in the system')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "district"
+          }
+        },
+
+        "province": {
+          "type": "STRING",
+          "required": true,
+          "collectionField": "province",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Province code is required')",
+            "@Size(min=2, max=100, message='Province code must be 2-100 characters')",
+            "@Exists(collection='provinces', field='code', message='Selected province code does not exist')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Province code is required')",
+              "@Size(min=2, max=100)",
+              "@Exists(collection='provinces', field='code', message='Province code must exist in the system')"
+            ],
+            "update": [
+              "@Size(min=2, max=100)",
+              "@Exists(collection='provinces', field='code', message='Province code must exist in the system')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "province"
+          }
+        },
+
+        "pincode": {
+          "type": "STRING",
+          "collectionField": "pincode",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Pincode is required')",
+            "@Size(min=5, max=10, message='Pincode must be 5-10 characters')",
+            "@Pattern(regexp='^[0-9]{5,10}$', message='Pincode must contain only numbers')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Pincode is required')",
+              "@Size(min=5, max=10)",
+              "@Pattern(regexp='^[0-9]{5,10}$')"
+            ],
+            "update": [
+              "@Size(min=5, max=10)",
+              "@Pattern(regexp='^[0-9]{5,10}$')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "pincode"
+          }
+        },
+
+        "latitude": {
+          "type": "DOUBLE",
+          "collectionField": "latitude",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotNull(message='Latitude is required')",
+            "@Min(value=-90, message='Latitude must be between -90 and 90')",
+            "@Max(value=90, message='Latitude must be between -90 and 90')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotNull(message='Latitude is required')",
+              "@Min(value=-90)",
+              "@Max(value=90)"
+            ],
+            "update": [
+              "@Min(value=-90)",
+              "@Max(value=90)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "latitude"
+          }
+        },
+
+        "longitude": {
+          "type": "DOUBLE",
+          "collectionField": "longitude",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotNull(message='Longitude is required')",
+            "@Min(value=-180, message='Longitude must be between -180 and 180')",
+            "@Max(value=180, message='Longitude must be between -180 and 180')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotNull(message='Longitude is required')",
+              "@Min(value=-180)",
+              "@Max(value=180)"
+            ],
+            "update": [
+              "@Min(value=-180)",
+              "@Max(value=180)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "longitude"
+          }
+        },
+
+        "phone": {
+          "type": "STRING",
+          "collectionField": "phone",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Phone number is required')",
+            "@Size(min=10, max=15, message='Phone must be 10-15 characters')",
+            "@Pattern(regexp='^[+]?[0-9]{10,15}$', message='Invalid phone format')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Phone number is required')",
+              "@Size(min=10, max=15)",
+              "@Pattern(regexp='^[+]?[0-9]{10,15}$')"
+            ],
+            "update": [
+              "@Size(min=10, max=15)",
+              "@Pattern(regexp='^[+]?[0-9]{10,15}$')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "phone"
+          }
+        },
+
+        "email": {
+          "type": "STRING",
+          "collectionField": "email",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Email is required')",
+            "@Email(message='Invalid email format')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Email is required')",
+              "@Email(message='Invalid email format')",
+              "@Unique(collection='theatres', field='email', message='Email already exists')"
+            ],
+            "update": [
+              "@Email(message='Invalid email format')",
+              "@UniqueExcludingSelf(collection='theatres', field='email', idField='_id', message='Email already exists')"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "email"
+          }
+        },
+
+        "chain": {
+          "type": "STRING",
+          "collectionField": "chain",
+          "fieldTransformer": "trim",
+          "baseValidation": [
+            "@NotBlank(message='Theatre chain is required')",
+            "@Size(min=2, max=50, message='Chain name must be 2-50 characters')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotBlank(message='Theatre chain is required')",
+              "@Size(min=2, max=50)"
+            ],
+            "update": [
+              "@Size(min=2, max=50)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "chain"
+          }
+        },
+
+        "facilities": {
+          "type": "ARRAY",
+          "collectionField": "facilities",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@NotEmpty(message='At least one facility is required')",
+            "@Size(min=1, max=20, message='Maximum 20 facilities allowed')"
+          ],
+          "actionRules": {
+            "create": [
+              "@NotEmpty(message='At least one facility is required')",
+              "@Size(min=1, max=20)"
+            ],
+            "update": [
+              "@NotEmpty(message='At least one facility is required')",
+              "@Size(min=1, max=20)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "facilities"
+          }
+        },
+
+        "images": {
+          "type": "ARRAY",
+          "collectionField": "images",
+          "fieldTransformer": null,
+          "baseValidation": [
+            "@Size(min=0, max=10, message='Maximum 10 images allowed')"
+          ],
+          "actionRules": {
+            "create": [
+              "@Size(min=0, max=10)"
+            ],
+            "update": [
+              "@Size(min=0, max=10)"
+            ],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "images"
+          }
+        },
+
+        "isActive": {
+          "type": "BOOLEAN",
+          "collectionField": "isActive",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "isActive"
+          }
+        },
+
+        "id": {
+          "type": "STRING",
+          "collectionField": "_id",
+          "fieldTransformer": null,
+          "baseValidation": [],
+          "actionRules": {
+            "create": [],
+            "update": [
+              "@NotBlank(message='ID is required for update')",
+              "@Exists(collection='theatres', field='_id', message='Theatre not found')"
+            ],
+            "delete": [
+              "@NotBlank(message='ID is required for delete')",
+              "@Exists(collection='theatres', field='_id', message='Theatre not found')"
+            ]
+          },
+          "serialization": {
+            "select": true,
+            "outputField": "id"
+          }
+        }
+      },
+
+      "workflowRules": {
+        "persistToCollection": true,
+        "targetCollection": "theatres",
+        "fieldMapping": {
+          "name": "name",
+          "address": "address",
+          "city": "city",
+          "state": "state",
+          "pincode": "pincode",
+          "latitude": "latitude",
+          "longitude": "longitude",
+          "phone": "phone",
+          "email": "email",
+          "chain": "chain",
+          "facilities": "facilities",
+          "images": "images",
+          "isActive": "isActive"
+        },
+        "autoFields": {
+          "createdAt": "{{now}}",
+          "updatedAt": "{{now}}",
+          "deletedAt": null,
+          "createdBy": "{{currentUser}}",
+          "updatedBy": "{{currentUser}}"
+        },
+        "actions": {
+          "create": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "createdAt": "{{now}}",
+              "updatedAt": "{{now}}",
+              "deletedAt": null,
+              "createdBy": "{{currentUser}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Creating new theatre",
+                    "level": "INFO",
+                    "includeFormData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["theatres"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "CREATE",
+                    "entity": "Theatre",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Theatre creation failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Theatre created successfully",
+              "error": "Failed to create theatre",
+              "validation": "Please check the form for errors"
+            }
+          },
+
+          "update": {
+            "enabled": true,
+            "autoApprove": true,
+            "autoFields": {
+              "updatedAt": "{{now}}",
+              "updatedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Updating theatre",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["theatres"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "UPDATE",
+                    "entity": "Theatre",
+                    "includeData": true
+                  },
+                  "when": null
+                }
+              ],
+              "afterThrowing": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Theatre update failed",
+                    "level": "ERROR"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Theatre updated successfully",
+              "error": "Failed to update theatre",
+              "notFound": "Theatre not found or has been deleted"
+            }
+          },
+
+          "delete": {
+            "enabled": true,
+            "autoApprove": true,
+            "softDelete": true,
+            "autoFields": {
+              "deletedAt": "{{now}}",
+              "deletedBy": "{{currentUser}}"
+            },
+            "interceptors": {
+              "before": [
+                {
+                  "handler": "logAction",
+                  "args": {
+                    "message": "Deleting theatre",
+                    "level": "INFO"
+                  },
+                  "when": null
+                }
+              ],
+              "afterReturning": [
+                {
+                  "handler": "invalidateCache",
+                  "args": {
+                    "cacheNames": ["theatres"]
+                  },
+                  "when": null
+                },
+                {
+                  "handler": "auditLog",
+                  "args": {
+                    "action": "DELETE",
+                    "entity": "Theatre"
+                  },
+                  "when": null
+                }
+              ]
+            },
+            "messages": {
+              "success": "Theatre deleted successfully",
+              "error": "Failed to delete theatre",
+              "notFound": "Theatre not found"
+            }
+          }
+        },
+
+        "permissions": {
+          "view": ["ADMIN", "SUPERADMIN", "USER"],
+          "create": ["ADMIN", "SUPERADMIN"],
+          "update": ["ADMIN", "SUPERADMIN"],
+          "delete": ["SUPERADMIN"]
+        }
+      },
+
+      "uiSchema": {
+        "layout": "two-column",
+        "sections": [
+          {
+            "title": "Basic Information",
+            "fields": ["name", "chain"]
+          },
+          {
+            "title": "Address",
+            "fields": ["address", "city", "state", "pincode"]
+          },
+          {
+            "title": "Location (Coordinates)",
+            "fields": ["latitude", "longitude"]
+          },
+          {
+            "title": "Contact Information",
+            "fields": ["phone", "email"]
+          },
+          {
+            "title": "Facilities & Images",
+            "fields": ["facilities", "images"]
+          },
+          {
+            "title": "Availability",
+            "fields": ["isActive"]
+          }
+        ],
+        "submitButton": {
+          "label": "Save Theatre",
+          "loadingLabel": "Saving..."
+        }
+      },
+
+      "metadata": {
+        "category": "cinema",
+        "version": "1.0",
+        "lastUpdated": "2026-02-12T00:00:00Z",
+        "fieldCount": 13,
+        "author": "system"
+      }
+    }
+  ],
+
+  "metadata": {
+    "module": "cinema",
+    "version": "1.0",
+    "documentCount": "theatres"
+  }
+}

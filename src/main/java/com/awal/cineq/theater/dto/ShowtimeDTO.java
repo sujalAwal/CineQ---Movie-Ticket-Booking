@@ -1,5 +1,6 @@
 package com.awal.cineq.theater.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,6 +23,7 @@ public class ShowtimeDTO {
     
     @NotNull(message = "Show date and time is required")
     @Future(message = "Show date and time must be in the future")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime showDateTime;
     
     @NotNull(message = "Price is required")

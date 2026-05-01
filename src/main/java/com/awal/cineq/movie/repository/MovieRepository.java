@@ -1,40 +1,61 @@
 package com.awal.cineq.movie.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import com.awal.cineq.movie.model.Movie;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
+/**
+ * MongoDB Repository for Movie documents
+ * All queries include soft-delete filter: { 'deleted_at': null }
+ */
 @Repository
-public interface MovieRepository extends JpaRepository<Movie, Long> {
+public interface MovieRepository extends MongoRepository<Movie, String> {
     
+    // Find active movies (not soft-deleted)
+    @Query("{ 'is_active': true, 'deleted_at': null }")
     List<Movie> findByIsActiveTrue();
     
+    // Find movies by title (case-insensitive, soft-delete excluded)
+    @Query("{ 'title': { $regex: ?0, $options: 'i' }, 'deleted_at': null }")
     List<Movie> findByTitleContainingIgnoreCase(String title);
     
+    // Find movies with pagination
+    @Query("{ 'deleted_at': null }")
+    Page<Movie> findAll(Pageable pageable);
+    
+    // Find movies by release date range (soft-delete excluded)
+    @Query("{ 'release_date': { $gte: ?0, $lte: ?1 }, 'deleted_at': null }")
     List<Movie> findByReleaseDateBetween(LocalDate startDate, LocalDate endDate);
     
+    // Find movies by language (soft-delete excluded)
+    @Query("{ 'language': ?0, 'deleted_at': null }")
     List<Movie> findByLanguage(String language);
     
+    // Find movies by rating (soft-delete excluded)
+    @Query("{ 'rating': ?0, 'deleted_at': null }")
     List<Movie> findByRating(String rating);
     
-    @Query("SELECT m FROM Movie m JOIN m.genres g WHERE g.name = :genreName AND m.isActive = true")
-    List<Movie> findByGenreName(@Param("genreName") String genreName);
+    // Find movies by genre ID (soft-delete excluded)
+    @Query("{ 'genres': ?0, 'is_active': true, 'deleted_at': null }")
+    List<Movie> findByGenreId(String genreId);
     
-    @Query("SELECT m FROM Movie m WHERE m.releaseDate <= :currentDate AND m.isActive = true ORDER BY m.releaseDate DESC")
-    List<Movie> findCurrentlyShowingMovies(@Param("currentDate") LocalDate currentDate);
+    // Find currently showing movies (release_date <= today, soft-delete excluded)
+    @Query("{ 'release_date': { $lte: ?0 }, 'is_active': true, 'deleted_at': null }")
+    List<Movie> findCurrentlyShowingMovies(LocalDate currentDate);
     
-    @Query("SELECT m FROM Movie m WHERE m.releaseDate > :currentDate AND m.isActive = true ORDER BY m.releaseDate ASC")
-    List<Movie> findUpcomingMovies(@Param("currentDate") LocalDate currentDate);
+    // Find upcoming movies (release_date > today, soft-delete excluded)
+    @Query("{ 'release_date': { $gt: ?0 }, 'is_active': true, 'deleted_at': null }")
+    List<Movie> findUpcomingMovies(LocalDate currentDate);
     
-    @Query("SELECT DISTINCT m.language FROM Movie m WHERE m.isActive = true ORDER BY m.language")
-    List<String> findDistinctLanguages();
-    
-    @Query("SELECT DISTINCT m.rating FROM Movie m WHERE m.isActive = true ORDER BY m.rating")
-    List<String> findDistinctRatings();
+    // Find movie by ID (soft-delete excluded)
+    @Query("{ '_id': ?0, 'deleted_at': null }")
+    Optional<Movie> findById(String id);
 }

@@ -1,49 +1,57 @@
 package com.awal.cineq.artist.model;
 
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.GenericGenerator;
-import java.time.LocalDateTime;
-import java.util.UUID;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
-@Entity
-@Table(name = "artists")
+import java.time.LocalDateTime;
+
+/**
+ * MongoDB Document for Artist
+ * Uses soft-delete pattern: deletedAt = null means active, not null means deleted
+ */
+@Document(collection = "artists")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class Artist {
-    @Id
-    @GeneratedValue(generator = "UUID")
-    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
-    @Column(name = "id", updatable = false, nullable = false)
-    private UUID id;
 
-    @Column(name = "name", nullable = false)
+    @Id
+    private String id;  // MongoDB ObjectId stored as String
+
+    @Field("name")
+    @Indexed
     private String name;
 
-    @Column(name = "bio")
+    @Field("bio")
     private String bio;
 
-    @Column(name = "profile_picture")
+    @Field("profile_picture")
     private String profilePicture;
 
-    @Column(name = "is_active")
-    private Boolean isActive;
+    @Field("is_active")
+    private Boolean isActive = true;
 
-    @Column(name = "order")
+    @Field("order")
     private Integer order;
 
-    @Column(name = "industry")
+    @Field("industry")
     private String industry;
 
-    @Column(name = "created_at")
+    @Field("created_at")
+    @CreatedDate
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Field("updated_at")
+    @LastModifiedDate
     private LocalDateTime updatedAt;
 
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt;
+    @Field("deleted_at")
+    private LocalDateTime deletedAt;  // Soft-delete marker: null = active
 }
 

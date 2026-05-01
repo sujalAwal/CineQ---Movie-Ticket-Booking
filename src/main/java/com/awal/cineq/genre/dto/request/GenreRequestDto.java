@@ -1,5 +1,6 @@
 package com.awal.cineq.genre.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -18,6 +19,10 @@ public class GenreRequestDto {
     @Size(max = 500, message = "Description must not exceed 500 characters")
     private String description;
 
-    private boolean is_active;
+    @JsonProperty("is_active")
+    private boolean isActive;
+
+    // backwards-compat: keep the old getter name that GenreServiceImpl calls
+    public boolean is_active() { return isActive; }
 }
 

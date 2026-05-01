@@ -1,6 +1,6 @@
 package com.awal.cineq.config;
 
-import com.awal.cineq.customer.service.CustomerDetailsService;
+import com.awal.cineq.customer.service.impl.CustomerDetailsService;
 import com.awal.cineq.user.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

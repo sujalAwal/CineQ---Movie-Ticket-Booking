@@ -1,88 +1,77 @@
 package com.awal.cineq.booking.model;
 
-import jakarta.persistence.*;
+import com.awal.cineq.payment.enums.PaymentMethod;
+import com.awal.cineq.payment.enums.PaymentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.awal.cineq.user.model.User;
-import com.awal.cineq.theater.model.Showtime;
-
-@Entity
-@Table(name = "bookings")
+/**
+ * MongoDB Document for Booking.
+ *
+ * seatStatusCode references the seat_statuses collection:
+ *   3 = Reserved  → booking is PENDING (awaiting payment)
+ *   2 = Booked    → booking is CONFIRMED (payment successful)
+ *   1 = Available → booking was CANCELLED/EXPIRED (deletedAt is also set)
+ *
+ * Soft-delete pattern: deletedAt = null means active; set = removed from unique seat index.
+ */
+@Document(collection = "bookings")
+@CompoundIndexes({
+    @CompoundIndex(
+        name = "booking_reference_active_idx",
+        def = "{'bookingReference': 1, 'deletedAt': 1}",
+        unique = true
+    )
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class Booking {
-    
+
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    @Column(name = "booking_reference", nullable = false, unique = true, length = 20)
+    private String id;
+
     private String bookingReference;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "showtime_id", nullable = false)
-    private Showtime showtime;
-    
-    @Column(name = "booking_date", nullable = false)
+
+    private String showtimeId;
+    private String customerId;
+
     private LocalDateTime bookingDate;
-    
-    @Column(name = "number_of_seats", nullable = false)
     private Integer numberOfSeats;
-    
-    @Column(name = "total_amount", precision = 10, scale = 2, nullable = false)
     private BigDecimal totalAmount;
-    
-    @Enumerated(EnumType.STRING)
-    @Column(name = "booking_status", nullable = false)
-    private BookingStatus bookingStatus = BookingStatus.PENDING;
-    
-    @Enumerated(EnumType.STRING)
-    @Column(name = "payment_status", nullable = false)
-    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
-    
-    @Column(name = "payment_method", length = 50)
-    private String paymentMethod;
-    
-    @Column(name = "payment_reference", length = 100)
+
+    /**
+     * Status code from seat_statuses collection:
+     * 3 = Reserved (PENDING), 2 = Booked (CONFIRMED), 1 = Available (CANCELLED)
+     */
+    private Integer seatStatusCode = 3;
+
+    private PaymentStatus paymentStatus = PaymentStatus.INITIATED;
+    private PaymentMethod paymentMethod;
     private String paymentReference;
-    
-    @Column(name = "created_at", nullable = false)
+
+    /** PENDING bookings expire after 15 minutes; null once confirmed. */
+    private LocalDateTime expiresAt;
+
+    @CreatedDate
     private LocalDateTime createdAt;
-    
-    @Column(name = "updated_at")
+
+    @LastModifiedDate
     private LocalDateTime updatedAt;
-    
-    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+
+    /** Soft-delete timestamp; null = active. Cancelled bookings are soft-deleted so seats are freed in the unique index. */
+    private LocalDateTime deletedAt;
+
     private List<BookingDetail> bookingDetails;
-    
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-        bookingDate = LocalDateTime.now();
-    }
-    
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
-    
-    public enum BookingStatus {
-        PENDING, CONFIRMED, CANCELLED, EXPIRED
-    }
-    
-    public enum PaymentStatus {
-        PENDING, COMPLETED, FAILED, REFUNDED
-    }
 }

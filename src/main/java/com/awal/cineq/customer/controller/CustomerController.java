@@ -12,7 +12,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/frontend/customer")
@@ -25,7 +24,7 @@ public class CustomerController {
 
     @GetMapping("/profile/{customerId}")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<ApiResponse<CustomerResponse>> getProfile(@PathVariable UUID customerId) {
+    public ResponseEntity<ApiResponse<CustomerResponse>> getProfile(@PathVariable String customerId) {  // Changed from UUID to String
         CustomerResponse customer = customerService.getProfile(customerId);
         return ResponseEntity.ok(ApiResponse.success("Profile retrieved successfully", customer));
     }
@@ -33,7 +32,7 @@ public class CustomerController {
     @PutMapping("/profile/{customerId}")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<CustomerResponse>> updateProfile(
-            @PathVariable UUID customerId,
+            @PathVariable String customerId,  // Changed from UUID to String
             @Valid @RequestBody CustomerUpdateRequest updateRequest) {
         
         CustomerResponse updatedCustomer = customerService.updateProfile(customerId, updateRequest);
@@ -42,7 +41,7 @@ public class CustomerController {
 
     @DeleteMapping("/profile/{customerId}")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<ApiResponse<String>> deleteAccount(@PathVariable UUID customerId) {
+    public ResponseEntity<ApiResponse<String>> deleteAccount(@PathVariable String customerId) {  // Changed from UUID to String
         customerService.deleteAccount(customerId);
         return ResponseEntity.ok(ApiResponse.success("Account deleted successfully", "Your account has been deleted"));
     }
@@ -57,7 +56,7 @@ public class CustomerController {
 
     @GetMapping("/{customerId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<CustomerResponse>> getCustomerById(@PathVariable UUID customerId) {
+    public ResponseEntity<ApiResponse<CustomerResponse>> getCustomerById(@PathVariable String customerId) {  // Changed from UUID to String
         CustomerResponse customer = customerService.getCustomerById(customerId);
         return ResponseEntity.ok(ApiResponse.success("Customer retrieved successfully", customer));
     }

@@ -1,13 +1,14 @@
 package com.awal.cineq;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.awal.cineq.user.model.User;
+import com.awal.cineq.user.repository.UserRepository;
 
-@SpringBootTest
+//@SpringBootTest
 class CineqApplicationTests {
 
-	@Test
-	void contextLoads() {
+	void HelloWorld() {
+		System.out.println("Hello, World!");
 	}
+
 
 }

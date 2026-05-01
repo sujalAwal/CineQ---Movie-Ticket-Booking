@@ -1,0 +1,47 @@
+[
+  {
+    "_id": { "$oid": "67a1f001d19cd566d1589fb0" },
+    "code": "ENG",
+    "name": "English",
+    "isActive": true,
+    "createdAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "deletedAt": null
+  },
+  {
+    "_id": { "$oid": "67a1f002d19cd566d1589fb1" },
+    "code": "HIN",
+    "name": "Hindi",
+    "isActive": true,
+    "createdAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "deletedAt": null
+  },
+  {
+    "_id": { "$oid": "67a1f003d19cd566d1589fb2" },
+    "code": "NEP",
+    "name": "Nepali",
+    "isActive": true,
+    "createdAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "deletedAt": null
+  },
+  {
+    "_id": { "$oid": "67a1f004d19cd566d1589fb3" },
+    "code": "MAL",
+    "name": "Malayalam",
+    "isActive": true,
+    "createdAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "deletedAt": null
+  },
+  {
+    "_id": { "$oid": "67a1f005d19cd566d1589fb4" },
+    "code": "MARA",
+    "name": "Marathi",
+    "isActive": true,
+    "createdAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-04-10T00:00:00.000Z" },
+    "deletedAt": null
+  }
+]

@@ -1,27 +1,32 @@
 package com.awal.cineq.theater.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import com.awal.cineq.theater.model.Seat;
 
 import java.util.List;
 
+/**
+ * MongoDB Repository for Seat
+ * Includes soft-delete queries (deletedAt = null)
+ */
 @Repository
-public interface SeatRepository extends JpaRepository<Seat, Long> {
-    
-    List<Seat> findByTheaterIdAndIsActiveTrue(Long theaterId);
-    
-    List<Seat> findByTheaterIdAndSeatType(Long theaterId, String seatType);
-    
-    @Query("SELECT s FROM Seat s WHERE s.theater.id = :theaterId AND s.rowNumber = :rowNumber AND s.isActive = true ORDER BY s.seatNumber")
-    List<Seat> findByTheaterAndRow(@Param("theaterId") Long theaterId, @Param("rowNumber") String rowNumber);
-    
-    @Query("SELECT DISTINCT s.rowNumber FROM Seat s WHERE s.theater.id = :theaterId AND s.isActive = true ORDER BY s.rowNumber")
-    List<String> findDistinctRowsByTheater(@Param("theaterId") Long theaterId);
-    
-    @Query("SELECT COUNT(s) FROM Seat s WHERE s.theater.id = :theaterId AND s.isActive = true")
-    Long countActiveSeatsInTheater(@Param("theaterId") Long theaterId);
+public interface SeatRepository extends MongoRepository<Seat, String> {
+
+    @Query("{ 'theaterId': ?0, 'isActive': true, 'deletedAt': null }")
+    List<Seat> findByTheaterIdAndIsActiveTrue(String theaterId);
+
+    @Query("{ 'theaterId': ?0, 'seatType': ?1, 'deletedAt': null }")
+    List<Seat> findByTheaterIdAndSeatType(String theaterId, String seatType);
+
+    @Query(value = "{ 'theaterId': ?0, 'rowNumber': ?1, 'isActive': true, 'deletedAt': null }", sort = "{ 'seatNumber': 1 }")
+    List<Seat> findByTheaterAndRow(String theaterId, String rowNumber);
+
+    @Query(value = "{ 'theaterId': ?0, 'isActive': true, 'deletedAt': null }", fields = "{ 'rowNumber': 1 }")
+    List<Seat> findDistinctRowsByTheaterRaw(String theaterId);
+
+    @Query(value = "{ 'theaterId': ?0, 'isActive': true, 'deletedAt': null }", count = true)
+    Long countActiveSeatsInTheater(String theaterId);
 }
