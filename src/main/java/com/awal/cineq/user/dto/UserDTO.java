@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -22,21 +23,23 @@ public class UserDTO {
     @Email(message = "Email should be valid")
     @Size(max = 200, message = "Email must not exceed 200 characters")
     private String email;
-    
+
     @Size(max = 20, message = "Phone number must not exceed 20 characters")
     private String phoneNumber;
-    
-    /**
-     * Reference to the roles collection document ID.
-     */
-    private String roleId;
 
     /**
-     * Role name fetched from the roles collection (for display purposes).
+     * All roles assigned to the user (from user_has_roles collection).
      */
-    private String roleName;
+    private List<String> roleIds;
+
+    /**
+     * Role names for all roles assigned to the user.
+     */
+    private List<String> roleNames;
 
     private Boolean isActive;
+    
+    private String passwordStatus;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt;

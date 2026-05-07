@@ -9,7 +9,10 @@ import com.awal.cineq.user.dto.UserDTO;
 import com.awal.cineq.user.dto.request.UserPageRequest;
 import com.awal.cineq.user.dto.request.UserUpdateRequest;
 import com.awal.cineq.user.model.User;
+import com.awal.cineq.user.model.UserHasRole;
 import com.awal.cineq.user.repository.UserRepository;
+import com.awal.cineq.user.repository.UserHasRoleRepository;
+import com.awal.cineq.user.service.UserRoleAssigner;
 import com.awal.cineq.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,16 +25,10 @@ import org.springframework.data.support.PageableExecutionUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-/**
- * User Service Implementation using MongoDB.
- * Handles all business logic for user management.
- * Note: User creation is handled by AuthService.register()
- */
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -39,7 +36,9 @@ import java.util.Optional;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final UserHasRoleRepository userHasRoleRepository;
     private final MongoTemplate mongoTemplate;
+    private final UserRoleAssigner userRoleAssigner;
 
     @Override
     @Transactional(readOnly = true)
@@ -110,18 +109,15 @@ public class UserServiceImpl implements UserService {
             User user = userRepository.findById(id)
                     .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
-            // Ensure user is not soft-deleted
             if (user.getDeletedAt() != null) {
                 throw new ResourceNotFoundException("User not found with id: " + id);
             }
 
-            // Update fields if provided
             if (updateRequest.getName() != null && !updateRequest.getName().isBlank()) {
                 user.setName(updateRequest.getName());
             }
 
             if (updateRequest.getEmail() != null && !updateRequest.getEmail().isBlank()) {
-                // Check if email is already taken by another user
                 if (!user.getEmail().equals(updateRequest.getEmail())) {
                     Optional<User> existingUser = userRepository.findByEmail(updateRequest.getEmail());
                     if (existingUser.isPresent() && !existingUser.get().getId().equals(id)) {
@@ -135,17 +131,16 @@ public class UserServiceImpl implements UserService {
                 user.setPhoneNumber(updateRequest.getPhoneNumber());
             }
 
-            if (updateRequest.getRoleId() != null && !updateRequest.getRoleId().isBlank()) {
-                // Validate that the role exists
-                validateRoleExists(updateRequest.getRoleId());
-                user.setRoleId(updateRequest.getRoleId());
-            }
-
             if (updateRequest.getIsActive() != null) {
                 user.setIsActive(updateRequest.getIsActive());
             }
 
             User updated = userRepository.save(user);
+
+            if (updateRequest.getRoleIds() != null && !updateRequest.getRoleIds().isEmpty()) {
+                userRoleAssigner.replaceUserRoles(updated.getId(), updateRequest.getRoleIds());
+            }
+
             UserDTO result = mapUserToDTO(updated);
 
             log.debug("updateUser result: {}", result);
@@ -227,24 +222,16 @@ public class UserServiceImpl implements UserService {
      * Find users based on request filters using MongoTemplate for complex queries.
      */
     private Page<User> findUsers(UserPageRequest request, PageRequest pageRequest) {
-        log.debug("findUsers STARTED: hasSearch={}, hasRoleId={}", request.hasSearch(), request.hasRoleId());
+        log.debug("findUsers STARTED: hasSearch={}", request.hasSearch());
 
         Query query = new Query();
 
-        // Always exclude soft-deleted users
         query.addCriteria(Criteria.where("deletedAt").is(null));
 
-        // Filter by active status if provided
         if (request.getActive() != null) {
             query.addCriteria(Criteria.where("isActive").is(request.getActive()));
         }
 
-        // Filter by roleId if provided
-        if (request.hasRoleId()) {
-            query.addCriteria(Criteria.where("roleId").is(request.getRoleId()));
-        }
-
-        // Search by name or email if provided
         if (request.hasSearch()) {
             String searchPattern = request.getSearch();
             query.addCriteria(new Criteria().orOperator(
@@ -253,10 +240,18 @@ public class UserServiceImpl implements UserService {
             ));
         }
 
-        // Get total count
-        long total = mongoTemplate.count(query, User.class);
+        if (request.hasRoleId()) {
+            List<String> userIdsWithRole = userHasRoleRepository.findByRoleIdActive(request.getRoleId()).stream()
+                    .map(UserHasRole::getUserId)
+                    .distinct()
+                    .toList();
+            if (userIdsWithRole.isEmpty()) {
+                return Page.empty(pageRequest);
+            }
+            query.addCriteria(Criteria.where("_id").in(userIdsWithRole));
+        }
 
-        // Apply pagination
+        long total = mongoTemplate.count(query, User.class);
         query.with(pageRequest);
 
         List<User> users = mongoTemplate.find(query, User.class);
@@ -265,7 +260,7 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * Maps a User entity to UserDTO, including role name from roles collection.
+     * Maps a User entity to UserDTO with all assigned roles.
      */
     private UserDTO mapUserToDTO(User user) {
         UserDTO dto = new UserDTO();
@@ -273,58 +268,22 @@ public class UserServiceImpl implements UserService {
         dto.setName(user.getName());
         dto.setEmail(user.getEmail());
         dto.setPhoneNumber(user.getPhoneNumber());
-        dto.setRoleId(user.getRoleId());
-        dto.setRoleName(fetchRoleNameById(user.getRoleId()));
+
+        List<UserHasRole> userRoles = userHasRoleRepository.findByUserIdActive(user.getId());
+
+        if (userRoles.isEmpty()) {
+            dto.setRoleIds(List.of());
+            dto.setRoleNames(List.of("USER"));
+        } else {
+            dto.setRoleIds(userRoles.stream().map(UserHasRole::getRoleId).collect(Collectors.toList()));
+            dto.setRoleNames(userRoles.stream()
+                    .map(ur -> ur.getRoleName() != null ? ur.getRoleName() : "USER")
+                    .collect(Collectors.toList()));
+        }
+
         dto.setIsActive(user.getIsActive());
         dto.setCreatedAt(user.getCreatedAt());
+        dto.setPasswordStatus(user.getPasswordStatus());
         return dto;
-    }
-
-    /**
-     * Fetches the role name from the roles collection by roleId.
-     */
-    private String fetchRoleNameById(String roleId) {
-        if (roleId == null || roleId.isBlank()) {
-            return "USER";
-        }
-
-        try {
-            Query roleQuery = Query.query(
-                    Criteria.where("_id").is(new org.bson.types.ObjectId(roleId))
-                            .and("deletedAt").is(null)
-            );
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> roleDoc = mongoTemplate.findOne(roleQuery, Map.class, "roles");
-
-            if (roleDoc != null && roleDoc.get("name") != null) {
-                return roleDoc.get("name").toString();
-            }
-            return "USER";
-        } catch (IllegalArgumentException e) {
-            log.warn("fetchRoleNameById: Invalid ObjectId format for roleId={}", roleId);
-            return "USER";
-        }
-    }
-
-    /**
-     * Validates that a role with the given ID exists in the roles collection.
-     */
-    private void validateRoleExists(String roleId) {
-        try {
-            Query roleQuery = Query.query(
-                    Criteria.where("_id").is(new org.bson.types.ObjectId(roleId))
-                            .and("deletedAt").is(null)
-            );
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> roleDoc = mongoTemplate.findOne(roleQuery, Map.class, "roles");
-
-            if (roleDoc == null) {
-                throw new ResourceNotFoundException("Role not found with ID: " + roleId);
-            }
-        } catch (IllegalArgumentException e) {
-            throw new BadRequestException("Invalid role ID format: " + roleId);
-        }
     }
 }

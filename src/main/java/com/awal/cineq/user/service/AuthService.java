@@ -10,4 +10,9 @@ public interface AuthService {
     AuthResponse register(RegisterRequest registerRequest);
     void logout(String token);
     ProfileResponse getProfile(String email);
+    
+    // Magic Link Endpoints
+    java.util.Map<String, Object> validateToken(String token);
+    void setPassword(String token, String password);
+    void resendLink(String email);
 }

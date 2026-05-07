@@ -18,7 +18,9 @@ import com.awal.cineq.permission.repository.PermissionRepository;
 import com.awal.cineq.rolehasmodule.model.RoleHasModule;
 import com.awal.cineq.rolehasmodule.repository.RoleHasModuleRepository;
 import com.awal.cineq.user.model.User;
+import com.awal.cineq.user.model.UserHasRole;
 import com.awal.cineq.user.repository.UserRepository;
+import com.awal.cineq.user.repository.UserHasRoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -48,6 +50,7 @@ public class ModuleServiceImpl implements ModuleService {
     private final ActionRepository actionRepository;
     private final PermissionRepository permissionRepository;
     private final UserRepository userRepository;
+    private final UserHasRoleRepository userHasRoleRepository;
     private final RoleHasModuleRepository roleHasModuleRepository;
     private final ModelMapper modelMapper;
     private final ApplicationProperties applicationProperties;
@@ -383,28 +386,39 @@ public class ModuleServiceImpl implements ModuleService {
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
 
-            String userRole = user.getRole();
-            log.debug("getModulesByUserRole: user found with id={}, role={}", user.getId(), userRole);
+            // Step 2: Get all roles for this user
+            List<UserHasRole> userRoles = userHasRoleRepository.findByUserIdActive(user.getId());
+            List<String> roleNames = userRoles.stream()
+                    .map(UserHasRole::getRoleName)
+                    .distinct()
+                    .collect(Collectors.toList());
 
-            // Step 2: Check if user has prominent role (SUPERADMIN, ADMIN, etc.)
-            // If prominent, return all enabled modules; otherwise, use role-based access
+            log.debug("getModulesByUserRole: user found with id={}, roles={}", user.getId(), roleNames);
+
+            // Step 3: Check if user has any prominent role
             List<Module> modules;
 
-            if (isProminentRole(userRole)) {
-                log.info("getModulesByUserRole: prominent role detected ({}), returning all enabled modules", userRole);
+            boolean hasProminentRole = roleNames.stream().anyMatch(this::isProminentRole);
+            if (hasProminentRole) {
+                log.info("getModulesByUserRole: prominent role detected, returning all enabled modules");
                 modules = moduleRepository.findAllByIsEnabledTrueAndDeletedAtIsNull();
             } else {
-                // Step 3: Find all role-module mappings for this user's role (active mappings only, excluding soft-deleted)
-                List<RoleHasModule> roleModules = roleHasModuleRepository.findByRoleAndIsActiveTrueAndDeletedAtIsNull(userRole);
+                // Step 4: Find all role-module mappings for all user roles
+                List<RoleHasModule> roleModules = new ArrayList<>();
+                for (String roleName : roleNames) {
+                    List<RoleHasModule> modulesByRole = roleHasModuleRepository
+                            .findByRoleAndIsActiveTrueAndDeletedAtIsNull(roleName);
+                    roleModules.addAll(modulesByRole);
+                }
 
                 if (roleModules.isEmpty()) {
-                    log.info("getModulesByUserRole: no modules assigned to role={}", userRole);
+                    log.info("getModulesByUserRole: no modules assigned to roles={}", roleNames);
                     return Collections.emptyList();
                 }
 
-                log.debug("getModulesByUserRole: found {} role-module mappings for role={}", roleModules.size(), userRole);
+                log.debug("getModulesByUserRole: found {} role-module mappings for roles={}", roleModules.size(), roleNames);
 
-                // Step 4: Extract module IDs from role-module mappings
+                // Step 5: Extract unique module IDs from role-module mappings
                 List<String> moduleIds = roleModules.stream()
                         .map(RoleHasModule::getModuleId)
                         .distinct()
@@ -412,12 +426,12 @@ public class ModuleServiceImpl implements ModuleService {
 
                 log.debug("getModulesByUserRole: extracted {} unique module IDs", moduleIds.size());
 
-                // Step 5: Fetch all modules by IDs, excluding soft-deleted ones and only enabled modules
+                // Step 6: Fetch all modules by IDs, excluding soft-deleted ones and only enabled modules
                 modules = moduleRepository.findAllByIdInAndIsEnabledTrueAndDeletedAtIsNull(moduleIds);
-                log.info("getModulesByUserRole: fetched {} active and enabled modules for role={}", modules.size(), userRole);
+                log.info("getModulesByUserRole: fetched {} active and enabled modules for roles={}", modules.size(), roleNames);
             }
 
-            // Step 6: Convert to DTOs with permission counts
+            // Step 7: Convert to DTOs with permission counts
             List<ModuleResponseDTO> result = modules.stream()
                     .map(module -> {
                         ModuleResponseDTO dto = modelMapper.map(module, ModuleResponseDTO.class);
@@ -427,7 +441,7 @@ public class ModuleServiceImpl implements ModuleService {
                     })
                     .collect(Collectors.toList());
 
-            log.info("getModulesByUserRole END: returned {} modules for user={}", result.size(), userRole);
+            log.info("getModulesByUserRole END: returned {} modules for roles={}", result.size(), roleNames);
             return result;
 
         } catch (ResourceNotFoundException e) {

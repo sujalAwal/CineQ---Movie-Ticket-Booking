@@ -1,5 +1,6 @@
 package com.awal.cineq.security.service;
 
+import com.awal.cineq.config.ApplicationProperties;
 import com.awal.cineq.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RBACPermissionService {
 
+    private final ApplicationProperties applicationProperties;
+
     /**
      * Check if user roles have permission to perform actions on a module
      * 
@@ -37,6 +40,13 @@ public class RBACPermissionService {
         // Validate inputs
         if (userRoles == null || userRoles.isEmpty()) {
             throw new BusinessException("User has no roles assigned");
+        }
+
+        // 1. Check for prominent role (e.g., SUPER_ADMIN)
+        String prominentRole = applicationProperties.getSecurity().getProminentRole();
+        if (userRoles.contains(prominentRole)) {
+            log.info("Permission granted: User has prominent role '{}'", prominentRole);
+            return; // Bypass further checks
         }
 
         if (moduleCode == null) {

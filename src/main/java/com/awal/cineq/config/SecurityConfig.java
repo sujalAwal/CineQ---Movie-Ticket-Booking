@@ -76,7 +76,10 @@ public class SecurityConfig {
                     // ============================================
                     .requestMatchers(
                             "/auth/login",
-                            "/auth/register"
+                            "/auth/register",
+                            "/auth/validate-token",
+                            "/auth/set-password",
+                            "/auth/resend-link"
                     ).permitAll()
 
                     // ============================================

@@ -18,6 +18,13 @@ public class ApplicationProperties {
     private App app = new App();
     private Customer customer = new Customer();
     private Payment payment = new Payment();
+    private Token token = new Token();
+
+    @Data
+    public static class Token {
+        private int expiryHours = 24;
+        private int maxResendPerHour = 3;
+    }
 
     @Data
     public static class Jwt {
@@ -69,6 +76,7 @@ public class ApplicationProperties {
     public static class App {
         private String url = "http://localhost:8080";  // Backend API URL
         private String googleClientId ;
+        private String defaultUserPassword = "default@Password123"; // Default password for new users
     }
 
     @Data

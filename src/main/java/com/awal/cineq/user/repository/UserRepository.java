@@ -18,13 +18,6 @@ public interface UserRepository extends MongoRepository<User, String> {
     
     List<User> findByIsActiveTrue();
     
-    /**
-     * Find users by roleId (reference to the roles collection).
-     *
-     * @param roleId The ObjectId of the role document in the roles collection
-     * @return List of users with the specified roleId
-     */
-    List<User> findByRoleId(String roleId);
 
     // MongoDB query: uses regex for case-insensitive pattern matching (like SQL LIKE)
     // $or: checks if name OR email matches the keyword
@@ -40,13 +33,4 @@ public interface UserRepository extends MongoRepository<User, String> {
     List<User> searchUsers(String keyword);
 
     boolean existsByEmail(String email);
-    
-    /**
-     * Count users by roleId (reference to the roles collection).
-     *
-     * @param roleId The ObjectId of the role document in the roles collection
-     * @return Count of active users with the specified roleId
-     */
-    @Query(value = "{ 'role_id': ?0, 'isActive': true }", count = true)
-    Long countByRoleId(String roleId);
 }

@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Profile response DTO containing user info, role, permissions, and accessible modules.
@@ -25,7 +24,6 @@ public class ProfileResponse {
     private String name;
     private String email;
     private String phoneNumber;
-    private String roleName;
     private Boolean isActive;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
@@ -37,9 +35,9 @@ public class ProfileResponse {
     // ==================== ROLE INFO ====================
 
     /**
-     * Full role object from roles collection
+     * Active roles assigned to the user (from user_has_roles).
      */
-    private RoleInfo role;
+    private List<RoleInfo> role;
 
     // ==================== MODULES ====================
 
@@ -57,15 +55,7 @@ public class ProfileResponse {
     public static class RoleInfo {
         private String id;
         private String name;
-        private String slug;
-        private Map<String, Object> permissions;
         private Boolean isActive;
-
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
-        private LocalDateTime createdAt;
-
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
-        private LocalDateTime updatedAt;
     }
 
     @Data
@@ -80,6 +70,7 @@ public class ProfileResponse {
         private String api;
         private String description;
         private Boolean isEnabled;
+        private String parentId;
 
         /**
          * Permission IDs for this module (from role_has_modules.permissionIds)

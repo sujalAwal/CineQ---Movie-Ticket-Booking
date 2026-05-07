@@ -1,7 +1,9 @@
 package com.awal.cineq.user.service;
 
 import com.awal.cineq.user.model.User;
+import com.awal.cineq.user.model.UserHasRole;
 import com.awal.cineq.user.repository.UserRepository;
+import com.awal.cineq.user.repository.UserHasRoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -16,7 +18,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +28,7 @@ import java.util.Map;
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
+    private final UserHasRoleRepository userHasRoleRepository;
     private final MongoTemplate mongoTemplate;
 
     @Override
@@ -43,15 +48,35 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     /**
-     * Fetches the role name from the roles collection using the user's roleId
+     * Fetches all roles for the user from user_has_roles collection
      * and returns the appropriate authorities.
      *
      * @param user The User entity
-     * @return Collection of granted authorities based on the user's role
+     * @return Collection of granted authorities based on the user's roles
      */
     private Collection<? extends GrantedAuthority> getAuthorities(User user) {
-        String roleName = fetchRoleNameById(user.getRoleId());
-        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + roleName));
+        log.debug("getAuthorities STARTED: userId={}", user.getId());
+
+        List<UserHasRole> userRoles = userHasRoleRepository.findByUserIdActive(user.getId());
+
+        if (userRoles.isEmpty()) {
+            log.debug("getAuthorities: No roles found for userId={}, using default USER role", user.getId());
+            return Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
+        }
+
+        List<GrantedAuthority> authorities = userRoles.stream()
+                .map(ur -> {
+                    String roleName = ur.getRoleName();
+                    if (roleName == null || roleName.isBlank()) {
+                        roleName = fetchRoleNameById(ur.getRoleId());
+                    }
+                    log.debug("getAuthorities: Adding role - roleId={}, roleName={}", ur.getRoleId(), roleName);
+                    return new SimpleGrantedAuthority("ROLE_" + roleName);
+                })
+                .collect(Collectors.toList());
+
+        log.debug("getAuthorities END: found {} roles for userId={}", authorities.size(), user.getId());
+        return authorities;
     }
 
     /**

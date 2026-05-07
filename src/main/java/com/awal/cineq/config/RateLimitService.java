@@ -78,6 +78,19 @@ public class RateLimitService {
     }
     
     /**
+     * Resolve bucket for resend magic link endpoint
+     * 
+     * @param key IP address or user identifier
+     * @return Bucket for rate limiting
+     */
+    public Bucket resolveResendLinkBucket(String key) {
+        return cache.computeIfAbsent(key + ":resend-link", k -> createBucket(
+            config.getResendLinkCapacity(),
+            Duration.ofMinutes(config.getResendLinkRefillMinutes())
+        ));
+    }
+    
+    /**
      * Create a new bucket with specified capacity and refill duration
      * 
      * @param capacity Maximum number of tokens

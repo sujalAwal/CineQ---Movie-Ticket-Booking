@@ -1,20 +1,31 @@
 package com.awal.cineq.user.service.impl;
 
+import com.awal.cineq.config.ApplicationProperties;
 import com.awal.cineq.config.JwtUtil;
 import com.awal.cineq.exception.BadRequestException;
 import com.awal.cineq.exception.DuplicateResourceException;
 import com.awal.cineq.exception.ResourceNotFoundException;
+import com.awal.cineq.form.enums.FormAction;
 import com.awal.cineq.user.dto.AuthResponse;
-import com.awal.cineq.user.service.AuthService;
 import com.awal.cineq.user.dto.LoginRequest;
 import com.awal.cineq.user.dto.ProfileResponse;
 import com.awal.cineq.user.dto.RegisterRequest;
 import com.awal.cineq.user.dto.UserDTO;
 import com.awal.cineq.user.model.User;
+import com.awal.cineq.user.model.UserHasRole;
 import com.awal.cineq.user.repository.UserRepository;
+import com.awal.cineq.user.repository.UserHasRoleRepository;
+import com.awal.cineq.user.service.AuthService;
+import com.awal.cineq.user.service.UserRoleAssigner;
+import org.bson.types.ObjectId;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.modelmapper.ModelMapper;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -22,11 +33,16 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+
+import com.awal.cineq.common.util.EmailHelper;
+import com.awal.cineq.common.util.SecureTokenGenerator;
+import com.awal.cineq.email.model.EmailTemplate;
+import com.awal.cineq.email.repository.EmailTemplateRepository;
+import com.awal.cineq.user.model.UserToken;
+import com.awal.cineq.user.repository.UserTokenRepository;
+import java.util.HashMap;
+
 
 @Service
 @RequiredArgsConstructor
@@ -35,10 +51,18 @@ import java.util.Map;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final UserHasRoleRepository userHasRoleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-    private final ModelMapper modelMapper;
     private final MongoTemplate mongoTemplate;
+    private final ApplicationProperties applicationProperties;
+    
+    private final UserRoleAssigner userRoleAssigner;
+    private final ApplicationProperties appProperties;
+    private final UserTokenRepository userTokenRepository;
+    private final EmailHelper emailHelper;
+    private final EmailTemplateRepository emailTemplateRepository;
+
 
     @Override
     @Transactional(readOnly = true)
@@ -46,34 +70,30 @@ public class AuthServiceImpl implements AuthService {
         log.info("AuthServiceImpl: Starting login process for email: {}", loginRequest.getEmail());
 
         try {
-            // Validate input
             if (loginRequest == null || loginRequest.getEmail() == null || loginRequest.getEmail().isBlank()) {
                 log.warn("Login attempt with invalid email");
                 throw new BadRequestException("Email is required");
             }
 
-            // Find user by email
             User user = userRepository.findByEmailAndIsActiveTrue(loginRequest.getEmail())
                     .orElseThrow(() -> {
                         log.debug("User not found for email: {}", loginRequest.getEmail());
                         return new BadRequestException("Invalid email or password");
                     });
 
-            // Verify password
-            if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
+            if (user.getPassword() == null || user.getPassword().isEmpty() || !passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
                 log.debug("Password mismatch for user: {}", loginRequest.getEmail());
                 throw new BadRequestException("Invalid email or password");
             }
 
-            // Fetch role name from roles collection using roleId
-            String roleName = fetchRoleNameById(user.getRoleId());
+            List<UserHasRole> activeRoles = userHasRoleRepository.findByUserIdActive(user.getId());
+            LinkedHashMap<String, String> activeRoleNameById = resolveActiveRoleNamesById(activeRoles);
+            List<String> roleIds = new ArrayList<>(activeRoleNameById.keySet());
+            List<String> roleNames = new ArrayList<>(activeRoleNameById.values());
+            String token = jwtUtil.generateToken(user.getEmail(), String.join(",", roleNames));
+            log.info("User {} logged in successfully with roles: {}", user.getEmail(), roleNames);
 
-            // Generate JWT token with role name
-            String token = jwtUtil.generateToken(user.getEmail(), roleName);
-            log.info("User {} logged in successfully", user.getEmail());
-
-            // Map user to DTO and set role info
-            UserDTO userDTO = mapUserToDTO(user, roleName);
+            UserDTO userDTO = mapUserToDTO(user, roleIds, roleNames);
 
             return AuthResponse.builder()
                     .token(token)
@@ -94,161 +114,246 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest registerRequest) {
         log.info("AuthServiceImpl: Starting registration for email: {}", registerRequest.getEmail());
-
-        if (registerRequest.getPassword() == null || registerRequest.getPassword().length() < 6) {
-            log.warn("Registration attempt with weak password for email: {}", registerRequest.getEmail());
-            throw new BadRequestException("Password must be at least 6 characters long");
-        }
 
         if (userRepository.existsByEmail(registerRequest.getEmail())) {
             log.warn("Registration attempt with duplicate email: {}", registerRequest.getEmail());
             throw new DuplicateResourceException("Email already exists");
         }
 
-        // Resolve roleId: use provided roleId or find default role
-        String roleId = registerRequest.getRoleId();
-        if (roleId == null || roleId.isBlank()) {
-            roleId = findDefaultRoleId();
-        } else {
-            // Validate that the provided roleId exists
-            validateRoleExists(roleId);
-        }
-
-        // Create user
         User user = new User();
         user.setName(registerRequest.getName());
         user.setEmail(registerRequest.getEmail());
-        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+        user.setPassword(null); // No default password
+        user.setPasswordStatus("PENDING");
         user.setPhoneNumber(registerRequest.getPhoneNumber());
-        user.setRoleId(roleId);
-        user.setIsActive(true);
+        user.setIsActive(false); // User is inactive
 
         User savedUser = userRepository.save(user);
 
-        // Fetch role name for JWT token generation
-        String roleName = fetchRoleNameById(savedUser.getRoleId());
+        userRoleAssigner.replaceUserRoles(savedUser.getId(), registerRequest.getRoleIds());
 
-        // Generate JWT token with role name
-        String token = jwtUtil.generateToken(savedUser.getEmail(), roleName);
+        // Generate token and save UserToken document
+        String tokenStr = SecureTokenGenerator.generateToken();
+        UserToken userToken = new UserToken();
+        userToken.setUserId(savedUser.getId());
+        userToken.setToken(tokenStr);
+        userToken.setCreatedAt(LocalDateTime.now());
+        userToken.setExpiresAt(LocalDateTime.now().plusHours(appProperties.getToken().getExpiryHours()));
+        userTokenRepository.save(userToken);
 
-        log.info("User {} registered successfully", savedUser.getEmail());
+        // Build magic link
+        String adminUrl = appProperties.getCustomer().getAdminUrl();
+        String magicLink = adminUrl + "/set-password?token=" + tokenStr;
 
-        // Map user to DTO and set role info
-        UserDTO userDTO = mapUserToDTO(savedUser, roleName);
+        // Send email if template exists
+        emailTemplateRepository.findBySlugAndIsActiveTrueAndDeletedAtNull("password-setup").ifPresent(template -> {
+            String msg = template.getMessage();
+            if (msg != null) {
+                msg = msg.replace("{{userName}}", savedUser.getName())
+                         .replace("{{userEmail}}", savedUser.getEmail())
+                         .replace("{{magicLink}}", magicLink)
+                         .replace("{{expiryHours}}", String.valueOf(appProperties.getToken().getExpiryHours()))
+                         .replace("{{year}}", String.valueOf(LocalDateTime.now().getYear()));
+                emailHelper.sendEmail(savedUser.getEmail(), "Set up your CineQ Admin password", msg);
+            }
+            
+            String adminMsg = template.getAdminMessage();
+            if (adminMsg != null && !adminMsg.trim().isEmpty() && appProperties.getCustomer().isAdminNotificationEnabled()) {
+                adminMsg = adminMsg.replace("{{userName}}", savedUser.getName())
+                                   .replace("{{userEmail}}", savedUser.getEmail())
+                                   .replace("{{timestamp}}", LocalDateTime.now().toString());
+                emailHelper.sendEmail(
+                    appProperties.getCustomer().getAdminEmailList(),
+                    "🔐 New Staff User Registered: " + savedUser.getName(),
+                    adminMsg
+                );
+            }
+        });
 
+        // The auth response is simplified since there is no JWT yet.
         return AuthResponse.builder()
-                .token(token)
-                .type("Bearer")
-                .user(userDTO)
+                .user(mapUserToDTO(savedUser, new ArrayList<>(), new ArrayList<>()))
                 .build();
     }
 
-    /**
-     * Fetches the role name from the roles collection by roleId.
-     *
-     * @param roleId The ObjectId of the role document
-     * @return The role name (e.g., "ADMIN", "USER")
-     */
-    private String fetchRoleNameById(String roleId) {
-        if (roleId == null || roleId.isBlank()) {
-            log.warn("fetchRoleNameById: roleId is null or blank, returning default role 'USER'");
-            return "USER";
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> validateToken(String token) {
+        UserToken userToken = userTokenRepository.findByToken(token)
+                .orElseThrow(() -> new BadRequestException("Invalid or expired token"));
+
+        if (!userToken.isValid()) {
+            throw new BadRequestException("Token is invalid, expired, or has been used already");
         }
 
-        try {
-            Query roleQuery = Query.query(
-                    Criteria.where("_id").is(new org.bson.types.ObjectId(roleId))
-                            .and("deletedAt").is(null)
-            );
+        User user = userRepository.findById(userToken.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-            @SuppressWarnings("unchecked")
-            Map<String, Object> roleDoc = mongoTemplate.findOne(roleQuery, Map.class, "roles");
-
-            if (roleDoc != null && roleDoc.get("name") != null) {
-                String roleName = roleDoc.get("name").toString();
-                log.debug("fetchRoleNameById: Found role - id={}, name={}", roleId, roleName);
-                return roleName;
-            } else {
-                log.warn("fetchRoleNameById: Role not found for roleId={}, returning default 'USER'", roleId);
-                return "USER";
-            }
-        } catch (IllegalArgumentException e) {
-            log.warn("fetchRoleNameById: Invalid ObjectId format for roleId={}, returning default 'USER'", roleId);
-            return "USER";
-        }
+        Map<String, Object> response = new HashMap<>();
+        response.put("valid", true);
+        response.put("email", user.getEmail());
+        return response;
     }
 
-    /**
-     * Finds the default role ID (USER role) from the roles collection.
-     *
-     * @return The ObjectId of the default role
-     */
-    private String findDefaultRoleId() {
+    @Override
+    @Transactional
+    public void setPassword(String token, String password) {
+        UserToken userToken = userTokenRepository.findByToken(token)
+                .orElseThrow(() -> new BadRequestException("Invalid or expired token"));
+
+        if (!userToken.isValid()) {
+            throw new BadRequestException("Token is invalid, expired, or has been used already");
+        }
+
+        User user = userRepository.findById(userToken.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        user.setPassword(passwordEncoder.encode(password));
+        user.setPasswordStatus("SET");
+        userRepository.save(user);
+
+        userToken.setUsedAt(LocalDateTime.now());
+        userTokenRepository.save(userToken);
+
+        // Send admin notification
+        emailTemplateRepository.findBySlugAndIsActiveTrueAndDeletedAtNull("password-setup-complete").ifPresent(template -> {
+            String msg = template.getMessage();
+            if (msg != null && !msg.trim().isEmpty()) {
+                String magicLink = appProperties.getCustomer().getAdminUrl() + "/login";
+                msg = msg.replace("{{userName}}", user.getName())
+                         .replace("{{userEmail}}", user.getEmail())
+                         .replace("{{timestamp}}", LocalDateTime.now().toString())
+                         .replace("{{magicLink}}", magicLink)
+                         .replace("{{year}}", String.valueOf(LocalDateTime.now().getYear()));
+                emailHelper.sendEmail(user.getEmail(), "Your CineQ Admin password is ready", msg);
+            }
+
+            String adminMsg = template.getAdminMessage();
+            if (adminMsg != null && !adminMsg.trim().isEmpty() && appProperties.getCustomer().isAdminNotificationEnabled()) {
+                adminMsg = adminMsg.replace("{{userName}}", user.getName())
+                                   .replace("{{userEmail}}", user.getEmail())
+                                   .replace("{{timestamp}}", LocalDateTime.now().toString());
+                emailHelper.sendEmail(
+                    appProperties.getCustomer().getAdminEmailList(),
+                    "✅ Staff Onboarding Complete: " + user.getName(),
+                    adminMsg
+                );
+            }
+        });
+    }
+
+    @Override
+    @Transactional
+    public void resendLink(String email) {
+        User user = userRepository.findByEmailAndIsActiveTrue(email).orElse(null);
+        if (user == null) {
+            log.info("Resend link requested for non-existent or inactive email: {}", email);
+            return;
+        }
+
+        if (!"PENDING".equals(user.getPasswordStatus())) {
+            // Already set, just silently succeed to prevent enum
+            return;
+        }
+
+        // Invalidate active tokens
+        List<UserToken> activeTokens = userTokenRepository.findByUserIdAndIsInvalidatedFalseAndUsedAtNull(user.getId());
+        for (UserToken t : activeTokens) {
+            t.setIsInvalidated(true);
+        }
+        userTokenRepository.saveAll(activeTokens);
+
+        // Gen new token
+        String tokenStr = SecureTokenGenerator.generateToken();
+        UserToken userToken = new UserToken();
+        userToken.setUserId(user.getId());
+        userToken.setToken(tokenStr);
+        userToken.setCreatedAt(LocalDateTime.now());
+        userToken.setExpiresAt(LocalDateTime.now().plusHours(appProperties.getToken().getExpiryHours()));
+        userTokenRepository.save(userToken);
+
+        // Email
+        String adminUrl = appProperties.getCustomer().getAdminUrl();
+        String magicLink = adminUrl + "/set-password?token=" + tokenStr;
+
+        emailTemplateRepository.findBySlugAndIsActiveTrueAndDeletedAtNull("password-setup").ifPresent(template -> {
+            String msg = template.getMessage();
+            if (msg != null) {
+                msg = msg.replace("{{userName}}", user.getName())
+                         .replace("{{userEmail}}", user.getEmail())
+                         .replace("{{magicLink}}", magicLink)
+                         .replace("{{expiryHours}}", String.valueOf(appProperties.getToken().getExpiryHours()))
+                         .replace("{{year}}", String.valueOf(LocalDateTime.now().getYear()));
+                emailHelper.sendEmail(user.getEmail(), "Set up your CineQ Admin password", msg);
+            }
+        });
+    }
+
+private LinkedHashMap<String, String> resolveActiveRoleNamesById(List<UserHasRole> userRoles) {
+        LinkedHashMap<String, String> ordered = new LinkedHashMap<>();
+        if (userRoles == null || userRoles.isEmpty()) {
+            return ordered;
+        }
+
+        List<ObjectId> roleObjectIds = new ArrayList<>();
+        for (UserHasRole ur : userRoles) {
+            String roleId = ur.getRoleId();
+            if (roleId == null || roleId.isBlank()) {
+                continue;
+            }
+            try {
+                roleObjectIds.add(new ObjectId(roleId));
+            } catch (IllegalArgumentException ignored) {
+                // Skip malformed ObjectId references in user_has_roles
+            }
+        }
+
+        if (roleObjectIds.isEmpty()) {
+            return ordered;
+        }
+
         Query roleQuery = Query.query(
-                Criteria.where("name").is("USER")
+                Criteria.where("_id").in(roleObjectIds)
+                        .and("isActive").is(true)
                         .and("deletedAt").is(null)
         );
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> roleDoc = mongoTemplate.findOne(roleQuery, Map.class, "roles");
-
-        if (roleDoc != null && roleDoc.get("_id") != null) {
-            String roleId = roleDoc.get("_id").toString();
-            log.debug("findDefaultRoleId: Found default USER role - id={}", roleId);
-            return roleId;
-        }
-
-        log.error("findDefaultRoleId: Default USER role not found in roles collection");
-        throw new ResourceNotFoundException("Default USER role not found. Please ensure roles are properly configured.");
-    }
-
-    /**
-     * Validates that a role with the given ID exists in the roles collection.
-     *
-     * @param roleId The ObjectId of the role document to validate
-     * @throws ResourceNotFoundException if the role is not found
-     */
-    private void validateRoleExists(String roleId) {
-        try {
-            Query roleQuery = Query.query(
-                    Criteria.where("_id").is(new org.bson.types.ObjectId(roleId))
-                            .and("deletedAt").is(null)
-            );
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> roleDoc = mongoTemplate.findOne(roleQuery, Map.class, "roles");
-
-            if (roleDoc == null) {
-                log.warn("validateRoleExists: Role not found for roleId={}", roleId);
-                throw new ResourceNotFoundException("Role not found with ID: " + roleId);
+        List<Map> activeRoles = mongoTemplate.find(roleQuery, Map.class, "roles");
+        Map<String, String> activeRoleNameById = new LinkedHashMap<>();
+        for (Map roleDoc : activeRoles) {
+            if (roleDoc.get("_id") != null) {
+                String roleId = roleDoc.get("_id").toString();
+                String roleName = roleDoc.get("name") != null ? roleDoc.get("name").toString() : "USER";
+                activeRoleNameById.put(roleId, roleName);
             }
-
-            log.debug("validateRoleExists: Role validated - id={}", roleId);
-        } catch (IllegalArgumentException e) {
-            log.warn("validateRoleExists: Invalid ObjectId format for roleId={}", roleId);
-            throw new BadRequestException("Invalid role ID format: " + roleId);
         }
+
+        for (UserHasRole ur : userRoles) {
+            String roleId = ur.getRoleId();
+            if (activeRoleNameById.containsKey(roleId)) {
+                ordered.put(roleId, activeRoleNameById.get(roleId));
+            }
+        }
+        return ordered;
     }
 
     /**
-     * Maps a User entity to UserDTO, including role information.
-     *
-     * @param user     The User entity
-     * @param roleName The role name fetched from roles collection
-     * @return The mapped UserDTO
+     * Maps a User entity to UserDTO with role information.
      */
-    private UserDTO mapUserToDTO(User user, String roleName) {
+    private UserDTO mapUserToDTO(User user, List<String> roleIds, List<String> roleNames) {
         UserDTO dto = new UserDTO();
         dto.setId(user.getId());
         dto.setName(user.getName());
         dto.setEmail(user.getEmail());
+        dto.setPasswordStatus(user.getPasswordStatus());
         dto.setPhoneNumber(user.getPhoneNumber());
-        dto.setRoleId(user.getRoleId());
-        dto.setRoleName(roleName);
+        dto.setRoleIds(roleIds != null ? roleIds : List.of());
+        dto.setRoleNames(roleNames != null ? roleNames : List.of("USER"));
         dto.setIsActive(user.getIsActive());
         dto.setCreatedAt(user.getCreatedAt());
         return dto;
@@ -266,128 +371,100 @@ public class AuthServiceImpl implements AuthService {
         log.info("getProfile STARTED: email={}", email);
 
         try {
-            // Step 1: Get user from users collection
             User user = userRepository.findByEmailAndIsActiveTrue(email)
                     .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
 
-            log.debug("getProfile: Found user - id={}, name={}, roleId={}",
-                    user.getId(), user.getName(), user.getRoleId());
+            log.debug("getProfile: Found user - id={}, name={}", user.getId(), user.getName());
 
-            // Step 2: Get role details from roles collection using roleId
-            String roleId = user.getRoleId();
-            String roleName = "USER"; // Default
-            ProfileResponse.RoleInfo roleInfo = null;
+            List<UserHasRole> activeUserRoles = userHasRoleRepository.findByUserIdActive(user.getId());
+            LinkedHashMap<String, String> activeRoleNameById = resolveActiveRoleNamesById(activeUserRoles);
+            List<String> roleNames = new ArrayList<>(activeRoleNameById.values());
+            List<ProfileResponse.RoleInfo> roleInfos = buildActiveRoleInfos(activeRoleNameById);
+            String prominentRoleName = applicationProperties.getSecurity().getProminentRole();
 
-            if (roleId != null && !roleId.isBlank()) {
-                try {
-                    Query roleQuery = Query.query(
-                            Criteria.where("_id").is(new org.bson.types.ObjectId(roleId))
-                                    .and("deletedAt").is(null)
-                    );
+            if (roleNames.contains(prominentRoleName)) {
+                log.info("User has prominent role '{}'. Granting access to all enabled modules.", prominentRoleName);
+                List<Integer> allPermissionIds = Arrays.stream(FormAction.values())
+                        .map(FormAction::getCode)
+                        .collect(Collectors.toList());
 
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> roleDoc = mongoTemplate.findOne(roleQuery, Map.class, "roles");
-
-                    if (roleDoc != null) {
-                        roleName = roleDoc.get("name") != null ? roleDoc.get("name").toString() : "USER";
-
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> permissions = (Map<String, Object>) roleDoc.get("permissions");
-
-                        roleInfo = ProfileResponse.RoleInfo.builder()
-                                .id(roleId)
-                                .name(roleName)
-                                .slug((String) roleDoc.get("slug"))
-                                .permissions(permissions)
-                                .isActive(roleDoc.get("isActive") != null ? (Boolean) roleDoc.get("isActive") : true)
-                                .createdAt(parseDateTime(roleDoc.get("createdAt")))
-                                .updatedAt(parseDateTime(roleDoc.get("updatedAt")))
-                                .build();
-
-                        log.debug("getProfile: Found role - id={}, name={}", roleId, roleName);
-                    } else {
-                        log.warn("getProfile: Role not found in roles collection for roleId: {}", roleId);
-                    }
-                } catch (IllegalArgumentException e) {
-                    log.warn("getProfile: Invalid ObjectId format for roleId: {}", roleId);
-                }
-            } else {
-                log.warn("getProfile: User has no roleId assigned");
+                List<ProfileResponse.ModuleInfo> allModules = getAllEnabledModules(allPermissionIds);
+                return buildProfileResponse(user, roleInfos, allModules);
             }
 
-            // Step 3: Get modules from role_has_modules collection
             List<ProfileResponse.ModuleInfo> modules = new ArrayList<>();
 
-            if (roleId != null) {
-                Query roleHasModulesQuery = Query.query(
-                        Criteria.where("roleId").is(roleId)
+            Query roleHasModulesQuery = Query.query(
+                    new Criteria().andOperator(
+                            new Criteria().orOperator(
+                                    Criteria.where("roleId").in(activeRoleNameById.keySet()),
+                                    Criteria.where("role_id").in(activeRoleNameById.keySet())
+                            ),
+                            new Criteria().orOperator(
+                                    Criteria.where("deletedAt").is(null),
+                                    Criteria.where("deleted_at").is(null)
+                            )
+                    )
+            );
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> roleHasModules = (List<Map<String, Object>>) (List<?>)
+                mongoTemplate.find(roleHasModulesQuery, Map.class, "role_has_modules");
+
+            for (Map<String, Object> rhm : roleHasModules) {
+                String moduleId = rhm.get("moduleId") != null
+                        ? rhm.get("moduleId").toString()
+                        : rhm.get("module_id") != null
+                        ? rhm.get("module_id").toString()
+                        : null;
+
+                if (moduleId == null) continue;
+
+                Query moduleQuery = Query.query(
+                        Criteria.where("_id").is(new org.bson.types.ObjectId(moduleId))
                                 .and("deletedAt").is(null)
                 );
 
-                List<?> roleHasModulesRaw = mongoTemplate.find(
-                        roleHasModulesQuery, Map.class, "role_has_modules");
-
                 @SuppressWarnings("unchecked")
-                List<Map<String, Object>> roleHasModules = (List<Map<String, Object>>) roleHasModulesRaw;
+                Map<String, Object> moduleDoc = mongoTemplate.findOne(moduleQuery, Map.class, "modules");
 
-                log.debug("getProfile: Found {} role_has_modules entries", roleHasModules.size());
-
-                for (Map<String, Object> rhm : roleHasModules) {
-                    String moduleId = (String) rhm.get("moduleId");
-
-                    if (moduleId == null) continue;
-
-                    // Get full module details from modules collection
-                    Query moduleQuery = Query.query(
-                            Criteria.where("_id").is(moduleId)
-                                    .and("deletedAt").is(null)
-                    );
-
+                if (moduleDoc != null) {
                     @SuppressWarnings("unchecked")
-                    Map<String, Object> moduleDoc = mongoTemplate.findOne(moduleQuery, Map.class, "modules");
+                    List<Object> permissionIds = rhm.get("permissionIds") instanceof List
+                            ? (List<Object>) rhm.get("permissionIds")
+                            : rhm.get("permission_ids") instanceof List
+                            ? (List<Object>) rhm.get("permission_ids")
+                            : List.of();
 
-                    if (moduleDoc != null) {
-                        @SuppressWarnings("unchecked")
-                        List<Object> permissionIds = (List<Object>) rhm.get("permissionIds");
+                    ProfileResponse.ModuleInfo moduleInfo = ProfileResponse.ModuleInfo.builder()
+                            .id(moduleDoc.get("_id").toString())
+                            .code(moduleDoc.get("code") instanceof Integer
+                                    ? (Integer) moduleDoc.get("code")
+                                    : Integer.parseInt(moduleDoc.get("code").toString()))
+                            .name((String) moduleDoc.get("name"))
+                            .displayName((String) moduleDoc.get("display_name"))
+                            .api((String) moduleDoc.get("api"))
+                            .description((String) moduleDoc.get("description"))
+                            .isEnabled(moduleDoc.get("is_enabled") != null
+                                    ? (Boolean) moduleDoc.get("is_enabled")
+                                    : true)
+                            .permissionIds(permissionIds)
+                            .parentId(
+                                    moduleDoc.get("parent_id") != null
+                                            ? moduleDoc.get("parent_id").toString()
+                                            : moduleDoc.get("parentId") != null
+                                            ? moduleDoc.get("parentId").toString()
+                                            : null
+                            )
+                            .build();
 
-                        ProfileResponse.ModuleInfo moduleInfo = ProfileResponse.ModuleInfo.builder()
-                                .id(moduleDoc.get("_id").toString())
-                                .code(moduleDoc.get("code") instanceof Integer
-                                        ? (Integer) moduleDoc.get("code")
-                                        : Integer.parseInt(moduleDoc.get("code").toString()))
-                                .name((String) moduleDoc.get("name"))
-                                .displayName((String) moduleDoc.get("display_name"))
-                                .api((String) moduleDoc.get("api"))
-                                .description((String) moduleDoc.get("description"))
-                                .isEnabled(moduleDoc.get("is_enabled") != null
-                                        ? (Boolean) moduleDoc.get("is_enabled")
-                                        : true)
-                                .permissionIds(permissionIds)
-                                .build();
-
+                    if (!modules.stream().anyMatch(m -> m.getId().equals(moduleInfo.getId()))) {
                         modules.add(moduleInfo);
-                        log.debug("getProfile: Added module - code={}, name={}",
-                                moduleInfo.getCode(), moduleInfo.getName());
                     }
                 }
             }
 
-            // Step 4: Build and return ProfileResponse
-            ProfileResponse response = ProfileResponse.builder()
-                    .id(user.getId())
-                    .name(user.getName())
-                    .email(user.getEmail())
-                    .phoneNumber(user.getPhoneNumber())
-                    .roleName(roleName)
-                    .isActive(user.getIsActive())
-                    .createdAt(user.getCreatedAt())
-                    .updatedAt(user.getUpdatedAt())
-                    .role(roleInfo)
-                    .modules(modules)
-                    .build();
-
-            log.info("getProfile END: email={}, moduleCount={}", email, modules.size());
-            return response;
+            return buildProfileResponse(user, roleInfos, modules);
 
         } catch (ResourceNotFoundException e) {
             log.error("getProfile: User not found - {}", e.getMessage());
@@ -398,18 +475,63 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    /**
-     * Helper to parse LocalDateTime from various MongoDB date formats
-     */
-    private LocalDateTime parseDateTime(Object dateObj) {
-        if (dateObj == null) return null;
-        if (dateObj instanceof LocalDateTime) return (LocalDateTime) dateObj;
-        if (dateObj instanceof java.util.Date) {
-            return ((java.util.Date) dateObj).toInstant()
-                    .atZone(java.time.ZoneId.systemDefault())
-                    .toLocalDateTime();
+    private List<ProfileResponse.RoleInfo> buildActiveRoleInfos(Map<String, String> activeRoleNameById) {
+        if (activeRoleNameById == null || activeRoleNameById.isEmpty()) {
+            return List.of();
         }
-        return null;
+
+        return activeRoleNameById.entrySet().stream()
+                .map(entry -> ProfileResponse.RoleInfo.builder()
+                        .id(entry.getKey())
+                        .name(entry.getValue())
+                        .isActive(true)
+                        .build())
+                .toList();
+    }
+
+    private List<ProfileResponse.ModuleInfo> getAllEnabledModules(List<Integer> permissionIds) {
+        Query allModulesQuery = Query.query(Criteria.where("is_enabled").is(true).and("deletedAt").is(null));
+        List<Map> allModuleDocs = mongoTemplate.find(allModulesQuery, Map.class, "modules");
+
+        List<Object> objectPermissionIds = new ArrayList<>(permissionIds);
+
+        return allModuleDocs.stream().map(moduleDoc ->
+                ProfileResponse.ModuleInfo.builder()
+                        .id(moduleDoc.get("_id").toString())
+                        .code(moduleDoc.get("code") instanceof Integer
+                                ? (Integer) moduleDoc.get("code")
+                                : Integer.parseInt(moduleDoc.get("code").toString()))
+                        .name((String) moduleDoc.get("name"))
+                        .displayName((String) moduleDoc.get("display_name"))
+                        .api((String) moduleDoc.get("api"))
+                        .description((String) moduleDoc.get("description"))
+                        .isEnabled(true)
+                        .parentId(
+                                moduleDoc.get("parent_id") != null
+                                        ? moduleDoc.get("parent_id").toString()
+                                        : moduleDoc.get("parentId") != null
+                                        ? moduleDoc.get("parentId").toString()
+                                        : null
+                        )
+                        .permissionIds(objectPermissionIds)
+                        .build()
+        ).collect(Collectors.toList());
+    }
+
+    private ProfileResponse buildProfileResponse(User user, List<ProfileResponse.RoleInfo> roleInfos, List<ProfileResponse.ModuleInfo> modules) {
+        ProfileResponse response = ProfileResponse.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .isActive(user.getIsActive())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .role(roleInfos)
+                .modules(modules)
+                .build();
+        log.info("getProfile END: email={}, activeRoleCount={}, moduleCount={}", user.getEmail(), roleInfos.size(), modules.size());
+        return response;
     }
 
 

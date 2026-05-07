@@ -64,6 +64,10 @@ public class Movie {
     @Field("is_active")
     private Boolean isActive = true;
     
+    @Field("status")
+    private String status ; 
+
+
     @CreatedDate
     @Field("created_at")
     private LocalDateTime createdAt;

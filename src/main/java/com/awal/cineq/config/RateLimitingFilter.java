@@ -90,6 +90,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             return rateLimitService.resolvePasswordResetBucket(ip);
         } else if (path.endsWith("/verify-email") || path.endsWith("/resend-verification")) {
             return rateLimitService.resolveEmailVerificationBucket(ip);
+        } else if (path.endsWith("/auth/resend-link")) {
+            return rateLimitService.resolveResendLinkBucket(ip);
         }
         
         // Path not rate-limited

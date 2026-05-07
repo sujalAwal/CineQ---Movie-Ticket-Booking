@@ -2,10 +2,13 @@ package com.awal.cineq.user.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -19,17 +22,14 @@ public class RegisterRequest {
     @Email(message = "Please provide a valid email address")
     @Size(max = 200, message = "Email must not exceed 200 characters")
     private String email;
-    
-    @NotBlank(message = "Password is required")
-    @Size(min = 6, message = "Password must be at least 6 characters long")
-    private String password;
+
     
     @Size(max = 20, message = "Phone number must not exceed 20 characters")
     private String phoneNumber;
-    
+
     /**
-     * Reference to the roles collection document ID.
-     * If not provided, a default role will be assigned during registration.
+     * References to role documents in the roles collection (at least one required).
      */
-    private String roleId;
+    @NotEmpty(message = "At least one role is required")
+    private List<@NotBlank(message = "Role id must not be blank") String> roleIds;
 }

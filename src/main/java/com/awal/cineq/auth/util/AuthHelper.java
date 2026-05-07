@@ -3,25 +3,25 @@ package com.awal.cineq.auth.util;
 import com.awal.cineq.config.ApplicationProperties;
 import com.awal.cineq.exception.BusinessException;
 import com.awal.cineq.user.model.User;
+import com.awal.cineq.user.model.UserHasRole;
 import com.awal.cineq.user.repository.UserRepository;
+import com.awal.cineq.user.repository.UserHasRoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
-/**
- * AuthHelper - Laravel-style authentication helper
- * Usage: authHelper.user() returns current User
- *        authHelper.user().getRole() returns user's role
- * Similar to Laravel's Auth()->user()
- */
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class AuthHelper {
 
     private final UserRepository userRepository;
+    private final UserHasRoleRepository userHasRoleRepository;
     private final ApplicationProperties applicationProperties;
 
     /**
@@ -45,7 +45,7 @@ public class AuthHelper {
             User user = userRepository.findByEmail(username)
                     .orElseThrow(() -> new BusinessException("Authenticated user not found in database"));
 
-            log.debug("User found: id={}, role={}", user.getId(), user.getRole());
+            log.debug("User found: id={}", user.getId());
             return user;
 
         } catch (BusinessException e) {
@@ -57,49 +57,69 @@ public class AuthHelper {
     }
 
     /**
-     * Get current user's role
-     * Similar to Laravel's Auth()->user()->role
+     * Get current user's roles
+     * Returns list of all roles assigned to the user
      *
-     * @return User's role name (e.g., "SUPERADMIN", "ADMIN", "USER")
+     * @return List of user's role names (e.g., ["ADMIN", "MANAGER"])
+     */
+    public List<String> getRoles() {
+        User user = user();
+        List<UserHasRole> userRoles = userHasRoleRepository.findByUserIdActive(user.getId());
+
+        if (userRoles.isEmpty()) {
+            return List.of("USER");
+        }
+
+        return userRoles.stream()
+                .map(UserHasRole::getRoleName)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get current user's primary role (first role if multiple)
+     * For backward compatibility
+     *
+     * @return User's first role name or "USER" if none
      */
     public String role() {
-        return user().getRole();
+        List<String> roles = getRoles();
+        return roles.isEmpty() ? "USER" : roles.get(0);
     }
 
     /**
      * Check if current user has a specific role
-     * Similar to Laravel's Auth()->user()->hasRole('ADMIN')
+     * Checks against all user roles, not just one
      *
      * @param roleName Role name to check
      * @return true if user has the role
      */
     public boolean hasRole(String roleName) {
         if (roleName == null) return false;
-        String userRole = role();
-        return userRole != null && userRole.equalsIgnoreCase(roleName);
+        List<String> userRoles = getRoles();
+        return userRoles.stream().anyMatch(r -> r.equalsIgnoreCase(roleName));
     }
 
     /**
-     * Check if current user is a prominent user (SUPERADMIN, ADMIN)
+     * Check if current user is a prominent user (matches configured prominent role)
      * Reads from app.security.prominent-role property
-     * Similar to Laravel's Auth()->user()->isAdmin()
      *
-     * @return true if user is prominent role
+     * @return true if user has prominent role
      */
     public boolean isProminentRole() {
-        String userRole = role();
-        if (userRole == null) return false;
+        List<String> userRoles = getRoles();
+        if (userRoles.isEmpty()) return false;
 
         String prominentRoles = applicationProperties.getSecurity().getProminentRole();
         if (prominentRoles == null || prominentRoles.isBlank()) {
             return false;
         }
 
-        // Split by comma to support multiple prominent roles (e.g., "SUPERADMIN,ADMIN")
         String[] roleArray = prominentRoles.split(",");
         for (String prominentRole : roleArray) {
-            if (userRole.equalsIgnoreCase(prominentRole.trim())) {
-                return true;
+            for (String userRole : userRoles) {
+                if (userRole.equalsIgnoreCase(prominentRole.trim())) {
+                    return true;
+                }
             }
         }
 
@@ -108,7 +128,6 @@ public class AuthHelper {
 
     /**
      * Get current user's ID
-     * Similar to Laravel's Auth()->id()
      *
      * @return User's ID
      */
@@ -118,7 +137,6 @@ public class AuthHelper {
 
     /**
      * Get current user's email
-     * Similar to Laravel's Auth()->user()->email
      *
      * @return User's email
      */
@@ -128,7 +146,6 @@ public class AuthHelper {
 
     /**
      * Get current user's name
-     * Similar to Laravel's Auth()->user()->name
      *
      * @return User's name
      */
@@ -138,7 +155,6 @@ public class AuthHelper {
 
     /**
      * Check if user is authenticated
-     * Similar to Laravel's Auth()->check()
      *
      * @return true if user is authenticated
      */

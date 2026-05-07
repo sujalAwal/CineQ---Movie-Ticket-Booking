@@ -34,4 +34,8 @@ public class RateLimitConfig {
     // Email verification endpoint rate limits
     private int emailVerificationCapacity = 10;  // 10 attempts
     private int emailVerificationRefillMinutes = 60;  // per hour
+    
+    // Resend magic link endpoint rate limits
+    private int resendLinkCapacity = 3;  // 3 attempts max
+    private int resendLinkRefillMinutes = 60;  // per hour
 }
