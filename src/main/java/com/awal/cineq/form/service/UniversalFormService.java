@@ -37,7 +37,7 @@ public interface UniversalFormService {
     Map<String, Object> getSubmissionByIdWithWorkflow(String formManagerSlug, String submissionId);
 
     /**
-     * Get paginated submissions by form slug with schema-driven serialization
+     * Get paginated submissions by form slug with schema-driven serialization and search filtering
      *
      * Response structure: {formSlug: [{serializedDoc1}, {serializedDoc2}, ...]}
      * Example: {"roles": [{id: "...", name: "..."}, {id: "...", name: "..."}]}
@@ -45,9 +45,10 @@ public interface UniversalFormService {
      * @param formSlug The form manager slug
      * @param page Page number (1-based)
      * @param size Page size
+     * @param search Optional search term to filter results (searches configured fields based on workflowRules.search)
      * @return PaginationResponse with data wrapped by formSlug key
      */
-    PaginationResponse<Map<String, Object>> getSubmissionsByFormSlug(String formSlug, int page, int size);
+    PaginationResponse<Map<String, Object>> getSubmissionsByFormSlug(String formSlug, int page, int size, String search);
 
     /**
      * Get paginated submissions by username with schema-driven serialization

@@ -246,12 +246,16 @@ public class PublicShowtimeServiceImpl implements PublicShowtimeService {
             theaterInfo = TheaterInfo.builder()
                     .id(theatreId)
                     .name((String) theatre.get("name"))
+                    .address((String) theatre.get("address"))
+                    .city((String) theatre.get("city"))
                     .build();
         } else if (theatreId != null) {
             // Fallback if not in map (shouldn't happen with batch load)
             theaterInfo = TheaterInfo.builder()
                     .id(theatreId)
                     .name(null)
+                    .address(null)
+                    .city(null)
                     .build();
         }
         

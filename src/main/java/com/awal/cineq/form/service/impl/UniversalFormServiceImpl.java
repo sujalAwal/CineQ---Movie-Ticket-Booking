@@ -23,6 +23,8 @@ import com.awal.cineq.security.service.RBACPermissionService;
 import com.awal.cineq.common.util.FieldTransformer;
 import com.awal.cineq.common.util.FieldSelector;
 import com.awal.cineq.common.util.FieldSerializer;
+import com.awal.cineq.common.util.RelationshipResolver;
+import com.awal.cineq.common.util.SearchResolver;
 import com.awal.cineq.form.validation.JavaAnnotationValidator;
 import com.awal.cineq.form.interceptor.InterceptorContext;
 import com.awal.cineq.form.interceptor.InterceptorExecutor;
@@ -30,6 +32,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -357,6 +360,21 @@ public class UniversalFormServiceImpl implements UniversalFormService {
             Map<String, Object> serializedData = FieldSerializer
                 .serializeDocument(documentData, validationRules);
 
+            // STEP 7: Resolve relationships if configured in workflowRules
+            try {
+                Map<String, Object> relationships = (workflowRules != null) ? 
+                        (Map<String, Object>) workflowRules.get("relationships") : null;
+                
+                if (relationships != null && !relationships.isEmpty()) {
+                    log.debug("getSubmissionByIdWithWorkflow: Found {} relationships to resolve", relationships.size());
+                    serializedData = RelationshipResolver.resolveRelationshipsForSingle(
+                            serializedData, relationships, mongoTemplate);
+                    log.debug("getSubmissionByIdWithWorkflow: Relationship resolution completed");
+                }
+            } catch (Exception e) {
+                log.warn("getSubmissionByIdWithWorkflow: Error resolving relationships, continuing with unresolved data", e);
+            }
+
             log.info("getSubmissionByIdWithWorkflow END: found and serialized document from '{}', returned {} fields",
                 targetCollection, serializedData.size());
             return serializedData;
@@ -372,8 +390,8 @@ public class UniversalFormServiceImpl implements UniversalFormService {
 
     @Override
     @Transactional(readOnly = true)
-    public PaginationResponse<Map<String, Object>> getSubmissionsByFormSlug(String formSlug, int page, int size) {
-        log.info("getSubmissionsByFormSlug STARTED: formSlug={}, page={}, size={}", formSlug, page, size);
+    public PaginationResponse<Map<String, Object>> getSubmissionsByFormSlug(String formSlug, int page, int size, String search) {
+        log.info("getSubmissionsByFormSlug STARTED: formSlug={}, page={}, size={}, search={}", formSlug, page, size, search);
         try {
             // STEP 1: Find form manager by slug (cached)
             FormManager formManager = formConfigCacheService.getFormManagerBySlug(formSlug);
@@ -398,6 +416,24 @@ public class UniversalFormServiceImpl implements UniversalFormService {
             log.debug("getSubmissionsByFormSlug: Querying collection='{}' for formManagerId={}",
                     targetCollection, formManager.getId());
 
+            // STEP 3b: Build search criteria if search is enabled and search param provided
+            Criteria searchCriteria = null;
+            try {
+                Map<String, Object> searchConfig = (workflowRules != null) ? 
+                        (Map<String, Object>) workflowRules.get("search") : null;
+                
+                if (searchConfig != null) {
+                    searchCriteria = SearchResolver.buildSearchCriteria(search, searchConfig, mongoTemplate);
+                    if (searchCriteria != null) {
+                        log.debug("getSubmissionsByFormSlug: Built search criteria for search term='{}'", search);
+                    } else {
+                        log.debug("getSubmissionsByFormSlug: No search criteria built (search disabled or param empty)");
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("getSubmissionsByFormSlug: Error building search criteria, continuing without search", e);
+            }
+
             // STEP 4: Build MongoDB projection from validationRules (PERFORMANCE OPTIMIZATION)
             Map<String, Integer> projectionFields = FieldSelector
                 .buildProjectionFields(validationRules);
@@ -409,6 +445,12 @@ public class UniversalFormServiceImpl implements UniversalFormService {
                             org.springframework.data.mongodb.core.query.Criteria
                                     .where("formManagerId").is(formManager.getId())
                                     .and("deletedAt").is(null));
+
+            // Add search criteria if available
+            if (searchCriteria != null) {
+                query = query.addCriteria(searchCriteria);
+                log.debug("getSubmissionsByFormSlug: Added search criteria to query");
+            }
 
             // Get total count for pagination (without projection - count doesn't need it)
             long totalElements = mongoTemplate.count(query, targetCollection);
@@ -430,6 +472,22 @@ public class UniversalFormServiceImpl implements UniversalFormService {
             List<Map<String, Object>> serializedDocuments = documents.stream()
                     .map(doc -> FieldSerializer.serializeDocument(doc, validationRules))
                     .collect(Collectors.toList());
+
+            // STEP 7b: Resolve relationships if configured in workflowRules
+            try {
+                Map<String, Object> relationships = (workflowRules != null) ? 
+                        (Map<String, Object>) workflowRules.get("relationships") : null;
+                
+                if (relationships != null && !relationships.isEmpty()) {
+                    log.debug("getSubmissionsByFormSlug: Found {} relationships to resolve", relationships.size());
+                    RelationshipResolver.resolveRelationships(
+                            serializedDocuments, relationships, mongoTemplate);
+                    log.debug("getSubmissionsByFormSlug: Relationship resolution completed for {} documents", 
+                            serializedDocuments.size());
+                }
+            } catch (Exception e) {
+                log.warn("getSubmissionsByFormSlug: Error resolving relationships, continuing with unresolved data", e);
+            }
 
             // STEP 8: Wrap serialized data with formSlug key
             // Structure: {formSlug: [{...}, {...}]}

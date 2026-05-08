@@ -17,4 +17,12 @@ public class TheaterInfo {
     
     @JsonProperty("name")
     private String name;
+
+    @JsonProperty("address")
+    private String address;
+
+    @JsonProperty("city")
+    private String city;
+
+
 }

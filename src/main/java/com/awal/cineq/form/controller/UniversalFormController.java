@@ -92,7 +92,7 @@ public class UniversalFormController {
     }
 
     /**
-     * Get paginated list of submissions by form slug with schema-driven serialization
+     * Get paginated list of submissions by form slug with schema-driven serialization and search filtering
      *
      * Response structure: {success: true, data: [{formSlug: [{...}, {...}]}], page: 1, ...}
      * Example: data: [{"roles": [{id: "...", name: "..."}, {id: "...", name: "..."}]}]
@@ -100,18 +100,20 @@ public class UniversalFormController {
      * @param formSlug The form manager slug
      * @param page Page number (1-based)
      * @param size Page size
+     * @param search Optional search term to filter results (case-insensitive, searches configured fields)
      * @return PaginationResponse with data wrapped by formSlug key
      */
     @GetMapping("/list/{formSlug}")
     public PaginationResponse<Map<String, Object>> getSubmissionsByFormSlug(
             @PathVariable String formSlug,
             @RequestParam(defaultValue = DEFAULT_PAGE) int page,
-            @RequestParam(defaultValue = DEFAULT_SIZE) int size) {
+            @RequestParam(defaultValue = DEFAULT_SIZE) int size,
+            @RequestParam(required = false) String search) {
 
-        log.info("getSubmissionsByFormSlug STARTED: formSlug={}, page={}, size={}", formSlug, page, size);
+        log.info("getSubmissionsByFormSlug STARTED: formSlug={}, page={}, size={}, search={}", formSlug, page, size, search);
         try {
             PaginationResponse<Map<String, Object>> response = universalFormService
-                    .getSubmissionsByFormSlug(formSlug, page, size);
+                    .getSubmissionsByFormSlug(formSlug, page, size, search);
             log.info("getSubmissionsByFormSlug END");
             return response;
         } catch (Exception e) {

@@ -85,7 +85,7 @@ public class SecurityConfig {
                     // ============================================
                     // ADMIN API (Everything else - your clean way!)
                     // ============================================
-                    .requestMatchers("/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "USER")
+                    .requestMatchers("/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "USER","CONTENT_MANAGER","THEATER_MANAGER")
                 
                 // All other requests need authentication
                 .anyRequest().authenticated()
