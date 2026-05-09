@@ -33,6 +33,10 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.bson.types.ObjectId;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -150,20 +154,49 @@ public class PublicShowtimeServiceImpl implements PublicShowtimeService {
     @Override
     public PaginationResponse<ShowtimeListDTO> getShowtimesByMovieId(String movieId, int page, int size) {
         log.info("STARTED getShowtimesByMovieId: movieId={}", movieId);
-        
-        // Get today's date in YYYY-MM-DD format
-        String todayAsString = LocalDate.now().toString(); // e.g., "2026-04-29"
+
+        // Get today's date and current time in Nepal timezone (UTC+5:45)
+        ZoneId nepalZone = ZoneId.of("Asia/Kathmandu");
+        ZonedDateTime nepalNow = ZonedDateTime.now(nepalZone);
+        LocalDate today = nepalNow.toLocalDate();
+        String todayAsString = today.toString();
+        String currentTime = nepalNow.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"));
+        log.info("Filtering showtimes for date >= {} and time >= {} (if same date) [Nepal Time: {}]",
+                todayAsString, currentTime, nepalNow);
 
         // Use MongoTemplate to query with camelCase field names (as stored in MongoDB by form manager)
         Query query = new Query(Criteria.where("movieId").is(movieId)
-                .and("showDate").gte(todayAsString) // String comparison works here!
+                .and("showDate").gte(todayAsString)
                 .and("isActive").is(true)
                 .and("deletedAt").is(null));
-        
+
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> showtimes = 
+        List<Map<String, Object>> showtimes =
             (List<Map<String, Object>>) (List<?>) mongoTemplate.find(query, Map.class, "showtimes");
-        log.info("Found {} showtimes for movieId={}", showtimes.size(), movieId);
+        log.info("Found {} showtimes (before time filtering) for movieId={}", showtimes.size(), movieId);
+
+        // Filter out past times on today's date
+        List<Map<String, Object>> filteredShowtimes = showtimes.stream()
+                .filter(showtime -> {
+                    String showDate = (String) showtime.get("showDate");
+                    String showTime = (String) showtime.get("showTime");
+
+                    // If showDate is in future, include it
+                    if (!showDate.equals(todayAsString)) {
+                        return true;
+                    }
+
+                    // If showDate is today, only include if showTime >= currentTime
+                    if (showTime != null) {
+                        int comparison = showTime.compareTo(currentTime);
+                        return comparison >= 0; // Include if showTime >= currentTime
+                    }
+                    return false;
+                })
+                .collect(Collectors.toList());
+
+        log.info("After time filtering: {} showtimes for movieId={}", filteredShowtimes.size(), movieId);
+        showtimes = filteredShowtimes;
         
         // Extract unique theatreIds and screenIds for batch loading
         Set<String> theatreIds = new HashSet<>();

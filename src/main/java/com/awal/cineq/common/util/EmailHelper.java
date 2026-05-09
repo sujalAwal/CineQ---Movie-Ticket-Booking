@@ -1,6 +1,10 @@
 package com.awal.cineq.common.util;
 
 import com.awal.cineq.config.ApplicationProperties;
+import com.awal.cineq.config.service.BackendSettingsService;
+import com.awal.cineq.email.dto.SmtpSettingsDTO;
+import com.awal.cineq.email.service.SmtpSettingsService;
+import com.awal.cineq.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -17,6 +21,8 @@ import java.util.Properties;
 public class EmailHelper {
 
     private final ApplicationProperties applicationProperties;
+    private final SmtpSettingsService smtpSettingsService;
+    private final BackendSettingsService backendSettingsService;
 
     /**
      * Send email to multiple recipients
@@ -65,10 +71,17 @@ public class EmailHelper {
                 return false;
             }
 
-            ApplicationProperties.Email emailConfig = applicationProperties.getEmail();
+            EmailConfig emailConfig = getSMTPConfig();
+
+            if (emailConfig == null) {
+                log.error("Failed to retrieve SMTP configuration");
+                return false;
+            }
 
             if (emailConfig.getSmtpUsername() == null || emailConfig.getSmtpPassword() == null) {
-                log.error("SMTP credentials not configured");
+                log.error("❌ SMTP credentials not configured - username={}, password={}",
+                    emailConfig.getSmtpUsername() != null ? "present" : "NULL",
+                    emailConfig.getSmtpPassword() != null ? "present" : "NULL");
                 return false;
             }
 
@@ -77,13 +90,17 @@ public class EmailHelper {
                 return false;
             }
 
+            log.info("📧 Preparing email - host={}, port={}, username={}, recipients={}",
+                emailConfig.getSmtpHost(), emailConfig.getSmtpPort(),
+                emailConfig.getSmtpUsername(), recipients.length);
+
             Properties props = new Properties();
             props.put("mail.smtp.host", emailConfig.getSmtpHost());
             props.put("mail.smtp.port", emailConfig.getSmtpPort());
             props.put("mail.smtp.auth", "true");
-            props.put("mail.smtp.starttls.enable", emailConfig.isEnableTls());
-            props.put("mail.smtp.starttls.required", emailConfig.isEnableTls());
-            props.put("mail.smtp.ssl.enable", emailConfig.isEnableSsl());
+            props.put("mail.smtp.starttls.enable", emailConfig.getEnableTls());
+            props.put("mail.smtp.starttls.required", emailConfig.getEnableTls());
+            props.put("mail.smtp.ssl.enable", emailConfig.getEnableSsl());
             props.put("mail.smtp.connectiontimeout", 5000);
             props.put("mail.smtp.timeout", 5000);
             props.put("mail.smtp.writetimeout", 5000);
@@ -100,7 +117,6 @@ public class EmailHelper {
 
             MimeMessage mimeMessage = new MimeMessage(session);
 
-            // Set from address with sender name
             String fromName = emailConfig.getFromName() != null && !emailConfig.getFromName().isBlank()
                 ? emailConfig.getFromName()
                 : "CineQ";
@@ -115,7 +131,7 @@ public class EmailHelper {
 
             Transport.send(mimeMessage);
 
-            log.info("Email sent successfully to {} recipient(s) with subject: {}", recipients.length, subject);
+            log.info("✅ Email sent successfully to {} recipient(s) with subject: {}", recipients.length, subject);
             return true;
 
         } catch (MessagingException e) {
@@ -148,5 +164,83 @@ public class EmailHelper {
         }
 
         return sendEmail(trimmedRecipients, subject, message);
+    }
+
+    private EmailConfig getSMTPConfig() {
+        try {
+            boolean useEnvConfig = backendSettingsService
+                .getBooleanValue("enable-environment-smtp-config");
+
+            log.info("SMTP Config Decision: useEnvConfig={}", useEnvConfig);
+
+            if (useEnvConfig) {
+                log.info("✅ Using ENVIRONMENT-based SMTP configuration");
+                EmailConfig config = getEnvBasedConfig();
+                if (config != null) {
+                    log.info("SMTP Host (ENV): {}", config.getSmtpHost());
+                }
+                return config;
+            } else {
+                log.info("✅ Using DATABASE-based SMTP configuration");
+                EmailConfig config = getDbBasedConfig();
+                if (config != null) {
+                    log.info("SMTP Host (DB): {}", config.getSmtpHost());
+                }
+                return config;
+            }
+        } catch (Exception e) {
+            log.error("Error determining SMTP config source, falling back to environment", e);
+            EmailConfig fallbackConfig = getEnvBasedConfig();
+            if (fallbackConfig != null) {
+                log.warn("FALLBACK SMTP Host (ENV): {}", fallbackConfig.getSmtpHost());
+            }
+            return fallbackConfig;
+        }
+    }
+
+    private EmailConfig getEnvBasedConfig() {
+        ApplicationProperties.Email envEmail = applicationProperties.getEmail();
+
+        if (envEmail.getSmtpUsername() == null || envEmail.getSmtpPassword() == null) {
+            log.error("SMTP credentials not configured in environment");
+            return null;
+        }
+
+        log.debug("ENV SMTP: host={}, port={}, username={}",
+            envEmail.getSmtpHost(), envEmail.getSmtpPort(), envEmail.getSmtpUsername());
+
+        return EmailConfig.builder()
+            .smtpHost(envEmail.getSmtpHost())
+            .smtpPort(envEmail.getSmtpPort())
+            .smtpUsername(envEmail.getSmtpUsername())
+            .smtpPassword(envEmail.getSmtpPassword())
+            .fromAddress(envEmail.getFromAddress())
+            .fromName(envEmail.getFromName())
+            .enableTls(envEmail.isEnableTls())
+            .enableSsl(envEmail.isEnableSsl())
+            .build();
+    }
+
+    private EmailConfig getDbBasedConfig() {
+        try {
+            SmtpSettingsDTO dbSettings = smtpSettingsService.getActiveSmtpSettings();
+
+            log.debug("DB SMTP: host={}, port={}, username={}",
+                dbSettings.getSmtpHost(), dbSettings.getSmtpPort(), dbSettings.getSmtpUsername());
+
+            return EmailConfig.builder()
+                .smtpHost(dbSettings.getSmtpHost())
+                .smtpPort(dbSettings.getSmtpPort())
+                .smtpUsername(dbSettings.getSmtpUsername())
+                .smtpPassword(dbSettings.getSmtpPassword())
+                .fromAddress(dbSettings.getFromAddress())
+                .fromName(dbSettings.getFromName())
+                .enableTls(dbSettings.getEnableTls())
+                .enableSsl(dbSettings.getEnableSsl())
+                .build();
+        } catch (ResourceNotFoundException e) {
+            log.error("No active SMTP settings found in database");
+            return null;
+        }
     }
 }
